@@ -118,6 +118,8 @@ function ConvertFrom-AwsConfigFile {
             throw "Config file $AwsConfigFile does not exist!"
         }
         $Content = Get-Content -Path $AwsConfigFile -Raw
+        # replace all carriage returns
+        $Content = $Content -replace "`r",""
         # remove empty lines
         $Content = $Content -replace "(`n$)*", ""
         # convert to JSON structure
