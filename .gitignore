@@ -3,3 +3,4 @@ release/
 out/
 .idea/
 /StorageGRID-Webscale.iml
+secure/
