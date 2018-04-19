@@ -1,0 +1,40 @@
+image:
+  - Visual Studio 2017
+  - Ubuntu
+
+build: off
+
+# Version number
+version: 0.0.1.{build}
+
+# Ignore testing a commit if only the README.md file changed
+# Or if various strings are found in the commit message: updated readme, update readme, update docs, update version, update appveyor
+skip_commits:
+  files:
+    - README.md
+
+# There's no need to alter the build number for a Pull Request (PR) since they don't modify anything
+pull_requests:
+  do_not_increment_build_number: true
+
+environment:
+  secret:
+    secure: R1E58v1pOH1cNL0GsiCsaLLFTJH/0RhSsCdbSKklbvr7AFveNljIBugamospvOe+
+
+# Install Pester for testing
+install:
+  - ps: Install-Module Pester -Scope CurrentUser -Force
+  - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
+  - cmd: mkdir %USERPROFILE%/.aws
+  - cmd: appveyor-tools\secure-file -decrypt etc\config.enc -out %USERPROFILE%\.aws\config -secret %secret%
+  - cmd: appveyor-tools\secure-file -decrypt etc\credentials.enc -out %USERPROFILE%\.aws\credentials -secret %secret%
+  - sh: mkdir $HOME/.aws
+  - sh: ./appveyor-tools/secure-file -decrypt etc/config.enc -out $HOME/.aws/config -secret $secret
+  - sh: ./appveyor-tools/secure-file -decrypt etc/credentials.enc -out $HOME/.aws/credentials -secret $secret
+
+# Invoke Pester to run all of the unit tests, then save the results into XML in order to populate the AppVeyor tests section
+# If any of the tests fail, consider the pipeline failed
+test_script:
+  - ps: $res = Invoke-Pester -OutputFormat NUnitXml -OutputFile TestsResults.xml -PassThru
+  - ps: (New-Object System.Net.WebClient).UploadFile("https://ci.appveyor.com/api/testresults/nunit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\TestsResults.xml))
+  - ps: if ($res.FailedCount -gt 0) { throw "$($res.FailedCount) tests failed."}
