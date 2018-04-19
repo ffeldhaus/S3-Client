@@ -18,7 +18,7 @@ pull_requests:
   do_not_increment_build_number: true
 
 environment:
-  secret:
+  my_secret:
     secure: R1E58v1pOH1cNL0GsiCsaLLFTJH/0RhSsCdbSKklbvr7AFveNljIBugamospvOe+
 
 # Install Pester for testing
@@ -26,11 +26,11 @@ install:
   - ps: Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
   - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
   - cmd: mkdir %USERPROFILE%\.aws
-  - cmd: appveyor-tools\secure-file -decrypt etc\config.enc -out %USERPROFILE%\.aws\config -secret %secret%
-  - cmd: appveyor-tools\secure-file -decrypt etc\credentials.enc -out %USERPROFILE%\.aws\credentials -secret %secret%
+  - cmd: appveyor-tools\secure-file -decrypt etc\config.enc -out %USERPROFILE%\.aws\config -secret %my_secret%
+  - cmd: appveyor-tools\secure-file -decrypt etc\credentials.enc -out %USERPROFILE%\.aws\credentials -secret %my_secret%
   - sh: mkdir $HOME/.aws
-  - sh: ./appveyor-tools/secure-file -decrypt etc/config.enc -out $HOME/.aws/config -secret $secret
-  - sh: ./appveyor-tools/secure-file -decrypt etc/credentials.enc -out $HOME/.aws/credentials -secret $secret
+  - sh: ./appveyor-tools/secure-file -decrypt etc/config.enc -out $HOME/.aws/config -secret $my_secret
+  - sh: ./appveyor-tools/secure-file -decrypt etc/credentials.enc -out $HOME/.aws/credentials -secret $my_secret
 
 # Invoke Pester to run all of the unit tests, then save the results into XML in order to populate the AppVeyor tests section
 # If any of the tests fail, consider the pipeline failed
