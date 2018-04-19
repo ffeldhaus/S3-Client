@@ -23,7 +23,7 @@ function Cleanup() {
     sleep 10
 }
 
-foreach ($Profile in $Profiles) {
+foreach ($Profile in $Profiles.Profile) {
     Describe "Profile $Profile : New-S3Bucket" {
         AfterEach {
             Cleanup
