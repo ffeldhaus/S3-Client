@@ -23,7 +23,7 @@ environment:
 
 # Install Pester for testing
 install:
-  - ps: Install-Module Pester -Scope CurrentUser -Force
+  - ps: Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
   - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
   - cmd: mkdir %USERPROFILE%/.aws
   - cmd: appveyor-tools\secure-file -decrypt etc\config.enc -out %USERPROFILE%\.aws\config -secret %secret%
