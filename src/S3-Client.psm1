@@ -3359,13 +3359,31 @@ function Global:Write-S3Object {
         
         $Uri = "/$Key"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Config.Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType -ErrorAction Stop
+            try {
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
+            }
+            catch {
+                $RedirectedRegion = $_.Exception.Response.Headers.GetValues("x-amz-bucket-region")[0]
+                if ([int]$_.Exception.Response.StatusCode -match "^3" -and $RedirectedRegion) {
+                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $RedirectedRegion returned by S3 service."
+                    if ($InFile) {
+                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Region $RedirectedRegion -UrlStyle $UrlStyle -Bucket $Bucket -Key $Key -InFile $InFile -Metadata $Metadata
+                    }
+                    else {
+                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Region $RedirectedRegion -UrlStyle $UrlStyle -Bucket $Bucket -Key $Key -Content $Content -Metadata $Metadata
+                    }
+                }
+                else {
+                    Throw $_
+                }
+            }
+
             Write-Output $Result.Content
         }
     }
