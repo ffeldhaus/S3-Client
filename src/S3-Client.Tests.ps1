@@ -3,9 +3,9 @@ Import-Module "$PSScriptRoot\S3-Client" -Force
 Write-Host "Running S3 Client tests"
 
 $Bucket = Get-Date -Format "yyyy-MM-dd-HHmmss"
-$UnicodeBucket = "萬國碼-" + $Bucket
+$UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Bucket"
 $Key = "Key"
-$UnicodeKey = "萬國碼-$Key"
+$UnicodeKey = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Key"
 $Content = "Hello World!"
 $CustomMetadata = @{"MetadataKey"="MetadataValue"}
 $Profiles = Get-AwsProfiles
