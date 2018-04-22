@@ -1,6 +1,8 @@
 S3 Client PowerShell Module
 ===========================
 
+[![Build status](https://ci.appveyor.com/api/projects/status/od89v0qb7dmblkcx?svg=true)](https://ci.appveyor.com/project/ffeldhaus/s3-client)
+
 The S3 Client Module contains Cmdlets for interacting with an S3 endpoint. While the Cmdlets are working for any S3 object storage, they provide several enhancements to make S3 management easier for StorageGRID Webscale users. For a [feature rich, performance optimized S3 Client in PowerShell use the official AWS Cmdlets](https://aws.amazon.com/de/powershell/).
 
 See the sections below for [Installation](#Installation) and [Update](#Update) Instructions see the sections below. For more information check out the [S3 Client PowerShell Cmdlet Tutorial](S3-Client-Tutorial.md).

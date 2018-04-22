@@ -649,7 +649,7 @@ function Global:Get-AwsRequest {
         }
         else {
             # as we are modifying the endpoint URL, make sure to work on a new object and not modify the origianl object
-            $EndpointUrl = [System.UriBuilder]::new($EndpointUrl)
+            $EndpointUrl = [System.UriBuilder]::new($EndpointUrl.ToString())
         }
 
         if ($UrlStyle -eq "virtual-hosted" -and $Bucket) {
