@@ -8,7 +8,7 @@ $Key = "Key"
 $UnicodeKey = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Key"
 $Content = "Hello World!"
 $CustomMetadata = @{"MetadataKey"="MetadataValue"}
-$Profiles = Get-AwsProfiles
+$Profiles = Get-AwsProfiles | ? { $_.Profile -match "AWS|webscaledemo" }
 
 function Cleanup() {
     try {
@@ -97,13 +97,7 @@ foreach ($Profile in $Profiles.Profile) {
     }
 
     Describe "Profile $Profile : Write-S3Object" {
-        BeforeEach {
-            New-S3Bucket -Profile $Profile -Bucket $Bucket
-        }
-
-        AfterEach {
-            Cleanup
-        }
+        New-S3Bucket -Profile $Profile -Bucket $Bucket
 
         Context "Upload text" {
             It "Given -Content `"$Content`" it is succesfully created" {
@@ -124,17 +118,13 @@ foreach ($Profile in $Profiles.Profile) {
                 $ObjectContent | Should -Be $Content
             }
         }
+
+        Cleanup
     }
 
     Describe "Profile $Profile : Copy-S3Object" {
-        BeforeEach {
-            New-S3Bucket -Profile $Profile -Bucket $Bucket
-            Write-S3Object -Profile $Profile -Bucket $Bucket -Key $Key -Content $Content -Metadata $CustomMetadata
-        }
-
-        AfterEach {
-            Cleanup
-        }
+        New-S3Bucket -Profile $Profile -Bucket $Bucket
+        Write-S3Object -Profile $Profile -Bucket $Bucket -Key $Key -Content $Content -Metadata $CustomMetadata
 
         Context "Copy object" {
             It "Given -SourceBucket $Bucket and -SourceKey $Key and -Bucket $Bucket and -Key $Key it is copied to itself" {
@@ -143,5 +133,7 @@ foreach ($Profile in $Profiles.Profile) {
                 Get-S3Bucket -Profile $Profile -Bucket $Bucket -Key $Key
             }
         }
+
+        Cleanup
     }
 }
