@@ -4,3 +4,4 @@ out/
 .idea/
 /StorageGRID-Webscale.iml
 secure/
+appveyor-tools/
