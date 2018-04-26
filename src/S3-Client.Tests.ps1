@@ -62,7 +62,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
                 $Buckets = Get-S3Buckets -ProfileName $ProfileName
                 $BucketCount = $Buckets.Count
                 New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
-                $Buckets = Get-S3Buckets -ProfileName $Profile
+                $Buckets = Get-S3Buckets -ProfileName $ProfileName
                 $Buckets.Count | Should -Be ($BucketCount + 1)
             }
         }
