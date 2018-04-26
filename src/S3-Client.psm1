@@ -1,6 +1,5 @@
 ﻿$AWS_PROFILE_PATH = "$HOME/.aws/"
 $AWS_CREDENTIALS_FILE = $AWS_PROFILE_PATH + "credentials"
-$AWS_CONFIG_FILE = $AWS_PROFILE_PATH + "config"
 
 # workarounds for PowerShell issues
 if ($PSVersionTable.PSVersion.Major -lt 6) {
@@ -117,6 +116,9 @@ function ConvertFrom-AwsConfigFile {
         {
             throw "Config file $AwsConfigFile does not exist!"
         }
+
+        Write-Verbose "Reading AWS Configuration from $AwsConfigFile"
+
         $Content = Get-Content -Path $AwsConfigFile -Raw
         # replace all carriage returns
         $Content = $Content -replace "`r",""
@@ -125,7 +127,7 @@ function ConvertFrom-AwsConfigFile {
         # convert to JSON structure
         $Content = $Content -replace "profile ", ""
         $Content = $Content -replace "`n([^\[])", ',$1'
-        $Content = $Content -replace "\[", "{`"profile = "
+        $Content = $Content -replace "\[", "{`"ProfileName = "
         $Content = $Content -replace "]", ""
         $Content = $Content -replace "\s*=\s*", "`":`""
         $Content = $Content -replace ",", "`",`""
@@ -139,7 +141,7 @@ function ConvertFrom-AwsConfigFile {
 
         if ($Content -match "{.*}") {
             $Config = ConvertFrom-Json -InputObject $Content
-            $Config = $Config | Select-Object -Property profile, aws_access_key_id, aws_secret_access_key, region, endpoint_url
+            $Config = $Config | Select-Object -Property ProfileName, aws_access_key_id, aws_secret_access_key, region, endpoint_url
             Write-Output $Config
         }
     }
@@ -163,26 +165,29 @@ function ConvertTo-AwsConfigFile {
         if (!(Test-Path $AwsConfigFile)) {
             New-Item -Path $AwsConfigFile -ItemType File -Force
         }
+
+        Write-Verbose "Writing AWS Configuration to $AwsConfigFile"
+
         $Output = ""
         if ($AwsConfigFile -match "credentials$")
         {
             foreach ($ConfigEntry in $Config) {
-                $Output += "[$( $ConfigEntry.Profile )]`n"
+                $Output += "[$( $ConfigEntry.ProfileName )]`n"
                 $Output += "aws_access_key_id = $($ConfigEntry.aws_access_key_id)`n"
                 $Output += "aws_secret_access_key = $($ConfigEntry.aws_secret_access_key)`n"
             }
         }
         else {
             foreach ($ConfigEntry in $Config) {
-                if ($ConfigEntry.Profile -eq "default")
+                if ($ConfigEntry.ProfileName -eq "default")
                 {
-                    $Output += "[$( $ConfigEntry.Profile )]`n"
+                    $Output += "[$( $ConfigEntry.ProfileName )]`n"
                 }
                 else
                 {
-                    $Output += "[profile $( $ConfigEntry.Profile )]`n"
+                    $Output += "[profile $( $ConfigEntry.ProfileName )]`n"
                 }
-                $Properties = $Config | Select-Object -ExcludeProperty aws_access_key_id, aws_secret_access_key, profile | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name
+                $Properties = $Config | Select-Object -ExcludeProperty aws_access_key_id, aws_secret_access_key, ProfileName | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name
                 foreach ($Property in $Properties)
                 {
                     if ($ConfigEntry.$Property)
@@ -317,7 +322,7 @@ function Global:New-AwsSignatureV2 {
         [parameter(
             Mandatory=$True,
             Position=1,
-            HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+            HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             Mandatory=$True,
             Position=2,
@@ -349,7 +354,7 @@ function Global:New-AwsSignatureV2 {
         [parameter(
             Mandatory=$False,
             Position=10,
-            HelpMessage="Bucket")][String]$Bucket,
+            HelpMessage="Bucket")][String]$BucketName,
         [parameter(
             Mandatory=$False,
             Position=11,
@@ -369,8 +374,8 @@ function Global:New-AwsSignatureV2 {
         $CanonicalizedResource = ""
         Write-Debug "1. Start with an empty string:`n$CanonicalizedResource"
 
-        if ($Bucket -and $EndpointUrl.Host -match "^$Bucket") {
-            $CanonicalizedResource += "/$Bucket"
+        if ($BucketName -and $EndpointUrl.Host -match "^$BucketName") {
+            $CanonicalizedResource += "/$BucketName"
             Write-Debug "2. Add the bucketname for virtual host style:`n$CanonicalizedResource" 
         }
         else {
@@ -411,7 +416,7 @@ function Global:New-AwsSignatureV2 {
 
         Write-Debug "Task 4: Signature"
 
-        $SignedString = Get-SignedString -Key ([Text.Encoding]::UTF8.GetBytes($SecretAccessKey)) -Message $StringToSign -Algorithm SHA1
+        $SignedString = Get-SignedString -Key ([Text.Encoding]::UTF8.GetBytes($SecretKey)) -Message $StringToSign -Algorithm SHA1
         $Signature = [Convert]::ToBase64String($SignedString)
 
         Write-Debug "1. Signature:`n$Signature" 
@@ -437,7 +442,7 @@ function Global:New-AwsSignatureV4 {
         [parameter(
             Mandatory=$True,
             Position=1,
-            HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+            HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             Mandatory=$True,
             Position=2,
@@ -544,7 +549,7 @@ function Global:New-AwsSignatureV4 {
         Write-Debug "Task 3: Calculate the Signature for AWS Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
 
-        $SigningKey = GetSignatureKey $SecretAccessKey $DateString $Region $Service
+        $SigningKey = GetSignatureKey $SecretKey $DateString $Region $Service
         Write-Debug "1. Signing Key:`n$([System.BitConverter]::ToString($SigningKey))"
 
         $Signature = ([BitConverter]::ToString((sign $SigningKey $StringToSign)) -replace '-','').ToLower()
@@ -571,7 +576,7 @@ function Global:Get-AwsRequest {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -603,48 +608,62 @@ function Global:Get-AwsRequest {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Service")][String]$Service="s3",
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
         [parameter(
                 Mandatory=$False,
                 Position=10,
-                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+                HelpMessage="Service")][String]$Service="s3",
         [parameter(
                 Mandatory=$False,
                 Position=11,
-                HelpMessage="Headers")][Hashtable]$Headers=@{},
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
         [parameter(
                 Mandatory=$False,
                 Position=12,
-                HelpMessage="Content type")][String]$ContentType,
+                HelpMessage="Headers")][Hashtable]$Headers=@{},
         [parameter(
                 Mandatory=$False,
                 Position=13,
-                HelpMessage="Bucket name")][String]$Bucket,
+                HelpMessage="Content type")][String]$ContentType,
         [parameter(
                 Mandatory=$False,
                 Position=14,
-                HelpMessage="Date")][DateTime]$Date=[DateTime]::Now,
+                HelpMessage="Bucket name")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=15,
-                HelpMessage="File to read data from")][System.IO.FileInfo]$InFile,
+                HelpMessage="Date")][DateTime]$Date=[DateTime]::Now,
         [parameter(
                 Mandatory=$False,
                 Position=16,
-                HelpMessage="Presign URL")][Switch]$Presign,
+                HelpMessage="File to read data from")][System.IO.FileInfo]$InFile,
         [parameter(
                 Mandatory=$False,
                 Position=17,
+                HelpMessage="Presign URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=18,
                 HelpMessage="Presign URL Expiration Date")][DateTime]$Expires=(Get-Date).AddHours(1)
     )
 
     Begin {
         if (!$EndpointUrl) {
             if ($Region -eq "us-east-1" -or !$Region) {
-                $EndpointUrl = [System.UriBuilder]::new("https://s3.amazonaws.com")
+                if ($UseDualstackEndpoint) {
+                    $EndpointUrl = [System.UriBuilder]::new("https://s3.dualstack.amazonaws.com")
+                }
+                else {
+                    $EndpointUrl = [System.UriBuilder]::new("https://s3.amazonaws.com")
+                }
             }
             else {
-                $EndpointUrl = [System.UriBuilder]::new("https://s3.$Region.amazonaws.com")
+                if ($UseDualstackEndpoint) {
+                    $EndpointUrl = [System.UriBuilder]::new("https://s3.dualstack.$Region.amazonaws.com")
+                }
+                else {
+                    $EndpointUrl = [System.UriBuilder]::new("https://s3.$Region.amazonaws.com")
+                }
             }
         }
         else {
@@ -652,13 +671,13 @@ function Global:Get-AwsRequest {
             $EndpointUrl = [System.UriBuilder]::new($EndpointUrl.ToString())
         }
 
-        if ($UrlStyle -eq "virtual-hosted" -and $Bucket) {
+        if ($UrlStyle -eq "virtual-hosted" -and $BucketName) {
             Write-Verbose "Using virtual-hosted style URL"
-            $EndpointUrl.host = $Bucket + '.' + $EndpointUrl.host
+            $EndpointUrl.host = $BucketName + '.' + $EndpointUrl.host
         }
-        elseif ($Bucket) {
+        elseif ($BucketName) {
             Write-Verbose "Using path style URL"
-            $Uri = "/$Bucket" + $Uri
+            $Uri = "/$BucketName" + $Uri
         }
     }
 
@@ -742,7 +761,7 @@ function Global:Get-AwsRequest {
 
         if ($SignerType -eq "AWS4") {
             Write-Verbose "Using AWS Signature Version 4"
-            $Signature = New-AwsSignatureV4 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl $EndpointUrl -Region $Region -Uri $Uri -CanonicalQueryString $CanonicalQueryString -Method $Method -RequestPayloadHash $RequestPayloadHash -DateTime $DateTime -DateString $DateString -Headers $Headers
+            $Signature = New-AwsSignatureV4 -AccessKey $AccessKey -SecretKey $SecretKey -EndpointUrl $EndpointUrl -Region $Region -Uri $Uri -CanonicalQueryString $CanonicalQueryString -Method $Method -RequestPayloadHash $RequestPayloadHash -DateTime $DateTime -DateString $DateString -Headers $Headers
             Write-Debug "Task 4: Add the Signing Information to the Request"
             # http://docs.aws.amazon.com/general/latest/gr/sigv4-add-signature-to-request.html
             if (!$Presign.IsPresent) {
@@ -751,7 +770,7 @@ function Global:Get-AwsRequest {
         }
         else {
             Write-Verbose "Using AWS Signature Version 2"
-            $Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl $EndpointUrl -Uri $Uri -Method $Method -ContentMD5 $ContentMd5 -ContentType $ContentType -DateTime $DateTime -Bucket $Bucket -QueryString $QueryString -Headers $Headers
+            $Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretKey $SecretKey -EndpointUrl $EndpointUrl -Uri $Uri -Method $Method -ContentMD5 $ContentMd5 -ContentType $ContentType -DateTime $DateTime -Bucket $BucketName -QueryString $QueryString -Headers $Headers
             if (!$Presign.IsPresent) {
                 $Headers["Authorization"] = "AWS $($AccessKey):$($Signature)"
             }
@@ -957,72 +976,90 @@ function Global:Add-AwsConfig {
 
     PARAM (
         [parameter(
-            Mandatory=$False,
-            Position=0,
-            ValueFromPipelineByPropertyName=$True,
-            HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile="default",
+                Mandatory=$False,
+                Position=0,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="default",
         [parameter(
-            ParameterSetName="credential",
-            Mandatory=$True,
-            Position=1,
-            ValueFromPipelineByPropertyName=$True,
-            HelpMessage="Credential")][PSCredential]$Credential,
+                Mandatory=$False,
+                Position=1,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation=$AWS_CREDENTIALS_FILE,
         [parameter(
-            ParameterSetName="keys",
-            Mandatory=$True,
-            Position=1,
-            ValueFromPipelineByPropertyName=$True,
-            HelpMessage="S3 Access Key")][Alias("aws_access_key_id")][String]$AccessKey,
+                ParameterSetName="credential",
+                Mandatory=$True,
+                Position=2,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Credential")][PSCredential]$Credential,
         [parameter(
-            ParameterSetName="keys",
-            Mandatory=$True,
-            Position=2,
-            ValueFromPipelineByPropertyName=$True,
-            HelpMessage="S3 Secret Access Key")][Alias("aws_secret_access_key")][String]$SecretAccessKey,
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=3,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="S3 Access Key")][Alias("aws_access_key_id")][String]$AccessKey,
         [parameter(
-            Mandatory=$False,
-            Position=3,
-            ValueFromPipelineByPropertyName=$True,
-            HelpMessage="Default Region to use for all requests made with these credentials")][String]$Region="us-east-1",
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=4,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="S3 Secret Access Key")][Alias("aws_secret_access_key")][String]$SecretKey,
         [parameter(
-            Mandatory=$False,
-            Position=4,
-            ValueFromPipelineByPropertyName=$True,
-            HelpMessage="Custom endpoint URL if different than AWS URL")][Alias("endpoint_url")][System.UriBuilder]$EndpointUrl
+                Mandatory=$False,
+                Position=5,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Default Region to use for all requests made with these credentials")][String]$Region="us-east-1",
+        [parameter(
+                Mandatory=$False,
+                Position=6,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Custom endpoint URL if different than AWS URL")][Alias("endpoint_url")][System.UriBuilder]$EndpointUrl
     )
  
     Process {
+        $ConfigLocation = $ProfileLocation -replace "/[^/]+$",'/config'
+
         if ($Credential) {
             $AccessKey = $Credential.UserName
-            $SecretAccessKey = $Credential.GetNetworkCredential().Password
+            $SecretKey = $Credential.GetNetworkCredential().Password
         }
 
-        if ($AccessKey -and $SecretAccessKey) {
-            $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $AWS_CREDENTIALS_FILE
-            if (($Credentials | Where-Object { $_.profile -eq $Profile})) {
-                $CredentialEntry = $Credentials | Where-Object { $_.profile -eq $Profile}
+        if ($AccessKey -and $SecretKey) {
+            try {
+                $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
+            }
+            catch {
+                Write-Verbose "Retrieving credentials from $ProfileLocation failed"
+            }
+
+            if (($Credentials | Where-Object { $_.ProfileName -eq $ProfileName})) {
+                $CredentialEntry = $Credentials | Where-Object { $_.ProfileName -eq $ProfileName}
             }
             else {
-                $CredentialEntry = [PSCustomObject]@{ profile = $Profile }
+                $CredentialEntry = [PSCustomObject]@{ ProfileName = $ProfileName }
             }
 
             $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_access_key_id -Value $AccessKey -Force
-            $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $SecretAccessKey -Force
+            $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $SecretKey -Force
 
             Write-Debug $CredentialEntry
 
-            $Credentials = @($Credentials | Where-Object { $_.profile -ne $Profile}) + $CredentialEntry
-            ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $AWS_CREDENTIALS_FILE
+            $Credentials = @($Credentials | Where-Object { $_.ProfileName -ne $ProfileName}) + $CredentialEntry
+            ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
         }
 
         if ($Region -or $EndpointUrl) {
-            $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $AWS_CONFIG_FILE
+            try {
+                $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
+            }
+            catch {
+                Write-Verbose "Retrieving credentials from $ConfigLocation failed"
+            }
 
-            if (($Config | Where-Object { $_.profile -eq $Profile})) {
-                $ConfigEntry = $Config | Where-Object { $_.profile -eq $Profile}
+            if (($Config | Where-Object { $_.ProfileName -eq $ProfileName})) {
+                $ConfigEntry = $Config | Where-Object { $_.ProfileName -eq $ProfileName}
             }
             else {
-                $ConfigEntry = [PSCustomObject]@{ profile = $Profile }
+                $ConfigEntry = [PSCustomObject]@{ ProfileName = $ProfileName }
             }
 
             if ($Region) {
@@ -1032,8 +1069,8 @@ function Global:Add-AwsConfig {
                 $ConfigEntry | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrl -Force
             }
 
-            $Config = @($Config | Where-Object { $_.profile -ne $Profile}) + $ConfigEntry
-            ConvertTo-AwsConfigFile -Config $Config -AwsConfigFile $AWS_CONFIG_FILE
+            $Config = @($Config | Where-Object { $_.ProfileName -ne $ProfileName}) + $ConfigEntry
+            ConvertTo-AwsConfigFile -Config $Config -AwsConfigFile $ConfigLocation
         }
     }
 }
@@ -1049,32 +1086,44 @@ Set-Alias -Name Get-AwsCredentials -Value Get-AwsConfigs
 function Global:Get-AwsConfigs {
     [CmdletBinding()]
 
-    PARAM ()
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation=$AWS_CREDENTIALS_FILE
+    )
 
     Process {
+        $ConfigLocation = $ProfileLocation -replace "/[^/]+$",'/config'
+
+        if (!(Test-Path $ProfileLocation)) {
+            Throw "Profile location $ProfileLocation does not exist!"
+        }
+
         $Credentials = @()
         $Config = @()
         try {
-            $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $AWS_CREDENTIALS_FILE
+            $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
         }
         catch {
-            Write-Verbose "Retrieving credentials from $AWS_CREDENTIALS_FILE failed"
+            Write-Verbose "Retrieving credentials from $ProfileLocation failed"
         }
         try {
-            $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $AWS_CONFIG_FILE
+            $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
         }
         catch {
-            Write-Verbose "Retrieving credentials from $AWS_CONFIG_FILE failed"
+            Write-Verbose "Retrieving credentials from $ConfigLocation failed"
         }
 
         foreach ($Credential in $Credentials) {
-            $ConfigEntry = $Config | Where-Object { $_.Profile -eq $Credential.Profile } | Select-Object -First 1
+            $ConfigEntry = $Config | Where-Object { $_.ProfileName -eq $Credential.ProfileName } | Select-Object -First 1
             if ($ConfigEntry) {
                 $ConfigEntry.aws_access_key_id = $Credential.aws_access_key_id
                 $ConfigEntry.aws_secret_access_key = $Credential.aws_secret_access_key
             }
             else {
-                $Config = @($Config) + ([PSCustomObject]@{profile=$Credential.profile;aws_access_key_id=$Credential.aws_access_key_id;aws_secret_access_key=$Credential.aws_secret_access_key;region="";endpoint_url=$null})
+                $Config = @($Config) + ([PSCustomObject]@{ProfileName=$Credential.ProfileName;aws_access_key_id=$Credential.aws_access_key_id;aws_secret_access_key=$Credential.aws_secret_access_key;region="";endpoint_url=$null})
             }
         }
 
@@ -1105,30 +1154,35 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=1,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][String]$Profile="",
+                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 Mandatory=$False,
                 Position=2,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="S3 Access Key")][String]$AccessKey="",
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation=$AWS_CREDENTIALS_FILE,
         [parameter(
                 Mandatory=$False,
                 Position=3,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey="",
+                HelpMessage="S3 Access Key")][String]$AccessKey="",
         [parameter(
                 Mandatory=$False,
                 Position=4,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Account ID")][String]$AccountId="",
+                HelpMessage="S3 Secret Access Key")][String]$SecretKey="",
         [parameter(
                 Mandatory=$False,
                 Position=5,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl=$null,
+                HelpMessage="Account ID")][String]$AccountId="",
         [parameter(
                 Mandatory=$False,
                 Position=6,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl=$null,
+        [parameter(
+                Mandatory=$False,
+                Position=7,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Endpoint URL")][String]$Region
     )
@@ -1140,17 +1194,19 @@ function Global:Get-AwsConfig {
     }
 
     Process {
-        $Config = [PSCustomObject]@{profile = $Profile; aws_access_key_id = $AccessKey; aws_secret_access_key = $SecretAccessKey; region = $Region; endpoint_url = $EndpointUrl }
+        $ConfigLocation = $ProfileLocation -replace "/[^/]+$",'/config'
 
-        if (!$Profile -and !$AccessKey -and !$Server) {
-            $Profile = "default"
+        $Config = [PSCustomObject]@{ProfileName = $ProfileName; aws_access_key_id = $AccessKey; aws_secret_access_key = $SecretKey; region = $Region; endpoint_url = $EndpointUrl }
+
+        if (!$ProfileName -and !$AccessKey -and !$Server) {
+            $ProfileName = "default"
         }
 
-        if ($Profile) {
-            Write-Verbose "Profile $Profile specified, therefore returning AWS config of this profile"
-            $Config = Get-AwsConfigs | Where-Object { $_.Profile -eq $Profile }
+        if ($ProfileName) {
+            Write-Verbose "Profile $ProfileName specified, therefore returning AWS config of this profile"
+            $Config = Get-AwsConfigs | Where-Object { $_.ProfileName -eq $ProfileName }
             if (!$Config) {
-                Throw "Config for profile $Profile not found"
+                Throw "Config for profile $ProfileName not found"
             }
         }
         elseif ($AccessKey) {
@@ -1172,7 +1228,6 @@ function Global:Get-AwsConfig {
                 }
                 else {
                     $Credential = New-SgwS3AccessKey -Server $Server -Expires (Get-Date).AddSeconds($Server.TemporaryAccessKeyExpirationTime) -AccountId $AccountId
-
                     Write-Verbose "Created new temporary Access Key $( $Credential.AccessKey )"
                 }
                 $Config.aws_access_key_id = $Credential.AccessKey
@@ -1209,17 +1264,24 @@ function Global:Remove-AwsConfig {
         [parameter(
                 Mandatory=$True,
                 Position=0,
-                HelpMessage="AWS Profile where config should be removed")][String]$Profile
+                HelpMessage="AWS Profile where config should be removed")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation=$AWS_CREDENTIALS_FILE
     )
 
     Process {
-        $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $AWS_CREDENTIALS_FILE
-        $Credentials = $Credentials | Where-Object { $_.Profile -ne $Profile }
-        ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $AWS_CREDENTIALS_FILE
+        $ConfigLocation = $ProfileLocation -replace "/[^/]+$",'/config'
 
-        $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $AWS_CONFIG_FILE
-        $Config = $Credentials | Where-Object { $_.Profile -ne $Profile }
-        ConvertTo-AwsConfigFile -Config $Config -AwsConfigFile $AWS_CONFIG_FILE
+        $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
+        $Credentials = $Credentials | Where-Object { $_.ProfileName -ne $ProfileName }
+        ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
+
+        $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
+        $Config = $Credentials | Where-Object { $_.ProfileName -ne $ProfileName }
+        ConvertTo-AwsConfigFile -Config $Config -AwsConfigFile $ConfigLocation
     }
 }
 
@@ -1461,26 +1523,33 @@ function Global:Get-S3Buckets {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
-                Position=7,
+                Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
-                Position=8,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
-                Position=9,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
-                Position=10,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                Position=8,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
@@ -1488,7 +1557,7 @@ function Global:Get-S3Buckets {
             $Server = $Global:CurrentSgwServer
         }
         $Method = "GET"
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
     }
  
     Process {
@@ -1497,7 +1566,7 @@ function Global:Get-S3Buckets {
         $Uri = "/"
 
         if ($Config) {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Presign:$Presign -SignerType $SignerType
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Presign:$Presign -SignerType $SignerType
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -1507,17 +1576,17 @@ function Global:Get-S3Buckets {
                 $Content = [XML]$Result.Content
 
                 if ($Content.ListAllMyBucketsResult) {
-                    if ($Bucket) {
-                        $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes | ? { $_.Name -eq [System.Globalization.IdnMapping]::new().GetAscii($Bucket) }
+                    if ($BucketName) {
+                        $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes | ? { $_.Name -eq [System.Globalization.IdnMapping]::new().GetAscii($BucketName) }
                     }
                     else {
                         $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes
                     }
                     foreach ($XmlBucket in $XmlBuckets) {
-                        $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.endpoint_url -Bucket $XmlBucket.Name -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Presign:$Presign -SignerType $SignerType
+                        $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.endpoint_url -Bucket $XmlBucket.Name -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign:$Presign -SignerType $SignerType
                         $UnicodeName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
-                        $BucketObject = [PSCustomObject]@{ Name = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
-                        Write-Output $BucketObject
+                        $BucketNameObject = [PSCustomObject]@{ Name = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
+                        Write-Output $BucketNameObject
                     }
                 }
             }
@@ -1569,7 +1638,12 @@ function Global:Test-S3Bucket {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -1579,12 +1653,14 @@ function Global:Test-S3Bucket {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -1598,14 +1674,14 @@ function Global:Test-S3Bucket {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "HEAD"
     }
 
@@ -1615,7 +1691,7 @@ function Global:Test-S3Bucket {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $Bucket -UrlStyle $UrlStyle -Region $Region
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -1624,10 +1700,10 @@ function Global:Test-S3Bucket {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
-                    $RedirectedRegion = $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$null)[0]
-                    if ([int]$_.Exception.Response.StatusCode -match "^3" -and $RedirectedRegion) {
-                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $RedirectedRegion returned by S3 service."
-                        Test-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Region $RedirectedRegion -UrlStyle $UrlStyle -Bucket $Bucket
+                    $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                    if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                        Test-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
                     }
                     else {
                         Throw $_
@@ -1645,7 +1721,7 @@ function Global:Test-S3Bucket {
     Get S3 Objects in Bucket
 #>
 function Global:Get-S3Bucket {
-    [CmdletBinding(DefaultParameterSetName="none")]
+    [CmdletBinding(DefaultParameterSetName="account")]
 
     PARAM (
         [parameter(
@@ -1676,7 +1752,12 @@ function Global:Get-S3Bucket {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -1686,12 +1767,14 @@ function Global:Get-S3Bucket {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -1707,7 +1790,7 @@ function Global:Get-S3Bucket {
                 Position=10,
                 ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=11,
@@ -1732,7 +1815,7 @@ function Global:Get-S3Bucket {
                 Mandatory=$False,
                 Position=16,
                 HelpMessage="Continuation token (Only valid for list type 1).")][String]$Marker,
-       [parameter(
+        [parameter(
                 Mandatory=$False,
                 Position=17,
                 HelpMessage="Continuation token (Only valid for list type 2).")][String]$ContinuationToken,
@@ -1750,11 +1833,16 @@ function Global:Get-S3Bucket {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
         $Method = "GET"
     }
 
     Process {
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+
+        if (!$Config) {
+            Throw "No S3 credentials found"
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -1779,9 +1867,9 @@ function Global:Get-S3Bucket {
             if ($ContinuationToken) { $Query["continuation-token"] = $ContinuationToken }
         }
 
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $Bucket -UrlStyle $UrlStyle -Region $Region -Query $Query
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
 
         if ($DryRun) {
             Write-Output $AwsRequest
@@ -1799,21 +1887,21 @@ function Global:Get-S3Bucket {
                 $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode($Content.ListBucketResult.Name)
 
                 foreach ($Object in $Objects) {
-                    $Object = [PSCustomObject]@{Bucket=$UnicodeBucket;Region=$Region;Key=$Object.Key;LastModified=(Get-Date $Object.LastModified);ETag=($Object.ETag -replace '"','');Size=[long]$Object.Size;OwnerId=$Object.Owner.OwnerId;OwnerDisplayName=$Object.Owner.OwnerDisplayName;StorageClass=$Object.StorageClass}
+                    $Object = [PSCustomObject]@{Bucket=$UnicodeBucket;Region=$Region;Key=$Object.Key;LastModified=(Get-Date $Object.LastModified);ETag=($Object.ETag -replace '"','');Size=[long]$Object.Size;OwnerId=$Object.Owner.ID;OwnerDisplayName=$Object.Owner.DisplayName;StorageClass=$Object.StorageClass}
                     Write-Output $Object
                 }
 
                 if ($Content.ListBucketResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
                     Write-Verbose "1000 Objects were returned and max keys was not limited so continuing to get all objects"
                     Write-Debug "NextMarker: $($Content.ListBucketResult.NextMarker)"
-                    Get-S3Bucket -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -Bucket $Bucket -MaxKeys $MaxKeys -Prefix $Prefix -FetchOwner:$FetchOwner -StartAfter $StartAfter -ContinuationToken $Content.ListBucketResult.NextContinuationToken -Marker $Content.ListBucketResult.NextMarker
+                    Get-S3Bucket -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -FetchOwner:$FetchOwner -StartAfter $StartAfter -ContinuationToken $Content.ListBucketResult.NextContinuationToken -Marker $Content.ListBucketResult.NextMarker
                 }
             }
             catch {
-                $RedirectedRegion = $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$null)[0]
-                if ([int]$_.Exception.Response.StatusCode -match "^3" -and $RedirectedRegion) {
-                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $RedirectedRegion returned by S3 service."
-                    Get-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Region $RedirectedRegion -UrlStyle $UrlStyle -Bucket $Bucket -MaxKeys $MaxKeys -Prefix $Prefix -Delimiter $Delimiter -FetchOwner:$FetchOwner -StartAfter $StartAfter -Marker $Marker -ContinuationToken $ContinuationToken -EncodingType $EncodingType
+                $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                    Get-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -Delimiter $Delimiter -FetchOwner:$FetchOwner -StartAfter $StartAfter -Marker $Marker -ContinuationToken $ContinuationToken -EncodingType $EncodingType
                 }
                 else {
                     Throw $_
@@ -1862,7 +1950,12 @@ function Global:Get-S3BucketVersions {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -1872,12 +1965,14 @@ function Global:Get-S3BucketVersions {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -1891,7 +1986,7 @@ function Global:Get-S3BucketVersions {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -1922,7 +2017,7 @@ function Global:Get-S3BucketVersions {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "GET"
     }
 
@@ -1942,7 +2037,7 @@ function Global:Get-S3BucketVersions {
         if ($KeyMarker) { $Query["key-marker"] = $KeyMarker }
         if ($VersionIdMarker) { $Query["version-id-marker"] = $VersionIdMarker }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $Bucket -UrlStyle $UrlStyle -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -1970,7 +2065,7 @@ function Global:Get-S3BucketVersions {
 
             if ($Content.ListVersionsResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
                 Write-Verbose "1000 Versions were returned and max keys was not limited so continuing to get all Versions"
-                Get-S3BucketVersions -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -UrlStyle $UrlStyle -Bucket $Bucket -MaxKeys $MaxKeys -Prefix $Prefix -KeyMarker $Content.ListVersionsResult.NextKeyMarker -VersionIdMarker $Content.ListVersionsResult.NextVersionIdMarker
+                Get-S3BucketVersions -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -KeyMarker $Content.ListVersionsResult.NextKeyMarker -VersionIdMarker $Content.ListVersionsResult.NextVersionIdMarker
             }
         }
     }
@@ -2014,7 +2109,12 @@ function Global:New-S3Bucket {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -2024,12 +2124,14 @@ function Global:New-S3Bucket {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -2038,15 +2140,31 @@ function Global:New-S3Bucket {
                 Mandatory=$True,
                 Position=9,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=10,
-                HelpMessage="Canned ACL")][Alias("CannedAcl")][String][ValidateSet("private","public-read","public-read-write","aws-exec-read","authenticated-read","bucket-owner-read","bucket-owner-full-control")]$Acl,
+                HelpMessage="Canned ACL")][Alias("CannedAcl","Acl")][String][ValidateSet("private","public-read","public-read-write","aws-exec-read","authenticated-read","bucket-owner-read","bucket-owner-full-control")]$CannedAclName,
         [parameter(
                 Mandatory=$False,
                 Position=11,
-                HelpMessage="Region to create bucket in")][Alias("Location","LocationConstraint")][String]$Region
+                HelpMessage="If set, applies an ACL making the bucket public with read-only permissions")][Switch]$PublicReadOnly,
+        [parameter(
+                Mandatory=$False,
+                Position=12,
+                HelpMessage="If set, applies an ACL making the bucket public with read-write permissions")][Switch]$PublicReadWrite,
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                HelpMessage="Region to create bucket in")][Alias("Location","LocationConstraint")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+        [parameter(
+                Mandatory=$False,
+                Position=15,
+                HelpMessage="Parameter is only used for compatibility with AWS Cmdlets and will be ignored")][Switch]$Force
 
     )
 
@@ -2054,7 +2172,7 @@ function Global:New-S3Bucket {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "PUT"
     }
  
@@ -2063,15 +2181,17 @@ function Global:New-S3Bucket {
             $Region = $Config.Region
         }
 
+        # TODO: Implement CannedAcl, PublicReadOnly and PublicReadWrite
+
         # AWS does not allow to set LocationConstraint for default region us-east-1
         if ($Region -and $Region -ne "us-east-1") {
             $RequestPayload = "<CreateBucketConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><LocationConstraint>$Region</LocationConstraint></CreateBucketConfiguration>"
         }
 
         # convert Bucket to Punycode to support Unicode Bucket Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $Bucket -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2120,7 +2240,12 @@ function Global:Remove-S3Bucket {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -2130,12 +2255,14 @@ function Global:Remove-S3Bucket {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -2149,7 +2276,7 @@ function Global:Remove-S3Bucket {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=11,
@@ -2160,7 +2287,7 @@ function Global:Remove-S3Bucket {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "DELETE"
     }
 
@@ -2170,14 +2297,14 @@ function Global:Remove-S3Bucket {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         if ($Force) {
             Write-Verbose "Force parameter specified, removing all objects in the bucket before removing the bucket"
-            Get-S3Bucket  -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $Bucket -Region $Region | Remove-S3Object -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle
+            Get-S3Bucket  -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region | Remove-S3Object -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $Bucket -UrlStyle $UrlStyle -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2226,7 +2353,12 @@ function Global:Get-S3BucketPolicy {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -2236,12 +2368,14 @@ function Global:Get-S3BucketPolicy {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -2255,14 +2389,14 @@ function Global:Get-S3BucketPolicy {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "GET"
     }
 
@@ -2272,11 +2406,11 @@ function Global:Get-S3BucketPolicy {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Query = @{policy=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $Bucket -UrlStyle $UrlStyle -Query $Query -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2335,7 +2469,12 @@ function Global:Get-S3BucketVersioning {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -2345,12 +2484,14 @@ function Global:Get-S3BucketVersioning {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -2364,14 +2505,14 @@ function Global:Get-S3BucketVersioning {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "GET"
     }
 
@@ -2381,11 +2522,11 @@ function Global:Get-S3BucketVersioning {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Query = @{versioning=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $Bucket -UrlStyle $UrlStyle -Query $Query -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2444,7 +2585,12 @@ function Global:Enable-S3BucketVersioning {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -2454,12 +2600,14 @@ function Global:Enable-S3BucketVersioning {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -2473,26 +2621,26 @@ function Global:Enable-S3BucketVersioning {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "PUT"
     }
 
     Process {
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Query = @{versioning=""}
 
         $RequestPayload = "<VersioningConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><Status>Enabled</Status></VersioningConfiguration>"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $Bucket -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2551,7 +2699,12 @@ function Global:Suspend-S3BucketVersioning {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -2561,12 +2714,14 @@ function Global:Suspend-S3BucketVersioning {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -2580,14 +2735,14 @@ function Global:Suspend-S3BucketVersioning {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "PUT"
     }
 
@@ -2597,13 +2752,13 @@ function Global:Suspend-S3BucketVersioning {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Query = @{versioning=""}
 
         $RequestPayload = "<VersioningConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><Status>Suspended</Status></VersioningConfiguration>"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $Bucket -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2663,7 +2818,12 @@ function Global:Get-S3BucketLocation {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -2673,12 +2833,14 @@ function Global:Get-S3BucketLocation {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -2687,28 +2849,28 @@ function Global:Get-S3BucketLocation {
                 Mandatory=$True,
                 Position=9,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "GET"
     }
 
     Process {
-        Write-Verbose "Retrieving location for bucket $Bucket"
+        Write-Verbose "Retrieving location for bucket $BucketName"
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Uri = "/"
 
         $Query = @{location=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2773,7 +2935,12 @@ function Global:Get-S3PresignedUrl {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -2783,12 +2950,14 @@ function Global:Get-S3PresignedUrl {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=7,
@@ -2802,7 +2971,7 @@ function Global:Get-S3PresignedUrl {
                 Mandatory=$True,
                 Position=9,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2833,7 +3002,7 @@ function Global:Get-S3PresignedUrl {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
     }
 
     Process {
@@ -2842,7 +3011,7 @@ function Global:Get-S3PresignedUrl {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Uri = "/$Key"
         $Presign = $true
@@ -2861,7 +3030,7 @@ function Global:Get-S3PresignedUrl {
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region -Expires $Expires
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Expires $Expires
 
         Write-Output $AwsRequest.Uri.ToString()
     }
@@ -2908,7 +3077,12 @@ function Global:Get-S3ObjectMetadata {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -2918,12 +3092,14 @@ function Global:Get-S3ObjectMetadata {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -2937,7 +3113,7 @@ function Global:Get-S3ObjectMetadata {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -2954,7 +3130,7 @@ function Global:Get-S3ObjectMetadata {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "HEAD"
     }
@@ -2965,7 +3141,7 @@ function Global:Get-S3ObjectMetadata {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Uri = "/$Key"
 
@@ -2976,7 +3152,7 @@ function Global:Get-S3ObjectMetadata {
             $Query = @{}
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3066,7 +3242,12 @@ function Global:Read-S3Object {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -3076,12 +3257,14 @@ function Global:Read-S3Object {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -3095,7 +3278,7 @@ function Global:Read-S3Object {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -3115,7 +3298,7 @@ function Global:Read-S3Object {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "GET"
     }
@@ -3126,7 +3309,7 @@ function Global:Read-S3Object {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Uri = "/$Key"
 
@@ -3153,7 +3336,7 @@ function Global:Read-S3Object {
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3208,7 +3391,12 @@ function Global:Write-S3Object {
                 ParameterSetName="ProfileAndContent",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="KeyAndFile",
                 Mandatory=$True,
@@ -3228,7 +3416,7 @@ function Global:Write-S3Object {
                 ParameterSetName="KeyAndContent",
                 Mandatory=$True,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="AccountAndFile",
                 Mandatory=$True,
@@ -3238,7 +3426,9 @@ function Global:Write-S3Object {
                 ParameterSetName="AccountAndContent",
                 Mandatory=$True,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -3252,7 +3442,7 @@ function Global:Write-S3Object {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=11,
@@ -3330,7 +3520,7 @@ function Global:Write-S3Object {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "PUT"
     }
@@ -3341,7 +3531,7 @@ function Global:Write-S3Object {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         if ($InFile -and !$InFile.Exists) {
             Throw "File $InFile does not exist"
@@ -3369,7 +3559,7 @@ function Global:Write-S3Object {
         
         $Uri = "/$Key"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3379,14 +3569,14 @@ function Global:Write-S3Object {
                 $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
             }
             catch {
-                $RedirectedRegion = $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$null)[0]
-                if ([int]$_.Exception.Response.StatusCode -match "^3" -and $RedirectedRegion) {
-                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $RedirectedRegion returned by S3 service."
+                $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
                     if ($InFile) {
-                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Region $RedirectedRegion -UrlStyle $UrlStyle -Bucket $Bucket -Key $Key -InFile $InFile -Metadata $Metadata
+                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
                     }
                     else {
-                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Region $RedirectedRegion -UrlStyle $UrlStyle -Bucket $Bucket -Key $Key -Content $Content -Metadata $Metadata
+                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Content $Content -Metadata $Metadata
                     }
                 }
                 else {
@@ -3437,7 +3627,12 @@ function Global:Remove-S3Object {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -3447,12 +3642,14 @@ function Global:Remove-S3Object {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -3466,7 +3663,7 @@ function Global:Remove-S3Object {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -3483,7 +3680,7 @@ function Global:Remove-S3Object {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "DELETE"
     }
@@ -3494,7 +3691,7 @@ function Global:Remove-S3Object {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Uri = "/$Key"
 
@@ -3505,7 +3702,7 @@ function Global:Remove-S3Object {
             $Query = @{}
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3554,7 +3751,12 @@ function Global:Copy-S3Object {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -3564,12 +3766,14 @@ function Global:Copy-S3Object {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -3583,7 +3787,7 @@ function Global:Copy-S3Object {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -3660,7 +3864,7 @@ function Global:Copy-S3Object {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "PUT"
     }
@@ -3671,12 +3875,12 @@ function Global:Copy-S3Object {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Uri = "/$Key"
 
         $Headers = @{}
-        $Headers["x-amz-copy-source"] = "/$Bucket/$Key"
+        $Headers["x-amz-copy-source"] = "/$BucketName/$Key"
         if ($VersionId) {
             $Headers["x-amz-copy-source"] += "?versionId=$VersionId"
         }
@@ -3703,7 +3907,7 @@ function Global:Copy-S3Object {
             $Headers["x-amz-server-side​-encryption"] = $ServerSideEncryption
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Headers $Headers -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Headers $Headers -Region $Region
 
         if ($DryRun) {
             Write-Output $AwsRequest
@@ -3754,7 +3958,12 @@ function Global:Get-S3BucketConsistency {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -3764,12 +3973,14 @@ function Global:Get-S3BucketConsistency {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -3783,14 +3994,14 @@ function Global:Get-S3BucketConsistency {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "GET"
     }
@@ -3801,11 +4012,11 @@ function Global:Get-S3BucketConsistency {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Query = @{"x-ntap-sg-consistency"=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3815,9 +4026,9 @@ function Global:Get-S3BucketConsistency {
 
             $Content = [XML]$Result.Content
 
-            $BucketConsistency = [PSCustomObject]@{Bucket=$Bucket;Consistency=$Content.Consistency.InnerText}
+            $BucketNameConsistency = [PSCustomObject]@{Bucket=$BucketName;Consistency=$Content.Consistency.InnerText}
 
-            Write-Output $BucketConsistency
+            Write-Output $BucketNameConsistency
         }
     }
 }
@@ -3860,7 +4071,12 @@ function Global:Update-S3BucketConsistency {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -3870,12 +4086,14 @@ function Global:Update-S3BucketConsistency {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -3889,7 +4107,7 @@ function Global:Update-S3BucketConsistency {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -3900,7 +4118,7 @@ function Global:Update-S3BucketConsistency {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "PUT"
     }
@@ -3911,11 +4129,11 @@ function Global:Update-S3BucketConsistency {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Query = @{"x-ntap-sg-consistency"=$Consistency}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3964,7 +4182,12 @@ function Global:Get-S3StorageUsage {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -3974,7 +4197,7 @@ function Global:Get-S3StorageUsage {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
@@ -3986,7 +4209,7 @@ function Global:Get-S3StorageUsage {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "GET"
     }
@@ -3996,7 +4219,7 @@ function Global:Get-S3StorageUsage {
 
         $Query = @{"x-ntap-sg-usage"=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -4051,7 +4274,12 @@ function Global:Get-S3BucketLastAccessTime {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -4061,12 +4289,14 @@ function Global:Get-S3BucketLastAccessTime {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -4080,14 +4310,14 @@ function Global:Get-S3BucketLastAccessTime {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "GET"
     }
@@ -4098,11 +4328,11 @@ function Global:Get-S3BucketLastAccessTime {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Query = @{"x-ntap-sg-lastaccesstime"=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -4112,9 +4342,9 @@ function Global:Get-S3BucketLastAccessTime {
 
             $Content = [XML]$Result.Content
 
-            $BucketLastAccessTime = [PSCustomObject]@{Bucket=$Bucket;LastAccessTime=$Content.LastAccessTime.InnerText}
+            $BucketNameLastAccessTime = [PSCustomObject]@{Bucket=$BucketName;LastAccessTime=$Content.LastAccessTime.InnerText}
 
-            Write-Output $BucketLastAccessTime
+            Write-Output $BucketNameLastAccessTime
         }
     }
 }
@@ -4157,7 +4387,12 @@ function Global:Enable-S3BucketLastAccessTime {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -4167,12 +4402,14 @@ function Global:Enable-S3BucketLastAccessTime {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -4186,14 +4423,14 @@ function Global:Enable-S3BucketLastAccessTime {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "PUT"
     }
@@ -4204,11 +4441,11 @@ function Global:Enable-S3BucketLastAccessTime {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Query = @{"x-ntap-sg-lastaccesstime"="enabled"}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -4257,7 +4494,12 @@ function Global:Disable-S3BucketLastAccessTime {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][String]$Profile,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
                 Mandatory=$False,
@@ -4267,12 +4509,14 @@ function Global:Disable-S3BucketLastAccessTime {
                 ParameterSetName="keys",
                 Mandatory=$False,
                 Position=7,
-                HelpMessage="S3 Secret Access Key")][String]$SecretAccessKey,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")][String]$AccountId,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -4286,14 +4530,14 @@ function Global:Disable-S3BucketLastAccessTime {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name")][String]$Bucket
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -Profile $Profile -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
         $Method = "PUT"
     }
@@ -4304,11 +4548,11 @@ function Global:Disable-S3BucketLastAccessTime {
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $Bucket = [System.Globalization.IdnMapping]::new().GetAscii($Bucket)
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $Query = @{"x-ntap-sg-lastaccesstime"="disabled"}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretAccessKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $Bucket -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
