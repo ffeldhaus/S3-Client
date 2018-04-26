@@ -59,7 +59,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
 
         Context "Retrieve buckets with default parameters" {
             It "Retrieving buckets returns a list of all buckets" {
-                $Buckets = Get-S3Buckets -ProfileName $Profile
+                $Buckets = Get-S3Buckets -ProfileName $ProfileName
                 $BucketCount = $Buckets.Count
                 New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
                 $Buckets = Get-S3Buckets -ProfileName $Profile
