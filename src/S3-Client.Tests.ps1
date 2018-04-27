@@ -2,8 +2,6 @@ Import-Module "$PSScriptRoot\S3-Client" -Force
 
 Write-Host "Running S3 Client tests"
 
-$SLEEP_SECONDS_AFTER_BUCKET_DELETION = 60
-
 $Bucket = Get-Date -Format "yyyy-MM-dd-HHmmss"
 $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Bucket"
 $Key = "Key"
@@ -18,10 +16,10 @@ function Cleanup() {
     }
     catch {}
     # wait until bucket is really deleted
-    foreach ($i in 1..$SLEEP_SECONDS_AFTER_BUCKET_DELETION) {
+    foreach ($i in 1..12) {
         try {
+            sleep 5
             Test-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
-            sleep 1
         }
         catch {
             break
@@ -33,10 +31,10 @@ function Cleanup() {
     }
     catch {}
     # wait until bucket is really deleted
-    foreach ($i in 1..$SLEEP_SECONDS_AFTER_BUCKET_DELETION) {
+    foreach ($i in 1..12) {
         try {
+            sleep 5
             Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
-            sleep 1
         }
         catch {
             break
