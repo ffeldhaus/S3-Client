@@ -891,11 +891,11 @@ function Global:Invoke-AwsRequest {
                     if ($OutFile) {
                         Write-Verbose "Body:`n$Body"
                         Write-Verbose "Saving output in file $OutFile"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body $Body -OutFile $OutFile
+                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile
                     }
                     else {
                         Write-Verbose "Body:`n$Body"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body $Body
+                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body))
                     }
                 }
                 else {
@@ -920,11 +920,11 @@ function Global:Invoke-AwsRequest {
                     if ($OutFile) {
                         Write-Verbose "Body:`n$Body"
                         Write-Verbose "Saving output in file $OutFile"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body $Body -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                     }
                     else {
                         Write-Verbose "Body:`n$Body"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body $Body -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                     }
                 }
                 else {

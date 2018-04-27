@@ -8,7 +8,7 @@ $Key = "Key"
 $UnicodeKey = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Key"
 $Content = "Hello World!"
 $CustomMetadata = @{"MetadataKey"="MetadataValue"}
-$Profiles = Get-AwsProfiles | Where-Object { $_.ProfileName -match "webscaledemo" }
+$Profiles = Get-AwsProfiles | Where-Object { $_.ProfileName -match "AWS|webscaledemo" }
 
 function Cleanup() {
     try {
