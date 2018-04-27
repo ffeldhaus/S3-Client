@@ -880,72 +880,66 @@ function Global:Invoke-AwsRequest {
             }
         }
 
-        #try {
-            # PowerShell 5 and early cannot skip certificate validation per request therefore we need to use a workaround
-            if ($PSVersionTable.PSVersion.Major -lt 6 ) {
-                if ($SkipCertificateCheck.isPresent) {
-                    $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
-                    [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-                }
-                if ($Body) {
-                    if ($OutFile) {
-                        Write-Verbose "Body:`n$Body"
-                        Write-Verbose "Saving output in file $OutFile"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile
-                    }
-                    else {
-                        Write-Verbose "Body:`n$Body"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body))
-                    }
+        # PowerShell 5 and early cannot skip certificate validation per request therefore we need to use a workaround
+        if ($PSVersionTable.PSVersion.Major -lt 6 ) {
+            if ($SkipCertificateCheck.isPresent) {
+                $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
+                [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            }
+            if ($Body) {
+                if ($OutFile) {
+                    Write-Verbose "Body:`n$Body"
+                    Write-Verbose "Saving output in file $OutFile"
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile
                 }
                 else {
-                    if ($OutFile) {
-                        Write-Verbose "Saving output in file $OutFile"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -OutFile $OutFile
-                    }
-                    elseif ($InFile) {
-                        Write-Verbose "InFile:`n$InFile"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -InFile $InFile
-                    }
-                    else {
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers
-                    }
-                }
-                if ($SkipCertificateCheck.isPresent) {
-                    [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
+                    Write-Verbose "Body:`n$Body"
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body))
                 }
             }
             else {
-                if ($Body) {
-                    if ($OutFile) {
-                        Write-Verbose "Body:`n$Body"
-                        Write-Verbose "Saving output in file $OutFile"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                    }
-                    else {
-                        Write-Verbose "Body:`n$Body"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                    }
+                if ($OutFile) {
+                    Write-Verbose "Saving output in file $OutFile"
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -OutFile $OutFile
+                }
+                elseif ($InFile) {
+                    Write-Verbose "InFile:`n$InFile"
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -InFile $InFile
                 }
                 else {
-                    if ($OutFile) {
-                        Write-Verbose "Saving output in file $OutFile"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                    }
-                    elseif ($InFile) {
-                        Write-Verbose "InFile:`n$InFile"
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -InFile $InFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                    }
-                    else {
-                        $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                    }
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers
                 }
             }
-        #}
-        #catch {
-        #    $ResponseBody = ParseErrorForResponseBody $_
-        #    Write-Error "$Method to $Uri failed with Exception $($_.Exception.Message) `n $ResponseBody"
-        #}
+            if ($SkipCertificateCheck.isPresent) {
+                [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
+            }
+        }
+        else {
+            if ($Body) {
+                if ($OutFile) {
+                    Write-Verbose "Body:`n$Body"
+                    Write-Verbose "Saving output in file $OutFile"
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                }
+                else {
+                    Write-Verbose "Body:`n$Body"
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                }
+            }
+            else {
+                if ($OutFile) {
+                    Write-Verbose "Saving output in file $OutFile"
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                }
+                elseif ($InFile) {
+                    Write-Verbose "InFile:`n$InFile"
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -InFile $InFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                }
+                else {
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                }
+            }
+        }
 
         Write-Output $Result
     }
