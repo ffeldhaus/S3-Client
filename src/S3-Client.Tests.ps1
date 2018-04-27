@@ -2,6 +2,8 @@ Import-Module "$PSScriptRoot\S3-Client" -Force
 
 Write-Host "Running S3 Client tests"
 
+$SLEEP_SECONDS_AFTER_BUCKET_DELETION = 60
+
 $Bucket = Get-Date -Format "yyyy-MM-dd-HHmmss"
 $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Bucket"
 $Key = "Key"
@@ -15,12 +17,33 @@ function Cleanup() {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $Bucket -Force
     }
     catch {}
+    # wait until bucket is really deleted
+    foreach ($i in 1..$SLEEP_SECONDS_AFTER_BUCKET_DELETION) {
+        try {
+            Write-Host "test"
+            Test-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
+            sleep 1
+        }
+        catch {
+            break
+        }
+    }
+
     try {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket -Force
     }
     catch {}
-    # AWS requires some time after buckets have been deleted before they can be recreated
-    sleep 10
+    # wait until bucket is really deleted
+    foreach ($i in 1..$SLEEP_SECONDS_AFTER_BUCKET_DELETION) {
+        try {
+            Write-Host "test"
+            Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
+            sleep 1
+        }
+        catch {
+            break
+        }
+    }
 }
 
 foreach ($ProfileName in $Profiles.ProfileName) {

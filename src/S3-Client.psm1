@@ -1236,7 +1236,7 @@ function Global:Get-AwsConfig {
             }
         }
 
-        if (!$Region) {
+        if (!$Region -and $Config.region) {
             $Region = $Config.Region
         }
         elseif (!$Region -and !$Config.region) {
@@ -2172,11 +2172,16 @@ function Global:New-S3Bucket {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
         $Method = "PUT"
     }
  
     Process {
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+
+        if (!$Config) {
+            Throw "No S3 credentials found"
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
