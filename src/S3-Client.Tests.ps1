@@ -20,7 +20,6 @@ function Cleanup() {
     # wait until bucket is really deleted
     foreach ($i in 1..$SLEEP_SECONDS_AFTER_BUCKET_DELETION) {
         try {
-            Write-Host "test"
             Test-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
             sleep 1
         }
@@ -36,7 +35,6 @@ function Cleanup() {
     # wait until bucket is really deleted
     foreach ($i in 1..$SLEEP_SECONDS_AFTER_BUCKET_DELETION) {
         try {
-            Write-Host "test"
             Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
             sleep 1
         }

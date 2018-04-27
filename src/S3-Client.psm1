@@ -937,9 +937,6 @@ function Global:Invoke-AwsRequest {
                         $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -InFile $InFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                     }
                     else {
-                        Write-Verbose "Headers: $(ConvertTo-Json $Headers)"
-                        Write-Verbose "Uri:$Uri"
-                        Write-Verbose "Method: $Method"
                         $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                     }
                 }
@@ -1285,11 +1282,10 @@ function Global:Remove-AwsConfig {
     }
 }
 
+Set-Alias -Name Add-AwsPolicyStatement -Value New-AwsPolicy
 Set-Alias -Name New-IamPolicy -Value New-AwsPolicy
-Set-Alias -Name Update-IamPolicy -Value New-AwsPolicy
 Set-Alias -Name Add-IamPolicyStatement -Value New-AwsPolicy
 Set-Alias -Name New-S3BucketPolicy -Value New-AwsPolicy
-Set-Alias -Name Update-S3BucketPolicy -Value New-AwsPolicy
 Set-Alias -Name Add-S3BucketPolicyStatement -Value New-AwsPolicy
 <#
     .SYNOPSIS
@@ -1298,7 +1294,7 @@ Set-Alias -Name Add-S3BucketPolicyStatement -Value New-AwsPolicy
     Create new S3 Bucket Policy
 #>
 function Global:New-AwsPolicy {
-    [CmdletBinding(DefaultParameterSetName = "ResourceAction")]
+    [CmdletBinding(DefaultParameterSetName = "PrincipalResourceAction")]
 
     PARAM (
         [parameter(
@@ -1306,7 +1302,7 @@ function Global:New-AwsPolicy {
                 Position = 0,
                 ValueFromPipeline = $True,
                 ValueFromPipelineByPropertyName = $True,
-                HelpMessage = "S3 Bucket Policy to add statements to")][Alias("BucketPolicy","IamPolicy")][PSCustomObject]$Policy,
+                HelpMessage = "S3 Bucket Policy to add statements to")][Alias("BucketPolicy","IamPolicy","AwsPolicy","Policy")][String]$PolicyString,
         [parameter(
                 Mandatory = $False,
                 Position = 1,
@@ -1354,7 +1350,7 @@ function Global:New-AwsPolicy {
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "NotPrincipalNotResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]$NotPrincipal = "*",
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]$NotPrincipal,
         [parameter(
                 Mandatory = $False,
                 Position = 4,
@@ -1374,7 +1370,7 @@ function Global:New-AwsPolicy {
                 Mandatory = $False,
                 Position = 4,
                 ParameterSetName = "NotPrincipalResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]$Resource = "urn:sgws:s3:::*",
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]$Resource = "arn:aws:s3:::*",
         [parameter(
                 Mandatory = $False,
                 Position = 4,
@@ -1444,8 +1440,22 @@ function Global:New-AwsPolicy {
     Process {
         # see https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html for details on Policies
 
-        if (!$Policy) {
+        if ($Resource -match "arn:aws" -or $NotResource  -match "arn:aws") {
+            Write-Warning "Resource starts with arn:aws:"
+            Write-Warning "If the policy is created for an S3 service different than AWS (e.g. StorageGRID),the Resource may need to be specified as:"
+            if ($Resource) {
+                Write-Warning ($Resource.ToString() -replace "arn:aws:","urn:sgws:")
+            }
+            else {
+                Write-Warning ($NotResource.ToString() -replace "arn:aws:","urn:sgws:")
+            }
+        }
+
+        if (!$PolicyString) {
             $Policy = [PSCustomObject]@{ Version = "2012-10-17"; Statement = @() }
+        }
+        else {
+            $Policy = ConvertFrom-Json -InputObject $PolicyString
         }
 
         $Statement = [PSCustomObject]@{ Effect = $Effect }
@@ -1477,7 +1487,10 @@ function Global:New-AwsPolicy {
 
         $Policy.Statement += $Statement
 
-        Write-Output $Policy
+        # convert to JSON
+        $PolicyString = ConvertTo-Json -InputObject $Policy -Depth 10
+
+        Write-Output $PolicyString
     }
 }
 
@@ -2423,15 +2436,125 @@ function Global:Get-S3BucketPolicy {
         else {
             $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
-            # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-            if (!$Result.Headers.'Content-Type') {
-                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.Content)
-            }
-            else {
-                $Content = [XML]$Result.Content
-            }
+            Write-Output $Result.Content
+        }
+    }
+}
 
-            Write-Output $Content
+Set-Alias -Name Add-S3BucketPolicy -Value Replace-S3BucketPolicy
+Set-Alias -Name Write-S3BucketPolicy -Value Replace-S3BucketPolicy
+<#
+    .SYNOPSIS
+    Replace S3 Bucket ACL
+    .DESCRIPTION
+    Replace S3 Bucket ACL
+#>
+function Global:Replace-S3BucketPolicy {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$False,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$True,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The bucket policy as a JSON document")][String]$Policy
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+        $Method = "PUT"
+    }
+
+    Process {
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        # Convert Bucket Name to IDN mapping to support Unicode Names
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+
+        $Query = @{policy=""}
+
+        # pretty print JSON to simplify debugging
+        $Policy = ConvertFrom-Json -InputObject $Policy | ConvertTo-Json -Depth 10
+
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region -RequestPayload $Policy
+
+        if ($DryRun.IsPresent) {
+            Write-Output $AwsRequest
+        }
+        else {
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Policy -ErrorAction Stop
+
+            Write-Output $Result.Content
         }
     }
 }
