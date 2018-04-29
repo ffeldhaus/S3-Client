@@ -52,13 +52,13 @@ foreach ($ProfileName in $Profiles.ProfileName) {
             It "Given -BucketName $Bucket it is succesfully created" {
                 New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $Bucket
-                $NewBucket.Name | Should -Be $Bucket
+                $NewBucket.BucketName | Should -Be $Bucket
             }
 
             It "Given -BucketName $UnicodeBucket it is succesfully created" {
                 New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucket
-                $NewBucket.Name | Should -Be $UnicodeBucket
+                $NewBucket.BucketName | Should -Be $UnicodeBucket
             }
         }
 
@@ -66,7 +66,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
             It "Given -BucketName $Bucket and -UrlStyle virtual-hosted it is succesfully created" {
                 New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket -UrlStyle virtual-hosted
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $Bucket
-                $NewBucket.Name | Should -Be $Bucket
+                $NewBucket.BucketName | Should -Be $Bucket
             }
         }
     }
@@ -96,7 +96,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
             It "Given existing -BucketName $Bucket it is succesfully removed" {
                 New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $Bucket
-                $NewBucket.Name | Should -Be $Bucket
+                $NewBucket.BucketName | Should -Be $Bucket
                 Remove-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $Bucket
                 $NewBucket | Should -BeNullOrEmpty
@@ -107,7 +107,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
             It "Given existing -BucketName $UnicodeBucket it is succesfully removed" {
                 New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucket
-                $NewBucket.Name | Should -Be $UnicodeBucket
+                $NewBucket.BucketName | Should -Be $UnicodeBucket
                 Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucket
                 $NewBucket | Should -BeNullOrEmpty

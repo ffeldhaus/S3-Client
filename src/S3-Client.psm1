@@ -811,7 +811,7 @@ function Global:Invoke-AwsRequest {
         [parameter(
                 Mandatory=$False,
                 Position=0,
-                HelpMessage="Skip SSL Certificate check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=1,
@@ -1509,7 +1509,7 @@ function Global:Get-S3Buckets {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -1525,7 +1525,7 @@ function Global:Get-S3Buckets {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -1592,7 +1592,7 @@ function Global:Get-S3Buckets {
                     foreach ($XmlBucket in $XmlBuckets) {
                         $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.endpoint_url -Bucket $XmlBucket.Name -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign:$Presign -SignerType $SignerType
                         $UnicodeName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
-                        $BucketNameObject = [PSCustomObject]@{ Name = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
+                        $BucketNameObject = [PSCustomObject]@{ BucketName = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
                         Write-Output $BucketNameObject
                     }
                 }
@@ -1624,7 +1624,7 @@ function Global:Test-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -1640,7 +1640,7 @@ function Global:Test-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -1676,7 +1676,7 @@ function Global:Test-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -1738,7 +1738,7 @@ function Global:Get-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -1754,7 +1754,7 @@ function Global:Get-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -1791,13 +1791,13 @@ function Global:Get-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=11,
@@ -1936,7 +1936,7 @@ function Global:Get-S3BucketVersions {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -1952,7 +1952,7 @@ function Global:Get-S3BucketVersions {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -1988,12 +1988,12 @@ function Global:Get-S3BucketVersions {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -2082,7 +2082,44 @@ function Global:Get-S3BucketVersions {
     .SYNOPSIS
     Create S3 Bucket
     .DESCRIPTION
-    Create S3 Bucket
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    Path Style
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER CannedAclName
+    Canned ACL
+    .PARAMETER PublicReadOnly
+    If set, applies an ACL making the bucket public with read-only permissions
+    .PARAMETER PublicReadWrite
+    If set, applies an ACL making the bucket public with read-write permissions
+    .PARAMETER Region
+    Region to create bucket in
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Force
+    Parameter is only used for compatibility with AWS Cmdlets and will be ignored
 #>
 function Global:New-S3Bucket {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -2095,7 +2132,7 @@ function Global:New-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -2111,7 +2148,7 @@ function Global:New-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2142,12 +2179,12 @@ function Global:New-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=9,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -2231,7 +2268,7 @@ function Global:Remove-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -2247,7 +2284,7 @@ function Global:Remove-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2283,12 +2320,12 @@ function Global:Remove-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=11,
@@ -2344,7 +2381,7 @@ function Global:Get-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -2360,7 +2397,7 @@ function Global:Get-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2396,7 +2433,7 @@ function Global:Get-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2454,7 +2491,7 @@ function Global:Replace-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -2470,7 +2507,7 @@ function Global:Replace-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2506,12 +2543,12 @@ function Global:Replace-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -2570,7 +2607,7 @@ function Global:Get-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -2586,7 +2623,7 @@ function Global:Get-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2622,7 +2659,7 @@ function Global:Get-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2686,7 +2723,7 @@ function Global:Enable-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -2702,7 +2739,7 @@ function Global:Enable-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2738,7 +2775,7 @@ function Global:Enable-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2800,7 +2837,7 @@ function Global:Suspend-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -2816,7 +2853,7 @@ function Global:Suspend-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2852,7 +2889,7 @@ function Global:Suspend-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2919,7 +2956,7 @@ function Global:Get-S3BucketLocation {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -2935,7 +2972,7 @@ function Global:Get-S3BucketLocation {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2966,7 +3003,7 @@ function Global:Get-S3BucketLocation {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=9,
@@ -3040,7 +3077,7 @@ function Global:Get-S3PresignedUrl {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -3052,7 +3089,7 @@ function Global:Get-S3PresignedUrl {
         [parameter(
                 Mandatory=$False,
                 Position=4,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3088,12 +3125,12 @@ function Global:Get-S3PresignedUrl {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=9,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3178,7 +3215,7 @@ function Global:Get-S3ObjectMetadata {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -3194,7 +3231,7 @@ function Global:Get-S3ObjectMetadata {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3230,12 +3267,12 @@ function Global:Get-S3ObjectMetadata {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -3343,7 +3380,7 @@ function Global:Read-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -3359,7 +3396,7 @@ function Global:Read-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3395,12 +3432,12 @@ function Global:Read-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -3487,7 +3524,7 @@ function Global:Write-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -3503,7 +3540,7 @@ function Global:Write-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="ProfileAndFile",
                 Mandatory=$False,
@@ -3559,12 +3596,12 @@ function Global:Write-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
                 Position=11,
@@ -3728,7 +3765,7 @@ function Global:Remove-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -3744,7 +3781,7 @@ function Global:Remove-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3780,12 +3817,12 @@ function Global:Remove-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -3852,7 +3889,7 @@ function Global:Copy-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -3868,7 +3905,7 @@ function Global:Copy-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3904,12 +3941,12 @@ function Global:Copy-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -4059,7 +4096,7 @@ function Global:Get-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -4075,7 +4112,7 @@ function Global:Get-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4111,7 +4148,7 @@ function Global:Get-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4172,7 +4209,7 @@ function Global:Update-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -4188,7 +4225,7 @@ function Global:Update-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4224,12 +4261,12 @@ function Global:Update-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$True,
                 Position=11,
@@ -4283,7 +4320,7 @@ function Global:Get-S3StorageUsage {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -4299,7 +4336,7 @@ function Global:Get-S3StorageUsage {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4375,7 +4412,7 @@ function Global:Get-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -4391,7 +4428,7 @@ function Global:Get-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4427,7 +4464,7 @@ function Global:Get-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4488,7 +4525,7 @@ function Global:Enable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -4504,7 +4541,7 @@ function Global:Enable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4540,7 +4577,7 @@ function Global:Enable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4595,7 +4632,7 @@ function Global:Disable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip SSL Certificate Check")][Switch]$SkipCertificateCheck,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -4611,7 +4648,7 @@ function Global:Disable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="EndpointUrl")][System.UriBuilder]$EndpointUrl,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4647,7 +4684,7 @@ function Global:Disable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Path Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$True,
                 Position=10,
