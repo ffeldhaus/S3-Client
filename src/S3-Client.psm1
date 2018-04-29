@@ -1705,6 +1705,7 @@ function Global:Test-S3Bucket {
             else {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    Write-Output $true
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -1713,366 +1714,9 @@ function Global:Test-S3Bucket {
                         Test-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
                     }
                     else {
-                        Throw $_
+                        Write-Output $false
                     }
                 }
-            }
-        }
-    }
-}
-
-<#
-    .SYNOPSIS
-    Get S3 Objects in Bucket
-    .DESCRIPTION
-    Get S3 Objects in Bucket
-#>
-function Global:Get-S3Bucket {
-    [CmdletBinding(DefaultParameterSetName="account")]
-
-    PARAM (
-        [parameter(
-                Mandatory=$False,
-                Position=0,
-                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
-        [parameter(
-                Mandatory=$False,
-                Position=1,
-                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-                Mandatory=$False,
-                Position=2,
-                HelpMessage="Use presigned URL")][Switch]$Presign,
-        [parameter(
-                Mandatory=$False,
-                Position=3,
-                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-                Mandatory=$False,
-                Position=4,
-                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
-        [parameter(
-                Mandatory=$False,
-                Position=5,
-                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-                ParameterSetName="profile",
-                Mandatory=$False,
-                Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
-        [parameter(
-                ParameterSetName="profile",
-                Mandatory=$False,
-                Position=7,
-                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
-        [parameter(
-                ParameterSetName="keys",
-                Mandatory=$False,
-                Position=6,
-                HelpMessage="S3 Access Key")][String]$AccessKey,
-        [parameter(
-                ParameterSetName="keys",
-                Mandatory=$False,
-                Position=7,
-                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
-        [parameter(
-                ParameterSetName="account",
-                Mandatory=$False,
-                Position=6,
-                ValueFromPipeline=$True,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
-        [parameter(
-                Mandatory=$False,
-                Position=8,
-                ValueFromPipeline=$True,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Region to be used")][String]$Region,
-        [parameter(
-                Mandatory=$False,
-                Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
-        [parameter(
-                Mandatory=$True,
-                Position=10,
-                ValueFromPipeline=$True,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
-        [parameter(
-                Mandatory=$False,
-                Position=11,
-                HelpMessage="Maximum Number of keys to return")][Int][ValidateRange(0,1000)]$MaxKeys=0,
-        [parameter(
-                Mandatory=$False,
-                Position=12,
-                HelpMessage="Bucket prefix for filtering")][Alias("Key")][String]$Prefix,
-        [parameter(
-                Mandatory=$False,
-                Position=13,
-                HelpMessage="Bucket prefix for filtering")][String]$Delimiter,
-        [parameter(
-                Mandatory=$False,
-                Position=14,
-                HelpMessage="Return Owner information (Only valid for list type 2).")][Switch]$FetchOwner=$False,
-        [parameter(
-                Mandatory=$False,
-                Position=15,
-                HelpMessage="Return key names after a specific object key in your key space. The S3 service lists objects in UTF-8 character encoding in lexicographical order (Only valid for list type 2).")][String]$StartAfter,
-        [parameter(
-                Mandatory=$False,
-                Position=16,
-                HelpMessage="Continuation token (Only valid for list type 1).")][String]$Marker,
-        [parameter(
-                Mandatory=$False,
-                Position=17,
-                HelpMessage="Continuation token (Only valid for list type 2).")][String]$ContinuationToken,
-        [parameter(
-                Mandatory=$False,
-                Position=18,
-                HelpMessage="Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType="url",
-        [parameter(
-                Mandatory=$False,
-                Position=19,
-                HelpMessage="Bucket list type.")][String][ValidateSet(1,2)]$ListType=1
-    )
-
-    Begin {
-        if (!$Server) {
-            $Server = $Global:CurrentSgwServer
-        }
-        $Method = "GET"
-    }
-
-    Process {
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
-
-        if (!$Config) {
-            Throw "No S3 credentials found"
-        }
-
-        if (!$Region) {
-            $Region = $Config.Region
-        }
-
-        $Query = @{}
-
-        if ($Delimiter) { $Query["delimiter"] = $Delimiter }
-        if ($EncodingType) { $Query["encoding-type"] = $EncodingType }
-        if ($MaxKeys -ge 1) {
-            $Query["max-keys"] = $MaxKeys
-        }
-        if ($Prefix) { $Query["prefix"] = $Prefix }
-
-        # S3 supports two types for listing buckets, but only v2 is recommended, thus using list-type=2 query parameter
-        if ($ListType -eq 1) {
-            if ($Marker) { $Query["marker"] = $Marker }
-        }
-        else {
-            $Query["list-type"] = 2
-            if ($FetchOwner) { $Query["fetch-owner"] = $FetchOwner }
-            if ($StartAfter) { $Query["start-after"] = $StartAfter }
-            if ($ContinuationToken) { $Query["continuation-token"] = $ContinuationToken }
-        }
-
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
-
-        if ($DryRun) {
-            Write-Output $AwsRequest
-        }
-        else {
-            try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
-
-                $Content = [XML][System.Net.WebUtility]::UrlDecode($Result.Content)
-
-                $Objects = $Content.ListBucketResult.Contents | ? { $_ }
-
-                Write-Verbose "ListBucketResult Name: $($Content.ListBucketResult.Name)"
-
-                $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode($Content.ListBucketResult.Name)
-
-                foreach ($Object in $Objects) {
-                    $Object = [PSCustomObject]@{Bucket=$UnicodeBucket;Region=$Region;Key=$Object.Key;LastModified=(Get-Date $Object.LastModified);ETag=($Object.ETag -replace '"','');Size=[long]$Object.Size;OwnerId=$Object.Owner.ID;OwnerDisplayName=$Object.Owner.DisplayName;StorageClass=$Object.StorageClass}
-                    Write-Output $Object
-                }
-
-                if ($Content.ListBucketResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
-                    Write-Verbose "1000 Objects were returned and max keys was not limited so continuing to get all objects"
-                    Write-Debug "NextMarker: $($Content.ListBucketResult.NextMarker)"
-                    Get-S3Bucket -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -FetchOwner:$FetchOwner -StartAfter $StartAfter -ContinuationToken $Content.ListBucketResult.NextContinuationToken -Marker $Content.ListBucketResult.NextMarker
-                }
-            }
-            catch {
-                $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
-                if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
-                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Get-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -Delimiter $Delimiter -FetchOwner:$FetchOwner -StartAfter $StartAfter -Marker $Marker -ContinuationToken $ContinuationToken -EncodingType $EncodingType
-                }
-                else {
-                    Throw $_
-                }
-            }
-        }
-    }
-}
-
-Set-Alias -Name Get-S3ObjectVersions -Value Get-S3BucketVersions
-<#
-    .SYNOPSIS
-    Get S3 Object Versions
-    .DESCRIPTION
-    Get S3 Object Versions
-#>
-function Global:Get-S3BucketVersions {
-    [CmdletBinding(DefaultParameterSetName="none")]
-
-    PARAM (
-        [parameter(
-                Mandatory=$False,
-                Position=0,
-                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
-        [parameter(
-                Mandatory=$False,
-                Position=1,
-                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-                Mandatory=$False,
-                Position=2,
-                HelpMessage="Use presigned URL")][Switch]$Presign,
-        [parameter(
-                Mandatory=$False,
-                Position=3,
-                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-                Mandatory=$False,
-                Position=4,
-                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
-        [parameter(
-                Mandatory=$False,
-                Position=5,
-                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-                ParameterSetName="profile",
-                Mandatory=$False,
-                Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
-        [parameter(
-                ParameterSetName="profile",
-                Mandatory=$False,
-                Position=7,
-                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
-        [parameter(
-                ParameterSetName="keys",
-                Mandatory=$False,
-                Position=6,
-                HelpMessage="S3 Access Key")][String]$AccessKey,
-        [parameter(
-                ParameterSetName="keys",
-                Mandatory=$False,
-                Position=7,
-                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
-        [parameter(
-                ParameterSetName="account",
-                Mandatory=$False,
-                Position=6,
-                ValueFromPipeline=$True,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
-        [parameter(
-                Mandatory=$False,
-                Position=8,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Region to be used")][String]$Region,
-        [parameter(
-                Mandatory=$False,
-                Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
-        [parameter(
-                Mandatory=$True,
-                Position=10,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
-        [parameter(
-                Mandatory=$False,
-                Position=10,
-                HelpMessage="Maximum Number of keys to return")][Int][ValidateRange(0,1000)]$MaxKeys=0,
-        [parameter(
-                Mandatory=$False,
-                Position=11,
-                HelpMessage="Bucket prefix for filtering")][String]$Prefix,
-        [parameter(
-                Mandatory=$False,
-                Position=12,
-                HelpMessage="Bucket prefix for filtering")][String][ValidateLength(1,1)]$Delimiter,
-        [parameter(
-                Mandatory=$False,
-                Position=13,
-                HelpMessage="Continuation token for keys.")][String]$KeyMarker,
-        [parameter(
-                Mandatory=$False,
-                Position=14,
-                HelpMessage="Continuation token for versions.")][String]$VersionIdMarker,
-        [parameter(
-                Mandatory=$False,
-                Position=15,
-                HelpMessage="Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType
-    )
-
-    Begin {
-        if (!$Server) {
-            $Server = $Global:CurrentSgwServer
-        }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
-        $Method = "GET"
-    }
-
-    Process {
-        if (!$Region) {
-            $Region = $Config.Region
-        }
-
-        $Query = @{versions=""}
-
-        if ($Delimiter) { $Query["delimiter"] = $Delimiter }
-        if ($EncodingType) { $Query["encoding-type"] = $EncodingType }
-        if ($MaxKeys -ge 1) {
-            $Query["max-keys"] = $MaxKeys
-        }
-        if ($Prefix) { $Query["prefix"] = $Prefix }
-        if ($KeyMarker) { $Query["key-marker"] = $KeyMarker }
-        if ($VersionIdMarker) { $Query["version-id-marker"] = $VersionIdMarker }
-
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
-
-        if ($DryRun.IsPresent) {
-            Write-Output $AwsRequest
-        }
-        else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
-
-            $Content = [XML]$Result.Content
-
-            $Versions = $Content.ListVersionsResult.Version | ? { $_ }
-            $Versions | Add-Member -MemberType NoteProperty -Name Type -Value "Version"
-            $DeleteMarkers = $Content.ListVersionsResult.DeleteMarker | ? { $_ }
-            $DeleteMarkers | Add-Member -MemberType NoteProperty -Name Type -Value "DeleteMarker"
-            $Versions += $DeleteMarkers
-
-            foreach ($Version in $Versions) {
-                $Version | Add-Member -MemberType NoteProperty -Name OwnerId -Value $Version.Owner.Id
-                $Version | Add-Member -MemberType NoteProperty -Name OwnerDisplayName -Value $Version.Owner.DisplayName
-                $Version | Add-Member -MemberType NoteProperty -Name Region -Value $Region
-                $Version.PSObject.Members.Remove("Owner")
-            }
-            $Versions | Add-Member -MemberType NoteProperty -Name Bucket -Value $Content.ListVersionsResult.Name
-
-            Write-Output $Versions
-
-            if ($Content.ListVersionsResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
-                Write-Verbose "1000 Versions were returned and max keys was not limited so continuing to get all Versions"
-                Get-S3BucketVersions -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -KeyMarker $Content.ListVersionsResult.NextKeyMarker -VersionIdMarker $Content.ListVersionsResult.NextVersionIdMarker
             }
         }
     }
@@ -2329,7 +1973,15 @@ function Global:Remove-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=11,
-                HelpMessage="Force deletion even if bucket is not empty.")][Switch]$Force
+                HelpMessage="Force deletion even if bucket is not empty.")][Switch]$Force,
+        [parameter(
+                Mandatory=$False,
+                Position=12,
+                HelpMessage="If set, all remaining objects and/or object versions in the bucket are deleted proir to the bucket itself  being deleted.")][Switch]$DeleteBucketContent,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint
     )
 
     Begin {
@@ -2348,12 +2000,12 @@ function Global:Remove-S3Bucket {
         # Convert Bucket Name to IDN mapping to support Unicode Names
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
-        if ($Force) {
+        if ($Force -or $DeleteBucketContent) {
             Write-Verbose "Force parameter specified, removing all objects in the bucket before removing the bucket"
-            Get-S3Bucket  -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region | Remove-S3Object -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle
+            Get-S3Bucket  -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint | Remove-S3Object -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3060,6 +2712,365 @@ function Global:Get-S3BucketLocation {
 
 ## Objects ##
 
+Set-Alias -Name Get-S3Object -Value Get-S3Objects
+<#
+    .SYNOPSIS
+    Get S3 Objects in Bucket
+    .DESCRIPTION
+    Get S3 Objects in Bucket
+#>
+function Global:Get-S3Objects {
+    [CmdletBinding(DefaultParameterSetName="account")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$False,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                HelpMessage="Maximum Number of keys to return")][Int][ValidateRange(0,1000)]$MaxKeys=0,
+        [parameter(
+                Mandatory=$False,
+                Position=12,
+                HelpMessage="Bucket prefix for filtering")][Alias("Key")][String]$Prefix,
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                HelpMessage="Bucket prefix for filtering")][String]$Delimiter,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                HelpMessage="Return Owner information (Only valid for list type 2).")][Switch]$FetchOwner=$False,
+        [parameter(
+                Mandatory=$False,
+                Position=15,
+                HelpMessage="Return key names after a specific object key in your key space. The S3 service lists objects in UTF-8 character encoding in lexicographical order (Only valid for list type 2).")][String]$StartAfter,
+        [parameter(
+                Mandatory=$False,
+                Position=16,
+                HelpMessage="Continuation token (Only valid for list type 1).")][String]$Marker,
+        [parameter(
+                Mandatory=$False,
+                Position=17,
+                HelpMessage="Continuation token (Only valid for list type 2).")][String]$ContinuationToken,
+        [parameter(
+                Mandatory=$False,
+                Position=18,
+                HelpMessage="Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType="url",
+        [parameter(
+                Mandatory=$False,
+                Position=19,
+                HelpMessage="Bucket list type.")][String][ValidateSet(1,2)]$ListType=1
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Method = "GET"
+    }
+
+    Process {
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+
+        if (!$Config) {
+            Throw "No S3 credentials found"
+        }
+
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $Query = @{}
+
+        if ($Delimiter) { $Query["delimiter"] = $Delimiter }
+        if ($EncodingType) { $Query["encoding-type"] = $EncodingType }
+        if ($MaxKeys -ge 1) {
+            $Query["max-keys"] = $MaxKeys
+        }
+        if ($Prefix) { $Query["prefix"] = $Prefix }
+
+        # S3 supports two types for listing buckets, but only v2 is recommended, thus using list-type=2 query parameter
+        if ($ListType -eq 1) {
+            if ($Marker) { $Query["marker"] = $Marker }
+        }
+        else {
+            $Query["list-type"] = 2
+            if ($FetchOwner) { $Query["fetch-owner"] = $FetchOwner }
+            if ($StartAfter) { $Query["start-after"] = $StartAfter }
+            if ($ContinuationToken) { $Query["continuation-token"] = $ContinuationToken }
+        }
+
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+
+        if ($DryRun) {
+            Write-Output $AwsRequest
+        }
+        else {
+            try {
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+
+                $Content = [XML][System.Net.WebUtility]::UrlDecode($Result.Content)
+
+                $Objects = $Content.ListBucketResult.Contents | ? { $_ }
+
+                Write-Verbose "ListBucketResult Name: $($Content.ListBucketResult.Name)"
+
+                $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode($Content.ListBucketResult.Name)
+
+                foreach ($Object in $Objects) {
+                    $Object = [PSCustomObject]@{Bucket=$UnicodeBucket;Region=$Region;Key=$Object.Key;LastModified=(Get-Date $Object.LastModified);ETag=($Object.ETag -replace '"','');Size=[long]$Object.Size;OwnerId=$Object.Owner.ID;OwnerDisplayName=$Object.Owner.DisplayName;StorageClass=$Object.StorageClass}
+                    Write-Output $Object
+                }
+
+                if ($Content.ListBucketResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
+                    Write-Verbose "1000 Objects were returned and max keys was not limited so continuing to get all objects"
+                    Write-Debug "NextMarker: $($Content.ListBucketResult.NextMarker)"
+                    Get-S3Bucket -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -FetchOwner:$FetchOwner -StartAfter $StartAfter -ContinuationToken $Content.ListBucketResult.NextContinuationToken -Marker $Content.ListBucketResult.NextMarker
+                }
+            }
+            catch {
+                $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                    Get-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -Delimiter $Delimiter -FetchOwner:$FetchOwner -StartAfter $StartAfter -Marker $Marker -ContinuationToken $ContinuationToken -EncodingType $EncodingType
+                }
+                else {
+                    Throw $_
+                }
+            }
+        }
+    }
+}
+
+Set-Alias -Name Get-S3Version -Value Get-S3ObjectVersions
+Set-Alias -Name Get-S3Versions -Value Get-S3ObjectVersions
+<#
+    .SYNOPSIS
+    Get S3 Object Versions
+    .DESCRIPTION
+    Get S3 Object Versions
+#>
+function Global:Get-S3ObjectVersions {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$False,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=10,
+                HelpMessage="Maximum Number of keys to return")][Int][ValidateRange(0,1000)]$MaxKeys=0,
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                HelpMessage="Bucket prefix for filtering")][String]$Prefix,
+        [parameter(
+                Mandatory=$False,
+                Position=12,
+                HelpMessage="Bucket prefix for filtering")][String][ValidateLength(1,1)]$Delimiter,
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                HelpMessage="Continuation token for keys.")][String]$KeyMarker,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                HelpMessage="Continuation token for versions.")][String]$VersionIdMarker,
+        [parameter(
+                Mandatory=$False,
+                Position=15,
+                HelpMessage="Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+        $Method = "GET"
+    }
+
+    Process {
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $Query = @{versions=""}
+
+        if ($Delimiter) { $Query["delimiter"] = $Delimiter }
+        if ($EncodingType) { $Query["encoding-type"] = $EncodingType }
+        if ($MaxKeys -ge 1) {
+            $Query["max-keys"] = $MaxKeys
+        }
+        if ($Prefix) { $Query["prefix"] = $Prefix }
+        if ($KeyMarker) { $Query["key-marker"] = $KeyMarker }
+        if ($VersionIdMarker) { $Query["version-id-marker"] = $VersionIdMarker }
+
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
+
+        if ($DryRun.IsPresent) {
+            Write-Output $AwsRequest
+        }
+        else {
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+
+            $Content = [XML]$Result.Content
+
+            $Versions = $Content.ListVersionsResult.Version | ? { $_ }
+            $Versions | Add-Member -MemberType NoteProperty -Name Type -Value "Version"
+            $DeleteMarkers = $Content.ListVersionsResult.DeleteMarker | ? { $_ }
+            $DeleteMarkers | Add-Member -MemberType NoteProperty -Name Type -Value "DeleteMarker"
+            $Versions += $DeleteMarkers
+
+            foreach ($Version in $Versions) {
+                $Version | Add-Member -MemberType NoteProperty -Name OwnerId -Value $Version.Owner.Id
+                $Version | Add-Member -MemberType NoteProperty -Name OwnerDisplayName -Value $Version.Owner.DisplayName
+                $Version | Add-Member -MemberType NoteProperty -Name Region -Value $Region
+                $Version.PSObject.Members.Remove("Owner")
+            }
+            $Versions | Add-Member -MemberType NoteProperty -Name Bucket -Value $Content.ListVersionsResult.Name
+
+            Write-Output $Versions
+
+            if ($Content.ListVersionsResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
+                Write-Verbose "1000 Versions were returned and max keys was not limited so continuing to get all Versions"
+                Get-S3BucketVersions -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -KeyMarker $Content.ListVersionsResult.NextKeyMarker -VersionIdMarker $Content.ListVersionsResult.NextVersionIdMarker
+            }
+        }
+    }
+}
+
 <#
     .SYNOPSIS
     Get S3 Presigned URL
@@ -3195,9 +3206,6 @@ function Global:Get-S3PresignedUrl {
     }
 }
 
-Set-Alias -Name Get-S3Objects -Value Get-S3Bucket
-
-Set-Alias -Name Get-S3Object -Value Get-S3Object
 <#
     .SYNOPSIS
     Get S3 Object
