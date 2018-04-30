@@ -155,7 +155,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
             It "Given -SourceBucket $BucketName and -SourceKey $Key and -BucketName $BucketName and -Key $Key it is copied to itself" {
                 $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select -ExpandProperty CustomMetadata
                 Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $CustomMetadata
-                Get-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+                Get-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
             }
         }
 

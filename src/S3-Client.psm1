@@ -2691,8 +2691,12 @@ function Global:Get-S3BucketLocation {
                 Position=8,
                 HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=9,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+        [parameter(
+                Mandatory=$True,
+                Position=10,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
