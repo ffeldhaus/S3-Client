@@ -42,11 +42,16 @@ foreach ($ProfileName in $Profiles.ProfileName) {
             Cleanup
         }
 
+        BeforeEach {
+            Setup
+        }
+
         Context "Retrieve buckets with default parameters" {
             It "Retrieving buckets returns a list of all buckets" {
                 $BucketNames = Get-S3Buckets -ProfileName $ProfileName
                 $BucketNameCount = $BucketNames.Count
                 New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+                sleep 5
                 $BucketNames = Get-S3Buckets -ProfileName $ProfileName
                 $BucketNames.Count | Should -Be ($BucketNameCount + 1)
             }

@@ -1738,7 +1738,6 @@ function Global:Test-S3Bucket {
             }
             else {
                 try {
-                    Write-Host $BucketName
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                     Write-Output $true
                 }
