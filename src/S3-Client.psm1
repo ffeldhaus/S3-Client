@@ -1738,6 +1738,7 @@ function Global:Test-S3Bucket {
             }
             else {
                 try {
+                    Write-Host $BucketName
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                     Write-Output $true
                 }
@@ -2000,22 +2001,22 @@ function Global:Remove-S3Bucket {
                 Position=9,
                 HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=10,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+        [parameter(
+                Mandatory=$True,
+                Position=11,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
-                Position=11,
+                Position=12,
                 HelpMessage="Force deletion even if bucket is not empty.")][Switch]$Force,
         [parameter(
                 Mandatory=$False,
-                Position=12,
-                HelpMessage="If set, all remaining objects and/or object versions in the bucket are deleted proir to the bucket itself  being deleted.")][Switch]$DeleteBucketContent,
-        [parameter(
-                Mandatory=$False,
-                Position=14,
-                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint
+                Position=13,
+                HelpMessage="If set, all remaining objects and/or object versions in the bucket are deleted proir to the bucket itself  being deleted.")][Switch]$DeleteBucketContent
     )
 
     Begin {
@@ -2036,7 +2037,7 @@ function Global:Remove-S3Bucket {
 
         if ($Force -or $DeleteBucketContent) {
             Write-Verbose "Force parameter specified, removing all objects in the bucket before removing the bucket"
-            Get-S3Bucket  -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint | Remove-S3Object -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint
+            Get-S3Objects -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint | Remove-S3Object -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint
         }
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
@@ -2823,46 +2824,50 @@ function Global:Get-S3Objects {
                 Position=9,
                 HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=10,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+        [parameter(
+                Mandatory=$True,
+                Position=11,
                 ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
-                Position=11,
+                Position=12,
                 HelpMessage="Maximum Number of keys to return")][Int][ValidateRange(0,1000)]$MaxKeys=0,
         [parameter(
                 Mandatory=$False,
-                Position=12,
+                Position=13,
                 HelpMessage="Bucket prefix for filtering")][Alias("Key")][String]$Prefix,
         [parameter(
                 Mandatory=$False,
-                Position=13,
+                Position=14,
                 HelpMessage="Bucket prefix for filtering")][String]$Delimiter,
         [parameter(
                 Mandatory=$False,
-                Position=14,
+                Position=15,
                 HelpMessage="Return Owner information (Only valid for list type 2).")][Switch]$FetchOwner=$False,
         [parameter(
                 Mandatory=$False,
-                Position=15,
+                Position=16,
                 HelpMessage="Return key names after a specific object key in your key space. The S3 service lists objects in UTF-8 character encoding in lexicographical order (Only valid for list type 2).")][String]$StartAfter,
         [parameter(
                 Mandatory=$False,
-                Position=16,
+                Position=17,
                 HelpMessage="Continuation token (Only valid for list type 1).")][String]$Marker,
         [parameter(
                 Mandatory=$False,
-                Position=17,
+                Position=18,
                 HelpMessage="Continuation token (Only valid for list type 2).")][String]$ContinuationToken,
         [parameter(
                 Mandatory=$False,
-                Position=18,
+                Position=19,
                 HelpMessage="Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType="url",
         [parameter(
                 Mandatory=$False,
-                Position=19,
+                Position=20,
                 HelpMessage="Bucket list type.")][String][ValidateSet(1,2)]$ListType=1
     )
 
@@ -2906,7 +2911,7 @@ function Global:Get-S3Objects {
 
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun) {
             Write-Output $AwsRequest
@@ -2931,14 +2936,14 @@ function Global:Get-S3Objects {
                 if ($Content.ListBucketResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
                     Write-Verbose "1000 Objects were returned and max keys was not limited so continuing to get all objects"
                     Write-Debug "NextMarker: $($Content.ListBucketResult.NextMarker)"
-                    Get-S3Bucket -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -FetchOwner:$FetchOwner -StartAfter $StartAfter -ContinuationToken $Content.ListBucketResult.NextContinuationToken -Marker $Content.ListBucketResult.NextMarker
+                    Get-S3Objects -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -FetchOwner:$FetchOwner -StartAfter $StartAfter -ContinuationToken $Content.ListBucketResult.NextContinuationToken -Marker $Content.ListBucketResult.NextMarker
                 }
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                 if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                     Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Get-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -Delimiter $Delimiter -FetchOwner:$FetchOwner -StartAfter $StartAfter -Marker $Marker -ContinuationToken $ContinuationToken -EncodingType $EncodingType
+                    Get-S3Objects -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -Delimiter $Delimiter -FetchOwner:$FetchOwner -StartAfter $StartAfter -Marker $Marker -ContinuationToken $ContinuationToken -EncodingType $EncodingType
                 }
                 else {
                     Throw $_
@@ -3865,18 +3870,22 @@ function Global:Remove-S3Object {
                 Position=9,
                 HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=10,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
         [parameter(
                 Mandatory=$True,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$True,
+                Position=12,
+                ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Object key")][Alias("Object")][String]$Key,
         [parameter(
                 Mandatory=$False,
-                Position=12,
+                Position=13,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Object version ID")][String]$VersionId
     )
@@ -3907,7 +3916,7 @@ function Global:Remove-S3Object {
             $Query = @{}
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
