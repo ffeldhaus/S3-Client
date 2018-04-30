@@ -27,6 +27,7 @@ function Cleanup() {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName -Force
         # wait until bucket is really deleted
         foreach ($i in 1..12) {
+            sleep 5
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName)) {
                 break
             }
