@@ -2,8 +2,8 @@ Import-Module "$PSScriptRoot\S3-Client" -Force
 
 Write-Host "Running S3 Client tests"
 
-$Bucket = Get-Date -Format "yyyy-MM-dd-HHmmss"
-$UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Bucket"
+$BucketName = Get-Date -Format "yyyy-MM-dd-HHmmss"
+$UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BucketName"
 $Key = "Key"
 $UnicodeKey = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Key"
 $Content = "Hello World!"
@@ -12,65 +12,30 @@ $Profiles = Get-AwsProfiles | Where-Object { $_.ProfileName -match "AWS|webscale
 
 function Cleanup() {
     try {
-        Remove-S3Bucket -ProfileName $ProfileName -BucketName $Bucket -Force
+        Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Force
+        # wait until bucket is really deleted
+        foreach ($i in 1..12) {
+            sleep 5
+            if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName)) {
+                break
+            }
+        }
     }
     catch {}
-    # wait until bucket is really deleted
-    foreach ($i in 1..12) {
-        try {
-            sleep 5
-            Test-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
-        }
-        catch {
-            break
-        }
-    }
 
     try {
-        Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket -Force
+        Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName -Force
+        # wait until bucket is really deleted
+        foreach ($i in 1..12) {
+            if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName)) {
+                break
+            }
+        }
     }
     catch {}
-    # wait until bucket is really deleted
-    foreach ($i in 1..12) {
-        try {
-            sleep 5
-            Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
-        }
-        catch {
-            break
-        }
-    }
 }
 
 foreach ($ProfileName in $Profiles.ProfileName) {
-    Describe "Profile $ProfileName : New-S3Bucket" {
-        AfterEach {
-            Cleanup
-        }
-
-        Context "Create new bucket with default parameters" {
-            It "Given -BucketName $Bucket it is succesfully created" {
-                New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $Bucket
-                $NewBucket.BucketName | Should -Be $Bucket
-            }
-
-            It "Given -BucketName $UnicodeBucket it is succesfully created" {
-                New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucket
-                $NewBucket.BucketName | Should -Be $UnicodeBucket
-            }
-        }
-
-        Context "Create new bucket with parameter -UrlStyle virtual-hosted" {
-            It "Given -BucketName $Bucket and -UrlStyle virtual-hosted it is succesfully created" {
-                New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket -UrlStyle virtual-hosted
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $Bucket
-                $NewBucket.BucketName | Should -Be $Bucket
-            }
-        }
-    }
-
     Describe "Profile $ProfileName : Get-S3Buckets" {
         AfterEach {
             Cleanup
@@ -78,11 +43,52 @@ foreach ($ProfileName in $Profiles.ProfileName) {
 
         Context "Retrieve buckets with default parameters" {
             It "Retrieving buckets returns a list of all buckets" {
-                $Buckets = Get-S3Buckets -ProfileName $ProfileName
-                $BucketCount = $Buckets.Count
-                New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
-                $Buckets = Get-S3Buckets -ProfileName $ProfileName
-                $Buckets.Count | Should -Be ($BucketCount + 1)
+                $BucketNames = Get-S3Buckets -ProfileName $ProfileName
+                $BucketNameCount = $BucketNames.Count
+                New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+                $BucketNames = Get-S3Buckets -ProfileName $ProfileName
+                $BucketNames.Count | Should -Be ($BucketNameCount + 1)
+            }
+        }
+    }
+
+    Describe "Profile $ProfileName : Test-S3Bucket" {
+        AfterEach {
+            Cleanup
+        }
+
+        Context "Test bucket existance with default parameters" {
+            It "Given existing bucket -BucketName $BucketName `$true is returned" {
+                New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+                Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName | Should -BeTrue
+            }
+        }
+    }
+
+    Describe "Profile $ProfileName : New-S3Bucket" {
+        AfterEach {
+            Cleanup
+        }
+
+        Context "Create new bucket with default parameters" {
+            It "Given -BucketName $BucketName it is succesfully created" {
+                New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
+                $NewBucket.BucketName | Should -Be $BucketName
+            }
+
+            It "Given -BucketName $UnicodeBucketName it is succesfully created" {
+                New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $NewBucket.BucketName | Should -Be $UnicodeBucketName
+            }
+        }
+
+        Context "Create new bucket with parameter -UrlStyle virtual-hosted" {
+            It "Given -BucketName $BucketName and -UrlStyle virtual-hosted it is succesfully created" {
+                New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -UrlStyle virtual-hosted
+                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
+                $NewBucket.BucketName | Should -Be $BucketName
             }
         }
     }
@@ -93,47 +99,47 @@ foreach ($ProfileName in $Profiles.ProfileName) {
         }
 
         Context "Remove bucket with default parameters" {
-            It "Given existing -BucketName $Bucket it is succesfully removed" {
-                New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $Bucket
-                $NewBucket.BucketName | Should -Be $Bucket
-                Remove-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $Bucket
+            It "Given existing -BucketName $BucketName it is succesfully removed" {
+                New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
+                $NewBucket.BucketName | Should -Be $BucketName
+                Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
                 $NewBucket | Should -BeNullOrEmpty
             }
         }
 
         Context "Remove bucket with default parameters" {
-            It "Given existing -BucketName $UnicodeBucket it is succesfully removed" {
-                New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucket
-                $NewBucket.BucketName | Should -Be $UnicodeBucket
-                Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucket
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucket
+            It "Given existing -BucketName $UnicodeBucketName it is succesfully removed" {
+                New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $NewBucket.BucketName | Should -Be $UnicodeBucketName
+                Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
                 $NewBucket | Should -BeNullOrEmpty
             }
         }
     }
 
     Describe "Profile $ProfileName : Write-S3Object" {
-        New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
+        New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
 
         Context "Upload text" {
             It "Given -Content `"$Content`" it is succesfully created" {
-                Write-S3Object -ProfileName $ProfileName -BucketName $Bucket -Key $Key -Content $Content
-                $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $Bucket
+                Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content
+                $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
                 $Key | Should -BeIn $Objects.Key
-                $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $Bucket -Key $Key
+                $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
                 $ObjectContent | Should -Be $Content
             }
         }
 
         Context "Upload text to object with key containing unicode characters" {
             It "Given -Content `"$Content`" it is succesfully created" {
-                Write-S3Object -ProfileName $ProfileName -BucketName $Bucket -Key $UnicodeKey -Content $Content
-                $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $Bucket -Key $UnicodeKey
+                Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
+                $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
                 $UnicodeKey | Should -BeIn $Objects.Key
-                $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $Bucket -Key $UnicodeKey
+                $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
                 $ObjectContent | Should -Be $Content
             }
         }
@@ -142,14 +148,14 @@ foreach ($ProfileName in $Profiles.ProfileName) {
     }
 
     Describe "Profile $ProfileName : Copy-S3Object" {
-        New-S3Bucket -ProfileName $ProfileName -BucketName $Bucket
-        Write-S3Object -ProfileName $ProfileName -BucketName $Bucket -Key $Key -Content $Content -Metadata $CustomMetadata
+        New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+        Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content -Metadata $CustomMetadata
 
         Context "Copy object" {
-            It "Given -SourceBucket $Bucket and -SourceKey $Key and -BucketName $Bucket and -Key $Key it is copied to itself" {
-                $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $Bucket -Key $Key | Select -ExpandProperty CustomMetadata
-                Copy-S3Object -ProfileName $ProfileName -BucketName $Bucket -Key $Key -SourceBucket $Bucket -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $CustomMetadata
-                Get-S3Bucket -ProfileName $ProfileName -BucketName $Bucket -Key $Key
+            It "Given -SourceBucket $BucketName and -SourceKey $Key and -BucketName $BucketName and -Key $Key it is copied to itself" {
+                $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select -ExpandProperty CustomMetadata
+                Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $CustomMetadata
+                Get-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Key $Key
             }
         }
 

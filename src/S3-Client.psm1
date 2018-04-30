@@ -1556,6 +1556,10 @@ function Global:Get-S3Buckets {
         [parameter(
                 Mandatory=$False,
                 Position=8,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
                 HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
     )
 
@@ -1573,7 +1577,7 @@ function Global:Get-S3Buckets {
         $Uri = "/"
 
         if ($Config) {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Presign:$Presign -SignerType $SignerType
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -1590,7 +1594,7 @@ function Global:Get-S3Buckets {
                         $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes
                     }
                     foreach ($XmlBucket in $XmlBuckets) {
-                        $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.endpoint_url -Bucket $XmlBucket.Name -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign:$Presign -SignerType $SignerType
+                        $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.endpoint_url -Bucket $XmlBucket.Name -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
                         $UnicodeName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
                         $BucketNameObject = [PSCustomObject]@{ BucketName = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
                         Write-Output $BucketNameObject
@@ -1601,7 +1605,7 @@ function Global:Get-S3Buckets {
         elseif ($CurrentSgwServer.SupportedApiVersions -match "1" -and !$CurrentSgwServer.AccountId -and !$AccountId) {
             $Accounts = Get-SgwAccounts -Capabilities "s3"
             foreach ($Account in $Accounts) {
-                Get-S3Buckets -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccountId $Account.Id
+                Get-S3Buckets -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccountId $Account.Id -UseDualstackEndpoint:$UseDualstackEndpoint
             }
         }
     }
@@ -1612,6 +1616,36 @@ function Global:Get-S3Buckets {
     Test if S3 Bucket exists
     .DESCRIPTION
     Test if S3 Bucket exists
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    Path Style
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
 #>
 function Global:Test-S3Bucket {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -1759,7 +1793,7 @@ function Global:Test-S3Bucket {
     .PARAMETER PublicReadWrite
     If set, applies an ACL making the bucket public with read-write permissions
     .PARAMETER Region
-    Region to create bucket in
+    Bucket Region
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Force
@@ -1844,7 +1878,7 @@ function Global:New-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=13,
-                HelpMessage="Region to create bucket in")][Alias("Location","LocationConstraint")][String]$Region,
+                HelpMessage="Bucket Region")][Alias("Location","LocationConstraint")][String]$Region,
         [parameter(
                 Mandatory=$False,
                 Position=14,
