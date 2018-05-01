@@ -1,4 +1,4 @@
-﻿$AWS_PROFILE_PATH = "$HOME/.aws/"
+$AWS_PROFILE_PATH = "$HOME/.aws/"
 $AWS_CREDENTIALS_FILE = $AWS_PROFILE_PATH + "credentials"
 
 # workarounds for PowerShell issues
@@ -1497,6 +1497,36 @@ function Global:New-AwsPolicy {
     Get S3 Buckets
     .DESCRIPTION
     Get S3 Buckets
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Path)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
 #>
 function Global:Get-S3Buckets {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -1639,13 +1669,15 @@ function Global:Get-S3Buckets {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    Path Style
-    .PARAMETER BucketName
-    Bucket Name
-    .PARAMETER Region
-    Bucket Region
+    URL Style (Default: Path)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER CheckAllRegions
+    Check all regions - by default only the specified region (or us-east-1 if no region is specified) will be checked.
 #>
 function Global:Test-S3Bucket {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -1715,7 +1747,12 @@ function Global:Test-S3Bucket {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Check all regions - by default only the specified region (or us-east-1 if no region is specified) will be checked.")][Switch]$CheckAllRegions
     )
 
     Begin {
@@ -1743,7 +1780,7 @@ function Global:Test-S3Bucket {
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
-                    if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                    if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
                         Test-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
                     }
@@ -1783,7 +1820,7 @@ function Global:Test-S3Bucket {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    Path Style
+    URL Style (Default: Path)
     .PARAMETER BucketName
     Bucket Name
     .PARAMETER CannedAclName
