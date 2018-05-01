@@ -1768,6 +1768,9 @@ function Global:Test-S3Bucket {
             $Region = $Config.Region
         }
 
+        # convert BucketName to Punycode to support Unicode Bucket Names
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
             if ($DryRun.IsPresent) {

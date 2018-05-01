@@ -83,16 +83,25 @@ foreach ($ProfileName in $Profiles.ProfileName) {
     }
 
     Describe "Profile $ProfileName : Test-S3Bucket" {
-        AfterEach {
-            Cleanup
-        }
+        Setup
 
-        Context "Test bucket existance with default parameters" {
+        Context "Test bucket existence with parameter -BucketName" {
             It "Given existing bucket -BucketName $BucketName `$true is returned" {
-                New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
                 Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName | Should -BeTrue
             }
+
+            It "Given existing bucket -BucketName $UnicodeBucketName `$true is returned" {
+                Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName | Should -BeTrue
+            }
         }
+
+        Context "Test bucket non existence with parameter -BucketName" {
+            It "Given non existing bucket -BucketName non-existing-bucket `$false is returned" {
+                Test-S3Bucket -ProfileName $ProfileName -BucketName non-existing-bucket | Should -BeFalse
+            }
+        }
+
+        Cleanup
     }
 
     Describe "Profile $ProfileName : New-S3Bucket" {
