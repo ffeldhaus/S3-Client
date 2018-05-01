@@ -1624,12 +1624,10 @@ function Global:Get-S3Buckets {
                         $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes
                     }
                     foreach ($XmlBucket in $XmlBuckets) {
-                        if (!$BucketName -or ($BucketName -eq $XmlBucket.Name)) {
-                            $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.endpoint_url -Bucket $XmlBucket.Name -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
-                            $UnicodeName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
-                            $BucketNameObject = [PSCustomObject]@{ BucketName = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
-                            Write-Output $BucketNameObject
-                        }
+                        $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.endpoint_url -Bucket $XmlBucket.Name -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
+                        $UnicodeName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
+                        $BucketNameObject = [PSCustomObject]@{ BucketName = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
+                        Write-Output $BucketNameObject
                     }
                 }
             }
@@ -1954,7 +1952,7 @@ function Global:New-S3Bucket {
             $RequestPayload = "<CreateBucketConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><LocationConstraint>$Region</LocationConstraint></CreateBucketConfiguration>"
         }
 
-        # convert Bucket to Punycode to support Unicode Bucket Names
+        # convert BucketName to Punycode to support Unicode Bucket Names
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint

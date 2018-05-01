@@ -10,12 +10,29 @@ $Content = "Hello World!"
 $CustomMetadata = @{"MetadataKey"="MetadataValue"}
 $Profiles = Get-AwsProfiles | Where-Object { $_.ProfileName -match "AWS|webscaledemo" }
 
+function Setup() {
+    New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+    New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
+    foreach ($i in 1..60) {
+        sleep 1
+        if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName) {
+            break
+        }
+    }
+    foreach ($i in 1..60) {
+        sleep 1
+        if (Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName) {
+            break
+        }
+    }
+}
+
 function Cleanup() {
     try {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Force
         # wait until bucket is really deleted
-        foreach ($i in 1..12) {
-            sleep 5
+        foreach ($i in 1..60) {
+            sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName)) {
                 break
             }
@@ -26,8 +43,8 @@ function Cleanup() {
     try {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName -Force
         # wait until bucket is really deleted
-        foreach ($i in 1..12) {
-            sleep 5
+        foreach ($i in 1..60) {
+            sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName)) {
                 break
             }
@@ -38,24 +55,31 @@ function Cleanup() {
 
 foreach ($ProfileName in $Profiles.ProfileName) {
     Describe "Profile $ProfileName : Get-S3Buckets" {
-        AfterEach {
-            Cleanup
-        }
-
-        BeforeEach {
-            Setup
-        }
+        Setup
 
         Context "Retrieve buckets with default parameters" {
             It "Retrieving buckets returns a list of all buckets" {
                 $BucketNames = Get-S3Buckets -ProfileName $ProfileName
-                $BucketNameCount = $BucketNames.Count
-                New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
-                sleep 5
-                $BucketNames = Get-S3Buckets -ProfileName $ProfileName
-                $BucketNames.Count | Should -Be ($BucketNameCount + 1)
+                $BucketNames.BucketName | Should -Contain $BucketName
+                $BucketNames.BucketName | Should -Contain $UnicodeBucketName
             }
         }
+
+        Context "Retrieve buckets with parameter -BucketName" {
+            It "Retrieving a specific, existing bucket with parameter -BucketName $BucketName returns only that bucket" {
+                $BucketNames = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
+                $BucketNames.Count | Should -Be 1
+                $BucketNames.BucketName | Should -Be $BucketName
+            }
+
+            It "Retrieving a specific, existing bucket with parameter -BucketName $UnicodeBucketName returns only that bucket" {
+                $BucketNames = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $BucketNames.Count | Should -Be 1
+                $BucketNames.BucketName | Should -Be $UnicodeBucketName
+            }
+        }
+
+        Cleanup
     }
 
     Describe "Profile $ProfileName : Test-S3Bucket" {
