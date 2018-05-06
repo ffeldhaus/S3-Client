@@ -111,13 +111,17 @@ foreach ($ProfileName in $Profiles.ProfileName) {
 
         Context "Create new bucket with default parameters" {
             It "Given -BucketName $BucketName it is succesfully created" {
+                sleep 1
                 New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+                sleep 1
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
                 $NewBucket.BucketName | Should -Be $BucketName
             }
 
             It "Given -BucketName $UnicodeBucketName it is succesfully created" {
+                sleep 1
                 New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                sleep 1
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
                 $NewBucket.BucketName | Should -Be $UnicodeBucketName
             }
@@ -125,7 +129,9 @@ foreach ($ProfileName in $Profiles.ProfileName) {
 
         Context "Create new bucket with parameter -UrlStyle virtual-hosted" {
             It "Given -BucketName $BucketName and -UrlStyle virtual-hosted it is succesfully created" {
+                sleep 1
                 New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -UrlStyle virtual-hosted
+                sleep 1
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
                 $NewBucket.BucketName | Should -Be $BucketName
             }
