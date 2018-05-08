@@ -129,6 +129,8 @@ function ConvertFrom-AwsConfigFile {
         $Content = $Content -replace "`n([^\[])", ',$1'
         $Content = $Content -replace "\[", "{`"ProfileName = "
         $Content = $Content -replace "]", ""
+        $Content = $Content -replace ",s3\s*=\s*", ""
+        $Content = $Content -replace "  ", ""
         $Content = $Content -replace "\s*=\s*", "`":`""
         $Content = $Content -replace ",", "`",`""
         $Content = $Content -replace "`n", "`"},"
@@ -141,7 +143,7 @@ function ConvertFrom-AwsConfigFile {
 
         if ($Content -match "{.*}") {
             $Config = ConvertFrom-Json -InputObject $Content
-            $Config = $Config | Select-Object -Property ProfileName, aws_access_key_id, aws_secret_access_key, region, endpoint_url
+            $Config = $Config | Select-Object -Property ProfileName,aws_access_key_id,aws_secret_access_key,region,endpoint_url,max_concurrent_requests,max_queue_size,multipart_threshold,multipart_chunksize,max_bandwidth,use_accelerate_endpoint,addressing_style
             Write-Output $Config
         }
     }
@@ -1119,7 +1121,7 @@ function Global:Get-AwsConfigs {
                 $ConfigEntry.aws_secret_access_key = $Credential.aws_secret_access_key
             }
             else {
-                $Config = @($Config) + ([PSCustomObject]@{ProfileName=$Credential.ProfileName;aws_access_key_id=$Credential.aws_access_key_id;aws_secret_access_key=$Credential.aws_secret_access_key;region="";endpoint_url=$null})
+                $Config = @($Config) + ([PSCustomObject]@{ProfileName=$Credential.ProfileName;aws_access_key_id=$Credential.aws_access_key_id;aws_secret_access_key=$Credential.aws_secret_access_key;region="";endpoint_url=$null;max_concurrent_requests=$null;max_queue_size=$null;multipart_threshold=$null;multipart_chunksize=$null;max_bandwidth=$null;use_accelerate_endpoint=$null;addressing_style=$null})
             }
         }
 
