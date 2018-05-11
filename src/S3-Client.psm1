@@ -1633,8 +1633,8 @@ function Global:Get-S3Buckets {
                     foreach ($XmlBucket in $XmlBuckets) {
                         $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.endpoint_url -Bucket $XmlBucket.Name -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
                         $UnicodeName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
-                        $BucketNameObject = [PSCustomObject]@{ BucketName = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
-                        Write-Output $BucketNameObject
+                        $Bucket = [PSCustomObject]@{ BucketName = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
+                        Write-Output $Bucket
                     }
                 }
             }
@@ -4468,7 +4468,7 @@ function Global:Complete-S3MultipartUpload {
                 Mandatory=$True,
                 Position=13,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Part Etags in the format partNumber=ETag")][System.Collections.Generic.SortedDictionary[string, string]]$Etags
+                HelpMessage="Part Etags in the format partNumber=ETag")][System.Collections.Generic.SortedDictionary[int, string]]$Etags
 
     )
 
@@ -4706,18 +4706,14 @@ function Global:Write-S3MultipartUpload {
         Write-Verbose "File will be uploaded in $PartCount parts"
 
         Write-Verbose "Initiating Multipart Upload"
-        $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -SignerType $SignerType -EndpointUrl $Config.endpoint_url -Region $Region -BucketName $BucketName -Key $Key
+        $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -SignerType $SignerType -EndpointUrl $Config.endpoint_url -Region $Region -BucketName $BucketName -Key $Key -Metadata $Metadata
 
         Write-Verbose "Multipart Upload ID: $($MultipartUpload.UploadId)"
 
-        $InitialSessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
         $RunspacePool = [runspacefactory]::CreateRunspacePool(1,[Environment]::ProcessorCount)
-        $RunspacePool.InitialSessionState.ImportPSModule("S3-Client")
         $RunspacePool.Open()
 
-        $PowerShell.RunspacePool = $RunspacePool
-
-        $Etags = @{}
+        $Etags = New-Object 'System.Collections.Generic.SortedDictionary[int, string]'
 
         $Jobs = New-Object System.Collections.ArrayList
 
@@ -4747,6 +4743,9 @@ function Global:Write-S3MultipartUpload {
 
                 $HttpClient = [System.Net.Http.HttpClient]::new()
 
+                # ensuring that HTTP CLient never times out
+                $HttpClient.Timeout = [System.Threading.Timeout]::InfiniteTimeSpan
+
                 $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$Uri)
 
                 $PutRequest.Headers.Add("Host",$Headers["Host"])
@@ -4763,7 +4762,7 @@ function Global:Write-S3MultipartUpload {
                 [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
                 $Etag = $Etag[0] -replace '"',''
 
-                # compare calculated MD5 sum with ETag
+                # TODO: compare calculated MD5 sum with ETag
 
                 if ($Response.Result.StatusCode -ne "OK") {
                     Write-Output $Response
@@ -4787,7 +4786,7 @@ function Global:Write-S3MultipartUpload {
                 $ViewSize = $Chunksize
             }
 
-            Write-Host "Creating File view from position $(($PartNumber -1) * $Chunksize) with size $ViewSize"
+            Write-Verbose "Creating File view from position $(($PartNumber -1) * $Chunksize) with size $ViewSize"
             $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile)
             $Stream = $MemoryMappedFile.CreateViewStream(($PartNumber - 1) * $Chunksize,$ViewSize)
 
@@ -4805,24 +4804,15 @@ function Global:Write-S3MultipartUpload {
             $temp.handle = $Handle
             $temp.PartNumber = $PartNumber
             [void]$Jobs.Add($Temp)
-
-            Write-Debug ("Available Runspaces in RunspacePool: {0}" -f $RunspacePool.GetAvailableRunspaces())
-            Write-Debug ("Remaining Jobs: {0}" -f @($jobs | Where {
-                $_.handle.iscompleted -ne 'Completed'
-            }).Count)
         }
 
         $return = $jobs | ForEach {
             $Output = $_.powershell.EndInvoke($_.handle)
-            $Etags[$_.PartNumber.ToString()] = $Output
-            Write-Verbose $_.PartNumber
+            $Etags[$_.PartNumber] = $Output
+            Write-Verbose "Part $($_.PartNumber) has completed with ETag $Output"
             $_.PowerShell.Dispose()
         }
 
-        # ETags must be sorted by partnumber
-        $Etags = ConvertTo-SortedDictionary $ETags
-
-        Write-Verbose "Etags: $(ConvertTo-Json -InputObject $Etags)"
         $MultipartUpload | Complete-S3MultipartUpload  -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -SignerType $SignerType -EndpointUrl $Config.endpoint_url -Etags $Etags
 
         $jobs.clear()

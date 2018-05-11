@@ -59,23 +59,23 @@ foreach ($ProfileName in $Profiles.ProfileName) {
 
         Context "Retrieve buckets with default parameters" {
             It "Retrieving buckets returns a list of all buckets" {
-                $BucketNames = Get-S3Buckets -ProfileName $ProfileName
-                $BucketNames.BucketName | Should -Contain $BucketName
-                $BucketNames.BucketName | Should -Contain $UnicodeBucketName
+                $Buckets = Get-S3Buckets -ProfileName $ProfileName
+                $Buckets.BucketName | Should -Contain $BucketName
+                $Buckets.BucketName | Should -Contain $UnicodeBucketName
             }
         }
 
         Context "Retrieve buckets with parameter -BucketName" {
             It "Retrieving a specific, existing bucket with parameter -BucketName $BucketName returns only that bucket" {
-                $BucketNames = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
-                $BucketNames.Count | Should -Be 1
-                $BucketNames.BucketName | Should -Be $BucketName
+                $Buckets = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
+                $Buckets.Count | Should -Be 1
+                $Buckets.BucketName | Should -Be $BucketName
             }
 
             It "Retrieving a specific, existing bucket with parameter -BucketName $UnicodeBucketName returns only that bucket" {
-                $BucketNames = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                $BucketNames.Count | Should -Be 1
-                $BucketNames.BucketName | Should -Be $UnicodeBucketName
+                $Buckets = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $Buckets.Count | Should -Be 1
+                $Buckets.BucketName | Should -Be $UnicodeBucketName
             }
         }
 
