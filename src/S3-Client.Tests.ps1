@@ -75,7 +75,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
 
             It "Retrieving a specific, existing bucket with parameter -BucketName $UnicodeBucketName returns only that bucket" {
                 $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                $Buckets.BucketName | Should -Be $UnicodeBucketName
+                $Bucket.BucketName | Should -Be $UnicodeBucketName
             }
         }
 
@@ -139,31 +139,25 @@ foreach ($ProfileName in $Profiles.ProfileName) {
     }
 
     Describe "Profile $ProfileName : Remove-S3Bucket" {
-        AfterEach {
-            Cleanup
-        }
+        Setup
 
         Context "Remove bucket with default parameters" {
             It "Given existing -BucketName $BucketName it is succesfully removed" {
-                New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
-                $NewBucket.BucketName | Should -Be $BucketName
                 Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
-                $NewBucket | Should -BeNullOrEmpty
+                $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
+                $Bucket | Should -BeNullOrEmpty
             }
         }
 
         Context "Remove bucket with default parameters" {
             It "Given existing -BucketName $UnicodeBucketName it is succesfully removed" {
-                New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                $NewBucket.BucketName | Should -Be $UnicodeBucketName
                 Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                $NewBucket | Should -BeNullOrEmpty
+                $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $Bucket | Should -BeNullOrEmpty
             }
         }
+
+        Cleanup
     }
 
     Describe "Profile $ProfileName : Write-S3Object" {
