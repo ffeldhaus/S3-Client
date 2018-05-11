@@ -4468,7 +4468,7 @@ function Global:Complete-S3MultipartUpload {
                 Mandatory=$True,
                 Position=13,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Part Etags in the format partNumber=ETag")][HashTable]$Etags
+                HelpMessage="Part Etags in the format partNumber=ETag")][System.Collections.Generic.SortedDictionary[string, string]]$Etags
 
     )
 
@@ -4522,6 +4522,310 @@ function Global:Complete-S3MultipartUpload {
 
             Write-Output $CompleteMultipartUploadResult
         }
+    }
+}
+
+<#
+    .SYNOPSIS
+    Write S3 Object as Multipart Upload
+    .DESCRIPTION
+    Write S3 Object as Multipart Upload
+#>
+function Global:Write-S3MultipartUpload {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="ProfileAndFile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")]
+        [parameter(
+                ParameterSetName="ProfileAndContent",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="KeyAndFile",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="S3 Access Key")]
+        [parameter(
+                ParameterSetName="KeyAndContent",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="KeyAndFile",
+                Mandatory=$True,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")]
+        [parameter(
+                ParameterSetName="KeyAndContent",
+                Mandatory=$True,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="AccountAndFile",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="StorageGRID account ID to execute this command against")]
+        [parameter(
+                ParameterSetName="AccountAndContent",
+                Mandatory=$True,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Object key. If not provided, filename will be used")][Alias("Object")][String]$Key,
+        [parameter(
+                Mandatory=$True,
+                Position=12,
+                HelpMessage="Path where object should be stored")][Alias("Path","File")][System.IO.FileInfo]$InFile,
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Metadata")][Hashtable]$Metadata,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Multipart Part Chunksize")][ValidateRange(1,1GB)][int]$Chunksize
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+    }
+
+    Process {
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        # Convert Bucket Name to IDN mapping to support Unicode Names
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+
+        if ($InFile -and !$InFile.Exists) {
+            Throw "File $InFile does not exist"
+        }
+
+        # TODO: Check MIME type of file
+
+        if (!$Key) {
+            $Key = $InFile.Name
+        }
+
+        $FileInfo = [System.IO.FileInfo]::new($InFile)
+        $FileSize = $FileInfo.Length
+
+        if ($Config.max_concurrent_requests) {
+            $MaxRunspaces = $Config.max_concurrent_requests
+        }
+        else {
+            $MaxRunspaces = [Environment]::ProcessorCount
+        }
+
+        if ($Chunksize -and $Config.multipart_chunksize) {
+            # division by zero necessary as we need to convert string in number format (e.g. 16MB) to integer
+            $Chunksize = ($Config.multipart_chunksize/1)
+        }
+        else {
+            # S3 only allows 1000 parts, therefore we need to set the chunksize to something larger than 1GB
+            if ($FileSize -gt 1TB) {
+                $Chunksize = [Math]::Pow(2,[Math]::Ceiling([Math]::Log($FileSize/1000)/[Math]::Log(2)))
+            }
+            elseif ($FileSize -gt $MaxRunspaces * 1GB) {
+                # chunksize of 1GB is optimal for fast, lossless connections which we assume
+                $Chunksize = 1GB
+            }
+            elseif ($FileSize / $MaxRunspaces -ge 8MB) {
+                # if filesize is smaller than max number of runspaces times 1GB
+                # then we need to make sure that we reduce the chunksize so that all runspaces are used
+                $Chunksize = [Math]::Pow(2,[Math]::Floor([Math]::Log($FileSize/$MaxRunspaces)/[Math]::Log(2)))
+            }
+            else {
+                # minimum chunksize for S3 is 5MB
+                $Chunksize = 5MB
+            }
+        }
+        Write-Verbose "Chunksize of $($Chunksize/1MB)MB will be used"
+
+        $PartCount = [Math]::Ceiling($FileSize / $ChunkSize)
+
+        Write-Verbose "File will be uploaded in $PartCount parts"
+
+        Write-Verbose "Initiating Multipart Upload"
+        $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -SignerType $SignerType -EndpointUrl $Config.endpoint_url -Region $Region -BucketName $BucketName -Key $Key
+
+        Write-Verbose "Multipart Upload ID: $($MultipartUpload.UploadId)"
+
+        $InitialSessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+        $RunspacePool = [runspacefactory]::CreateRunspacePool(1,[Environment]::ProcessorCount)
+        $RunspacePool.InitialSessionState.ImportPSModule("S3-Client")
+        $RunspacePool.Open()
+
+        $PowerShell.RunspacePool = $RunspacePool
+
+        $Etags = @{}
+
+        $Jobs = New-Object System.Collections.ArrayList
+
+        foreach ($PartNumber in 1..$PartCount) {
+            $PowerShell = [PowerShell]::Create()
+            $PowerShell.RunspacePool = $RunspacePool
+            [void]$PowerShell.AddScript({
+                Param (
+                    [parameter(
+                            Mandatory=$True,
+                            Position=0,
+                            HelpMessage="Content Stream")][System.IO.Stream]$Stream,
+                    [parameter(
+                            Mandatory=$True,
+                            Position=1,
+                            HelpMessage="Request URI")][Uri]$Uri,
+                    [parameter(
+                            Mandatory=$True,
+                            Position=2,
+                            HelpMessage="Request Headers")][Hashtable]$Headers
+                )
+
+                # using CryptoSteam to calculate the MD5 sum while uploading the part
+                # this allows to only read the stream once and increases performance compared with other S3 clients
+                $Md5 = [System.Security.Cryptography.MD5]::Create()
+                $CryptoStream = [System.Security.Cryptography.CryptoStream]::new($Stream, $Md5, [System.Security.Cryptography.CryptoStreamMode]::Read)
+
+                $HttpClient = [System.Net.Http.HttpClient]::new()
+
+                $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$Uri)
+
+                $PutRequest.Headers.Add("Host",$Headers["Host"])
+
+                $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
+                $StreamContent.Headers.ContentLength = $Stream.Length
+                $PutRequest.Content = $StreamContent
+
+                $Response = $HttpClient.SendAsync($PutRequest)
+
+                $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
+
+                $Etag = New-Object 'System.Collections.Generic.List[string]'
+                [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
+                $Etag = $Etag[0] -replace '"',''
+
+                # compare calculated MD5 sum with ETag
+
+                if ($Response.Result.StatusCode -ne "OK") {
+                    Write-Output $Response
+                }
+                else {
+
+                    Write-Output $Etag
+                }
+
+                #$Response.Dispose()
+                #$PutRequest.Dispose()
+                #$StreamContent.Dispose()
+                #$CryptoStream.Dispose()
+                #$Stream.Dispose()
+            })
+
+            if (($PartNumber * $Chunksize) -gt $FileSize) {
+                $ViewSize = $Chunksize - ($PartNumber * $Chunksize - $FileSize)
+            }
+            else {
+                $ViewSize = $Chunksize
+            }
+
+            Write-Host "Creating File view from position $(($PartNumber -1) * $Chunksize) with size $ViewSize"
+            $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile)
+            $Stream = $MemoryMappedFile.CreateViewStream(($PartNumber - 1) * $Chunksize,$ViewSize)
+
+            $AwsRequest = $MultipartUpload | Write-S3ObjectPart -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign -DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -PartNumber $PartNumber -Stream $Stream
+
+            $Parameters = @{
+                Stream = $Stream
+                Uri = $AwsRequest.Uri
+                Headers = $AwsRequest.Headers
+            }
+            [void]$PowerShell.AddParameters($Parameters)
+            $Handle = $PowerShell.BeginInvoke()
+            $temp = '' | Select PowerShell,Handle,PartNumber
+            $temp.PowerShell = $PowerShell
+            $temp.handle = $Handle
+            $temp.PartNumber = $PartNumber
+            [void]$Jobs.Add($Temp)
+
+            Write-Debug ("Available Runspaces in RunspacePool: {0}" -f $RunspacePool.GetAvailableRunspaces())
+            Write-Debug ("Remaining Jobs: {0}" -f @($jobs | Where {
+                $_.handle.iscompleted -ne 'Completed'
+            }).Count)
+        }
+
+        $return = $jobs | ForEach {
+            $Output = $_.powershell.EndInvoke($_.handle)
+            $Etags[$_.PartNumber.ToString()] = $Output
+            Write-Verbose $_.PartNumber
+            $_.PowerShell.Dispose()
+        }
+
+        # ETags must be sorted by partnumber
+        $Etags = ConvertTo-SortedDictionary $ETags
+
+        Write-Verbose "Etags: $(ConvertTo-Json -InputObject $Etags)"
+        $MultipartUpload | Complete-S3MultipartUpload  -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -SignerType $SignerType -EndpointUrl $Config.endpoint_url -Etags $Etags
+
+        $jobs.clear()
     }
 }
 
@@ -4670,7 +4974,6 @@ function Global:Write-S3ObjectPart {
                 $PutRequest.Headers.Add("Host",$AwsRequest.Headers["Host"])
 
                 $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
-                #$StreamContent.Headers.ContentType = $ContentType
                 $StreamContent.Headers.ContentLength = $Stream.Length
                 $PutRequest.Content = $StreamContent
 
