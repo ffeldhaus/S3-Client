@@ -3,7 +3,9 @@ S3 Client PowerShell Module
 
 [![Build status](https://ci.appveyor.com/api/projects/status/od89v0qb7dmblkcx?svg=true)](https://ci.appveyor.com/project/ffeldhaus/s3-client)
 
-The S3 Client Module contains Cmdlets for interacting with an S3 endpoint. While the Cmdlets are working for any S3 object storage, they provide several enhancements to make S3 management easier for StorageGRID Webscale users. For a [feature rich, performance optimized S3 Client in PowerShell use the official AWS Cmdlets](https://aws.amazon.com/de/powershell/).
+The S3 Client Module contains Cmdlets for interacting with an S3 endpoint. It was developed to simplify usage, debugging and customization of interactions with an S3 Service. Written in pure PowerShell, the Code of the Cmdlets can be extracted and run interactively.
+
+While the Cmdlets are working for any S3 object storage, they provide several enhancements to make S3 management easier for StorageGRID Webscale users. As an alternative, use the offical [AWS Cmdlets which include S3 Cmdlets](https://aws.amazon.com/de/powershell/).
 
 See the sections below for [Installation](#Installation) and [Update](#Update) Instructions see the sections below. For more information check out the [S3 Client PowerShell Cmdlet Tutorial](S3-Client-Tutorial.md).
 
@@ -26,11 +28,11 @@ Install-Module -Name S3-Client
 
 The S3 Client PowerShell Cmdlets require at least PowerShell 4.0 and .NET 4.5. 
 
-If you can't install via `Install-Module` you can download the latest version of S3-Client.zip from the [GitHub Release page](https://github.com/ffeldhaus/S3-Client/releases/latest). Then extract S3-Client.zip to your preferred PowerShell Module location. For the current user to 
+If the Module can't be installed via `Install-Module` then the latest version can be downloaded from the [GitHub Release page](https://github.com/ffeldhaus/S3-Client/releases/latest) for manual installation. For manual installation, the S3-Client.zip file needs to be extracted to the preferred PowerShell Module location. For the current user the S3-Client folder needs to be copied to
     
     $HOME\WindowsPowershell\Documents\WindowsPowerShell\Modules
     
-For all users copy the folder to 
+To make the module available for all users the folder S3-Client needs to be copied to the folder 
 
     C:\Windows\System32\WindowsPowerShell\v1.0\Modules
     
@@ -43,7 +45,7 @@ If the Module was installed with `Install-Module`, it can be upgraded with
 Update-Module -Name S3-Client
 ```
 
-If the Module was installed by downloading the ZIP file, then update the Module by replacing the S3-Client folder with the content of the new release ZIP file.
+If the Module was installed by downloading the ZIP file, then the Module can be updated by replacing the S3-Client folder with the content of the new release ZIP file.
 
 Usage
 -----
