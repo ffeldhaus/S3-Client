@@ -34,6 +34,7 @@ function Cleanup() {
         foreach ($i in 1..60) {
             sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName)) {
+                sleep 1
                 break
             }
         }
@@ -46,6 +47,7 @@ function Cleanup() {
         foreach ($i in 1..60) {
             sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName)) {
+                sleep 1
                 break
             }
         }
@@ -67,14 +69,12 @@ foreach ($ProfileName in $Profiles.ProfileName) {
 
         Context "Retrieve buckets with parameter -BucketName" {
             It "Retrieving a specific, existing bucket with parameter -BucketName $BucketName returns only that bucket" {
-                $Buckets = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
-                $Buckets.Count | Should -Be 1
-                $Buckets.BucketName | Should -Be $BucketName
+                $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
+                $Bucket.BucketName | Should -Be $BucketName
             }
 
             It "Retrieving a specific, existing bucket with parameter -BucketName $UnicodeBucketName returns only that bucket" {
-                $Buckets = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                $Buckets.Count | Should -Be 1
+                $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
                 $Buckets.BucketName | Should -Be $UnicodeBucketName
             }
         }
