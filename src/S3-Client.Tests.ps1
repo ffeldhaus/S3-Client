@@ -34,7 +34,6 @@ function Cleanup() {
         foreach ($i in 1..60) {
             sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName)) {
-                sleep 1
                 break
             }
         }
@@ -47,7 +46,6 @@ function Cleanup() {
         foreach ($i in 1..60) {
             sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName)) {
-                sleep 1
                 break
             }
         }
