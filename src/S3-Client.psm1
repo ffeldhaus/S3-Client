@@ -2862,33 +2862,37 @@ function Global:Get-S3MultipartUploads {
                 HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
         [parameter(
                 Mandatory=$False,
-                Position=8,
+                Position=9,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+        [parameter(
+                Mandatory=$False,
+                Position=10,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Region to be used")][String]$Region,
         [parameter(
                 Mandatory=$True,
-                Position=10,
+                Position=11,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
-                Position=11,
+                Position=12,
                 HelpMessage="Lists in-progress uploads only for those keys that begin with the specified prefix")][String]$Prefix,
         [parameter(
                 Mandatory=$False,
-                Position=12,
+                Position=13,
                 HelpMessage="Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType="url",
         [parameter(
                 Mandatory=$False,
-                Position=13,
+                Position=14,
                 HelpMessage="Maximum Number of parts to return")][Int][ValidateRange(0,1000)]$MaxUploads=0,
         [parameter(
                 Mandatory=$False,
-                Position=14,
+                Position=15,
                 HelpMessage="Continuation part number marker")][String]$KeyMarker,
         [parameter(
                 Mandatory=$False,
-                Position=15,
+                Position=16,
                 HelpMessage="Continuation part number marker")][String]$UploadIdMarker
     )
 
