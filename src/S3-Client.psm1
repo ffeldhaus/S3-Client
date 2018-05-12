@@ -31,6 +31,7 @@ else {
 ### Helper Functions ###
 
 function ParseErrorForResponseBody($Error) {
+    #private
     if ($PSVersionTable.PSVersion.Major -lt 6) {
         if ($Error.Exception.Response) {  
             $Reader = New-Object System.IO.StreamReader($Error.Exception.Response.GetResponseStream())
@@ -49,6 +50,7 @@ function ParseErrorForResponseBody($Error) {
 }
 
 function ConvertTo-SortedDictionary($HashTable) {
+    #private
     $SortedDictionary = New-Object 'System.Collections.Generic.SortedDictionary[string, string]'
     foreach ($Key in $HashTable.Keys) {
         $SortedDictionary[$Key]=$HashTable[$Key]
@@ -57,6 +59,7 @@ function ConvertTo-SortedDictionary($HashTable) {
 }
 
 function Get-SignedString {
+    #private
     [CmdletBinding()]
 
     PARAM (
@@ -89,12 +92,14 @@ function Get-SignedString {
 }
 
 function Sign($Key,$Message) {
+    #private
     $hmacsha = New-Object System.Security.Cryptography.HMACSHA256
     $hmacsha.Key = $Key
     $hmacsha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Message))
 }
 
 function GetSignatureKey($Key, $Date, $Region, $Service) {
+    #private
     $SignedDate = sign ([Text.Encoding]::UTF8.GetBytes(('AWS4' + $Key).toCharArray())) $Date
     $SignedRegion = sign $SignedDate $Region
     $SignedService = sign $SignedRegion $Service
@@ -102,6 +107,7 @@ function GetSignatureKey($Key, $Date, $Region, $Service) {
 }
 
 function ConvertFrom-AwsConfigFile {
+    #private
     [CmdletBinding()]
 
     PARAM (
@@ -150,6 +156,7 @@ function ConvertFrom-AwsConfigFile {
 }
 
 function ConvertTo-AwsConfigFile {
+    #private
     [CmdletBinding()]
 
     PARAM (
@@ -206,7 +213,10 @@ function ConvertTo-AwsConfigFile {
 
 # helper function to convert datetime to unix timestamp
 function ConvertTo-UnixTimestamp {
+    #private
     [CmdletBinding()]
+
+    #private
 
     PARAM (
         [parameter(Mandatory=$True,
@@ -237,6 +247,7 @@ function ConvertTo-UnixTimestamp {
 
 # helper function to convert unix timestamp to datetime
 function ConvertFrom-UnixTimestamp {
+    #private
     [CmdletBinding()]
 
     PARAM (
@@ -278,6 +289,7 @@ function ConvertFrom-UnixTimestamp {
     Retrieve SHA256 Hash for Payload
 #>
 function Global:Get-AwsHash {
+    #private
     [CmdletBinding(DefaultParameterSetName="string")]
 
     PARAM (
@@ -314,6 +326,7 @@ function Global:Get-AwsHash {
     Create AWS Authentication Signature Version 2 for Request
 #>
 function Global:New-AwsSignatureV2 {
+    #private
     [CmdletBinding()]
 
     PARAM (
@@ -434,6 +447,7 @@ function Global:New-AwsSignatureV2 {
     Create AWS Authentication Signature Version 4 for Request
 #>
 function Global:New-AwsSignatureV4 {
+    #private
     [CmdletBinding()]
 
     PARAM (
