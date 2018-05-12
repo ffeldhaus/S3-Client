@@ -14,13 +14,13 @@ function Setup() {
     New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
     New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
     foreach ($i in 1..60) {
-        sleep 2
+        sleep 1
         if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName) {
             break
         }
     }
     foreach ($i in 1..60) {
-        sleep 2
+        sleep 1
         if (Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName) {
             break
         }
@@ -32,7 +32,7 @@ function Cleanup() {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Force
         # wait until bucket is really deleted
         foreach ($i in 1..60) {
-            sleep 2
+            sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName)) {
                 break
             }
@@ -44,7 +44,7 @@ function Cleanup() {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName -Force
         # wait until bucket is really deleted
         foreach ($i in 1..60) {
-            sleep 2
+            sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName)) {
                 break
             }
@@ -103,37 +103,49 @@ foreach ($ProfileName in $Profiles.ProfileName) {
     }
 
     Describe "Profile $ProfileName : New-S3Bucket" {
-        AfterEach {
-            Cleanup
-        }
-
         Context "Create new bucket with default parameters" {
             It "Given -BucketName $BucketName it is succesfully created" {
-                sleep 1
                 New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
-                sleep 1
+                foreach ($i in 1..60) {
+                    sleep 1
+                    if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName) {
+                        break
+                    }
+                }
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
                 $NewBucket.BucketName | Should -Be $BucketName
             }
 
             It "Given -BucketName $UnicodeBucketName it is succesfully created" {
-                sleep 1
                 New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                sleep 1
+                foreach ($i in 1..60) {
+                    sleep 1
+                    if (Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName) {
+                        break
+                    }
+                }
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
                 $NewBucket.BucketName | Should -Be $UnicodeBucketName
             }
         }
 
+        Cleanup
+
         Context "Create new bucket with parameter -UrlStyle virtual-hosted" {
             It "Given -BucketName $BucketName and -UrlStyle virtual-hosted it is succesfully created" {
-                sleep 1
                 New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -UrlStyle virtual-hosted
-                sleep 1
+                foreach ($i in 1..60) {
+                    sleep 1
+                    if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName) {
+                        break
+                    }
+                }
                 $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
                 $NewBucket.BucketName | Should -Be $BucketName
             }
         }
+
+        Cleanup
     }
 
     Describe "Profile $ProfileName : Remove-S3Bucket" {
@@ -159,7 +171,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
     }
 
     Describe "Profile $ProfileName : Write-S3Object" {
-        New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+        Setup
 
         Context "Upload text" {
             It "Given -Content `"$Content`" it is succesfully created" {
@@ -185,11 +197,11 @@ foreach ($ProfileName in $Profiles.ProfileName) {
     }
 
     Describe "Profile $ProfileName : Copy-S3Object" {
-        New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
-        Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content -Metadata $CustomMetadata
+        Setup
 
         Context "Copy object" {
             It "Given -SourceBucket $BucketName and -SourceKey $Key and -BucketName $BucketName and -Key $Key it is copied to itself" {
+                Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content -Metadata $CustomMetadata
                 $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select -ExpandProperty CustomMetadata
                 Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $CustomMetadata
                 Get-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
