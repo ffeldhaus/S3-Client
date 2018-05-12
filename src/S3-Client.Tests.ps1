@@ -14,13 +14,13 @@ function Setup() {
     New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
     New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
     foreach ($i in 1..60) {
-        sleep 1
+        sleep 2
         if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName) {
             break
         }
     }
     foreach ($i in 1..60) {
-        sleep 1
+        sleep 2
         if (Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName) {
             break
         }
@@ -32,7 +32,7 @@ function Cleanup() {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Force
         # wait until bucket is really deleted
         foreach ($i in 1..60) {
-            sleep 1
+            sleep 2
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName)) {
                 break
             }
@@ -44,7 +44,7 @@ function Cleanup() {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName -Force
         # wait until bucket is really deleted
         foreach ($i in 1..60) {
-            sleep 1
+            sleep 2
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName)) {
                 break
             }
@@ -93,7 +93,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
             }
         }
 
-        Context "Test bucket non existence with parameter -BucketName" {
+        Context "Test bucket nonexistence with parameter -BucketName" {
             It "Given non existing bucket -BucketName non-existing-bucket `$false is returned" {
                 Test-S3Bucket -ProfileName $ProfileName -BucketName non-existing-bucket | Should -BeFalse
             }
