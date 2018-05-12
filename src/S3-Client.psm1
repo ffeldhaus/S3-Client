@@ -725,11 +725,6 @@ function Global:Get-AwsRequest {
         $SignedHeaders = $SortedHeaders.Keys.toLower() -join ";"
 
         if ($Presign.IsPresent) {
-            # TODO: Investigate why Presigning with AWS4 does not work when a query like e.g. location is specified
-            #if ($SignerType -eq "AWS4" -and $Query.Keys.Count -ge 1) {
-            #    Write-Warning "AWS4 Signer Type with Presigned URLs does not support query parameters, therfore falling back to S3 Signer Type"
-            #    $SignerType = "S3"
-            #}
             if ($SignerType -eq "AWS4") {
                 $RequestPayloadHash = "UNSIGNED-PAYLOAD"
                 $ExpiresInSeconds = [Math]::Ceiling(($Expires - $Date).TotalSeconds)
@@ -982,6 +977,20 @@ Set-Alias -Name Update-AwsConfig -Value Add-AwsConfig
     Add AWS Credentials
     .DESCRIPTION
     Add AWS Credentials
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER Credential
+    Credential
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER Region
+    Default Region to use for all requests made with these credentials
+    .PARAMETER EndpointUrl
+    Custom endpoint URL if different than AWS URL
 #>
 function Global:Add-AwsConfig {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -1094,6 +1103,8 @@ Set-Alias -Name Get-AwsCredentials -Value Get-AwsConfigs
     Get the AWS config for all profiles and if there is a connection to a StorageGRID, it includes the AWS config of the connected tenant
     .DESCRIPTION
     Get the AWS config for all profiles and if there is a connection to a StorageGRID, it includes the AWS config of the connected tenant
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
 #>
 function Global:Get-AwsConfigs {
     [CmdletBinding()]
@@ -1152,6 +1163,24 @@ Set-Alias -Name Get-AwsCredential -Value Get-AwsConfig
     Get AWS config
     If there is a connection to a StorageGRID, this is the AWS config of the connected tenant.
     If a profile is provided, it is the AWS config of the AWS profile.
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER Credential
+    Credential
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID Account ID
+    .PARAMETER Region
+    Default Region to use for all requests made with these credentials
+    .PARAMETER EndpointUrl
+    Custom endpoint URL if different than AWS URL
 #>
 function Global:Get-AwsConfig {
     [CmdletBinding()]
@@ -1186,17 +1215,17 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=5,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Account ID")][String]$AccountId="",
+                HelpMessage="StorageGRID Account ID")][String]$AccountId="",
         [parameter(
                 Mandatory=$False,
                 Position=6,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl=$null,
+                HelpMessage="Default Region to use for all requests made with these credentials")][String]$Region,
         [parameter(
                 Mandatory=$False,
                 Position=7,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Endpoint URL")][String]$Region
+                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl=$null
     )
     
     Begin {
@@ -1268,6 +1297,10 @@ Set-Alias -Name Remove-AwsCredential -Value Remove-AwsConfig
     Remove AWS Config
     .DESCRIPTION
     Remove AWS Config
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
 #>
 function Global:Remove-AwsConfig {
     [CmdletBinding()]
