@@ -149,7 +149,7 @@ function ConvertFrom-AwsConfigFile {
 
         if ($Content -match "{.*}") {
             $Config = ConvertFrom-Json -InputObject $Content
-            $Config = $Config | Select-Object -Property ProfileName,aws_access_key_id,aws_secret_access_key,region,endpoint_url,max_concurrent_requests,max_queue_size,multipart_threshold,multipart_chunksize,max_bandwidth,use_accelerate_endpoint,addressing_style
+            $Config = $Config | Select-Object -Property ProfileName,aws_access_key_id,aws_secret_access_key,region,endpoint_url,max_concurrent_requests,max_queue_size,multipart_threshold,multipart_chunksize,max_bandwidth,use_accelerate_endpoint,use_dualstack_endpoint,addressing_style,payload_signing_enabled
             Write-Output $Config
         }
     }
@@ -1033,11 +1033,56 @@ function Global:Add-AwsConfig {
                 Mandatory=$False,
                 Position=6,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Custom endpoint URL if different than AWS URL")][Alias("endpoint_url")][System.UriBuilder]$EndpointUrl
+                HelpMessage="Custom endpoint URL if different than AWS URL")][Alias("endpoint_url")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                Mandatory=$False,
+                Position=7,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The maximum number of concurrent requests (Default: 10)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests=10,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The maximum number of tasks in the task queue")][Alias("max_queue_size")][UInt16]$MaxQueueSize=1000,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold="8MB",
+        [parameter(
+                Mandatory=$False,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files (Default: 8MB)")][Alias("multipart_chunksize")][String]$MultipartChunksize="8MB",
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The maximum bandwidth that will be consumed for uploading and downloading data to and from Amazon S3")][Alias("max_bandwidth")][String]$MaxBandwidth,
+        [parameter(
+                Mandatory=$False,
+                Position=12,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][Boolean]$UseAccelerateEndpoint=$false,
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][Boolean]$UseDualstackEndpoint=$false,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("addressing_style")][ValidateSet("auto","path","virtual")][String]$AddressingStyle="auto",
+        [parameter(
+                Mandatory=$False,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled
     )
  
     Process {
-        $ConfigLocation = $ProfileLocation -replace "/[^/]+$",'/config'
+        $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
 
         if ($Credential) {
             $AccessKey = $Credential.UserName
@@ -1052,8 +1097,8 @@ function Global:Add-AwsConfig {
                 Write-Verbose "Retrieving credentials from $ProfileLocation failed"
             }
 
-            if (($Credentials | Where-Object { $_.ProfileName -eq $ProfileName})) {
-                $CredentialEntry = $Credentials | Where-Object { $_.ProfileName -eq $ProfileName}
+            if (($Credentials | Where-Object { $_.ProfileName -eq $ProfileName })) {
+                $CredentialEntry = $Credentials | Where-Object { $_.ProfileName -eq $ProfileName }
             }
             else {
                 $CredentialEntry = [PSCustomObject]@{ ProfileName = $ProfileName }
@@ -1064,35 +1109,74 @@ function Global:Add-AwsConfig {
 
             Write-Debug $CredentialEntry
 
-            $Credentials = @($Credentials | Where-Object { $_.ProfileName -ne $ProfileName}) + $CredentialEntry
+            $Credentials = @($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry
             ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
         }
 
-        if ($Region -or $EndpointUrl) {
-            try {
-                $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
-            }
-            catch {
-                Write-Verbose "Retrieving credentials from $ConfigLocation failed"
-            }
-
-            if (($Config | Where-Object { $_.ProfileName -eq $ProfileName})) {
-                $ConfigEntry = $Config | Where-Object { $_.ProfileName -eq $ProfileName}
-            }
-            else {
-                $ConfigEntry = [PSCustomObject]@{ ProfileName = $ProfileName }
-            }
-
-            if ($Region) {
-                $ConfigEntry | Add-Member -MemberType NoteProperty -Name region -Value $Region -Force
-            }
-            if ($EndpointUrl) {
-                $ConfigEntry | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrl -Force
-            }
-
-            $Config = @($Config | Where-Object { $_.ProfileName -ne $ProfileName}) + $ConfigEntry
-            ConvertTo-AwsConfigFile -Config $Config -AwsConfigFile $ConfigLocation
+        try {
+            $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
         }
+        catch {
+            Write-Verbose "Retrieving config from $ConfigLocation failed"
+        }
+
+        if (($Config | Where-Object { $_.ProfileName -eq $ProfileName })) {
+            $ConfigEntry = $Config | Where-Object { $_.ProfileName -eq $ProfileName }
+        }
+        else {
+            $ConfigEntry = [PSCustomObject]@{ ProfileName = $ProfileName }
+        }
+
+        if ($Region -ne "us-east-1") {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name region -Value $Region -Force
+        }
+
+        if ($EndpointUrl) {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrl -Force
+        }
+
+        if ($MaxConcurrentRequests -ne 10) {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name max_concurrent_requests -Value $MaxConcurrentRequests -Force
+        }
+
+        if ($MaxQueueSize -ne 1000) {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name max_queue_size -Value $MaxQueueSize -Force
+        }
+
+        if ($MultipartThreshold -ne "8MB") {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name multipart_threshold -Value $MultipartThreshold -Force
+        }
+
+        if ($MultipartChunksize -ne "8MB") {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name multipart_chunksize -Value $MultipartChunksize -Force
+        }
+
+        if ($MaxBandwidth) {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name max_bandwidth -Value $MaxBandwidth -Force
+        }
+
+        if ($UseAccelerateEndpoint -and $UseDualstackEndpoint) {
+            Throw "The parameters use_accelerate_endpoint and use_dualstack_endpoint are mutually exclusive!"
+        }
+
+        if ($UseAccelerateEndpoint) {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name use_accelerate_endpoint -Value $UseAccelerateEndpoint -Force
+        }
+
+        if ($UseDualstackEndpoint) {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name use_dualstack_endpoint -Value $UseDualstackEndpoint -Force
+        }
+
+        if ($AddressingStyle -ne "auto") {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
+        }
+
+        if ($PayloadSigningEnabled) {
+            $ConfigEntry | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigningEnabled -Force
+        }
+
+        $Config = @($Config | Where-Object { $_.ProfileName -ne $ProfileName}) + $ConfigEntry
+        ConvertTo-AwsConfigFile -Config $Config -AwsConfigFile $ConfigLocation
     }
 }
 
@@ -1146,7 +1230,8 @@ function Global:Get-AwsConfigs {
                 $ConfigEntry.aws_secret_access_key = $Credential.aws_secret_access_key
             }
             else {
-                $Config = @($Config) + ([PSCustomObject]@{ProfileName=$Credential.ProfileName;aws_access_key_id=$Credential.aws_access_key_id;aws_secret_access_key=$Credential.aws_secret_access_key;region="";endpoint_url=$null;max_concurrent_requests=$null;max_queue_size=$null;multipart_threshold=$null;multipart_chunksize=$null;max_bandwidth=$null;use_accelerate_endpoint=$null;addressing_style=$null})
+                $ConfigEntry = [PSCustomObject]@{ProfileName=$Credential.ProfileName;aws_access_key_id=$Credential.aws_access_key_id;aws_secret_access_key=$Credential.aws_secret_access_key;region="";endpoint_url=$null;max_concurrent_requests=10;max_queue_size=1000;multipart_threshold="8MB";multipart_chunksize="8MB";max_bandwidth=$null;use_accelerate_endpoint=$false;use_dualstack_endpoint=$false;addressing_style="auto";payload_signing_enabled=$null}
+                $Config = @($Config) + $ConfigEntry
             }
         }
 
@@ -1225,7 +1310,52 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=7,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl=$null
+                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl=$null,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The maximum number of concurrent requests (Default: 10)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests=10,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The maximum number of tasks in the task queue")][Alias("max_queue_size")][UInt16]$MaxQueueSize=1000,
+        [parameter(
+                Mandatory=$False,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold="8MB",
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files (Default: 8MB)")][Alias("multipart_chunksize")][String]$MultipartChunksize="8MB",
+        [parameter(
+                Mandatory=$False,
+                Position=12,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The maximum bandwidth that will be consumed for uploading and downloading data to and from Amazon S3")][Alias("max_bandwidth")][String]$MaxBandwidth,
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][Boolean]$UseAccelerateEndpoint=$false,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][Boolean]$UseDualstackEndpoint=$false,
+        [parameter(
+                Mandatory=$False,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("addressing_style")][ValidateSet("auto","path","virtual")][String]$AddressingStyle="auto",
+        [parameter(
+                Mandatory=$False,
+                Position=16,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled
     )
     
     Begin {
@@ -1237,7 +1367,20 @@ function Global:Get-AwsConfig {
     Process {
         $ConfigLocation = $ProfileLocation -replace "/[^/]+$",'/config'
 
-        $Config = [PSCustomObject]@{ProfileName = $ProfileName; aws_access_key_id = $AccessKey; aws_secret_access_key = $SecretKey; region = $Region; endpoint_url = $EndpointUrl }
+        $Config = [PSCustomObject]@{ProfileName = $ProfileName;
+                                    aws_access_key_id = $AccessKey;
+                                    aws_secret_access_key = $SecretKey;
+                                    region = $Region;
+                                    endpoint_url = $EndpointUrl;
+                                    max_concurrent_requests = $MaxConcurrentRequests;
+                                    max_queue_size = $MaxQueueSize;
+                                    multipart_threshold = $MultipartThreshold;
+                                    multipart_chunksize = $MultipartChunksize;
+                                    max_bandwidth = $MaxBandwidth;
+                                    use_accelerate_endpoint = $UseAccelerateEndpoint;
+                                    use_dualstack_endpoint = $UseDualstackEndpoint;
+                                    addressing_style = $AddressingStyle;
+                                    payload_signing_enabled = $PayloadSigningEnabled}
 
         if (!$ProfileName -and !$AccessKey -and !$Server) {
             $ProfileName = "default"
@@ -4851,14 +4994,19 @@ function Global:Write-S3MultipartUpload {
                 Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Multipart Part Chunksize")][ValidateRange(1,1GB)][int]$Chunksize
+                HelpMessage="The maximum number of concurrent requests")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
+        [parameter(
+                Mandatory=$False,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Multipart Part Chunksize")][ValidateRange(1,5GB)][int]$Chunksize
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -MaxConcurrentRequests $MaxConcurrentRequests -MultipartChunksize $Chunksize
     }
 
     Process {
@@ -4888,9 +5036,10 @@ function Global:Write-S3MultipartUpload {
         else {
             $MaxRunspaces = [Environment]::ProcessorCount
         }
+        Write-Verbose "Uploading maximum $MaxRunspaces parts in parallel"
 
-        if ($Chunksize -and $Config.multipart_chunksize) {
-            # division by zero necessary as we need to convert string in number format (e.g. 16MB) to integer
+        if (!$Chunksize -and $Config.multipart_chunksize -and (($FileSize / $Config.multipart_chunksize) -le 1000) ) {
+            # division by one necessary as we need to convert string in number format (e.g. 16MB) to integer
             $Chunksize = ($Config.multipart_chunksize/1)
         }
         else {
