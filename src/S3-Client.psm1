@@ -4314,6 +4314,17 @@ function Global:Write-S3Object {
     }
  
     Process {
+        # if the file size is larger than the multipart threshold, then a multipart upload should be done
+        # if the
+        if ($InFile.Length -ge $Config.multipart_threshold) {
+            Write-Verbose "Using multipart upload as file is larger than multipart threshold of $($Config.multipart_threshold)"
+            Write-S3MultipartUpload --SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Metadata $Metadata
+        }
+        if ($InFile.Length -ge $Config.multipart_threshold -or $InFile.Length -gt 5GB) {
+            Write-Warn "Using multipart upload as PUT uploads are only allowed for files smaller than 5GB and file is larger than 5GB."
+            Write-S3MultipartUpload --SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Metadata $Metadata
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -5027,7 +5038,6 @@ function Global:Write-S3MultipartUpload {
             $Key = $InFile.Name
         }
 
-        $FileInfo = [System.IO.FileInfo]::new($InFile)
         $FileSize = $FileInfo.Length
 
         if ($Config.max_concurrent_requests) {
