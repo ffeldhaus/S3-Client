@@ -22,6 +22,7 @@ for ($i = 0; $i -lt ($TestFileSize / $BlockSize); $i++) {
     $Random.NextBytes($ByteBuffer)
     $Stream.Write($ByteBuffer, 0, $ByteBuffer.Length)
 }
+$Stream.Dispose()
 $TestFileHash = $TestFile | Get-FileHash
 
 function Setup() {
