@@ -230,7 +230,7 @@ foreach ($ProfileName in $Profiles.ProfileName) {
         Context "Copy object" {
             It "Given -SourceBucket $BucketName and -SourceKey $Key and -BucketName $BucketName and -Key $Key it is copied to itself" {
                 Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content -Metadata $CustomMetadata
-                $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select -ExpandProperty CustomMetadata
+                $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty CustomMetadata
                 Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $CustomMetadata
                 Get-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
             }
@@ -238,6 +238,30 @@ foreach ($ProfileName in $Profiles.ProfileName) {
 
         Cleanup
     }
+
+    Describe "Profile $ProfileName : S3BucketEncryption" {
+        Setup
+
+        Context "Set Bucket encryption" {
+            It "Given -BucketName $BucketName and -SSEAlgorithm AWS256 server side encryption is enabled" -Skip {
+                Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName -SSEAlgorithm AES256
+                sleep 5
+                $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
+                $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
+            }
+
+            It "Given -BucketName $UnicodeBucketName and -SSEAlgorithm AWS256 server side encryption is enabled" -Skip {
+                Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName -SSEAlgorithm AES256
+                sleep 5
+                $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
+            }
+        }
+        
+        Cleanup
+    }
+
+    
 }
 
 $TestFile | Remove-Item
