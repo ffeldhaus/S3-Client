@@ -240,21 +240,28 @@ foreach ($ProfileName in $Profiles.ProfileName) {
     }
 
     Describe "Profile $ProfileName : S3BucketEncryption" {
+        if ($ProfileName -eq "webscaledemo") { continue }
         Setup
 
         Context "Set Bucket encryption" {
-            It "Given -BucketName $BucketName and -SSEAlgorithm AWS256 server side encryption is enabled" -Skip {
+            It "Given -BucketName $BucketName and -SSEAlgorithm AWS256 server side encryption is enabled" {
                 Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName -SSEAlgorithm AES256
                 sleep 5
                 $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
                 $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
+                Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
+                $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
+                $BucketEncryption | Should -BeNullOrEmpty
             }
 
-            It "Given -BucketName $UnicodeBucketName and -SSEAlgorithm AWS256 server side encryption is enabled" -Skip {
+            It "Given -BucketName $UnicodeBucketName and -SSEAlgorithm AWS256 server side encryption is enabled" {
                 Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName -SSEAlgorithm AES256
                 sleep 5
                 $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
                 $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
+                Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                $BucketEncryption | Should -BeNullOrEmpty
             }
         }
         
