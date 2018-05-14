@@ -1,17 +1,19 @@
 S3 Client Tutorial
 ==================
 
-This S3 Client allows to run S3 Operations against any S3 endpoint, but it includes some shortcuts for [NetApp StorageGRID](netapp.com/storagegrid) users to handle S3 credentials. If a grid administrator is connected, then the Cmdlets automatically create temporary Cmdlets for all tenants where an operation is performed. If a tenant user is connected, the temporary S3 credentials will be automatically created for the tenant user. All temporary credentials have an expiry time of 60 minutes by default.
+This S3 Client allows to run S3 Operations against any S3 endpoint, but it includes some shortcuts for [NetApp StorageGRID](https://netapp.com/storagegrid) users to handle S3 credentials. 
 
-When logged in as a tenant user, you must provide the `-endpointUrl` parameter for all S3 commands. For grid administrators the Cmdlets automatically query the configured domain endpoints and check if connections via S3 are possible. The endpoints are then stored in the S3EndpointUrl parameter of the server object (e.g. `$CurrentSgwServer.S3EndpointUrl`). It is alway possible to supply a different URL by specifying the `-EndpointUrl` parameter for all S3 commands.
+If you are using the Cmdlets together with StorageGRID, proceed with the next section, otherwise skip to the [Bucket Cmdlets](#Bucket-Cmdlets)
 
-For tenant users it is recommended to add the endpoint URL to the server object, so that the `-EndpointUrl` parameter is not required for every command. The following Commands expect that this has occured:
+## StorageGRID Specific simplifications
+
+If a StorageGRID administrator is connected, then the Cmdlets automatically create temporary Cmdlets for all tenants where an operation is performed. If a StorageGRID tenant user is connected, the temporary S3 credentials will be automatically created for the tenant user. All temporary credentials have an expiry time of 60 minutes by default. When logged in as a tenant user, you must provide the `-endpointUrl` parameter for all S3 commands. For grid administrators the Cmdlets automatically query the configured domain endpoints and check if connections via S3 are possible. The endpoints are then stored in the S3EndpointUrl parameter of the server object (e.g. `$CurrentSgwServer.S3EndpointUrl`). It is always possible to supply a different URL by specifying the `-EndpointUrl` parameter for all S3 commands.
+
+For tenant users it is recommended to add the endpoint URL to the server object, so that the `-EndpointUrl` parameter is not required for every command. The following Commands expect that this has occurred:
 
 ```powershell
 $CurrentSgwServer.S3EndpointUrl = "https://s3.example.org:8082"   
 ```
-
-## Access Keys
 
 Automatic Access Key generation can be disabled when connecting to the StorageGRID server with
 
@@ -37,15 +39,15 @@ The grid administrator must be able to create S3 credentials for individual tena
 Update-SgwConfigManagement -MinApiVersion 1
 ```
 
-## Buckets
+## Bucket Cmdlets
 
-As a grid administrator, listing buckets will return all buckets for all tenants by creating S3 credentials for every tenant and then listing their buckets. For tenant users, only the buckets of the individual tenant will be listed.
+As a StorageGRID administrator, listing buckets will return all buckets for all tenants by creating S3 credentials for every tenant and then listing their buckets. For StorageGRID tenant users, only the buckets of the individual tenant will be listed. For all other S3 services, only the Buckets of the current user will be listed.
 
 ```powershell
 Get-S3Buckets
 ```
 
-Grid Administrators can list all buckets of an individual tenant with
+StorageGRID Administrators can list all buckets of an individual StorageGRID tenant by using the tenant account ID:
 
 ```powershell
 Get-S3Buckets -AccountId $AccountId
@@ -64,7 +66,7 @@ A new Bucket can be created with
 New-S3Bucket -Bucket "MyBucket"
 ```
 
-A grid user needs to specify for which tenant the bucket should be created either by specifying the Account ID
+A StorageGRID administrator needs to specify for which tenant the bucket should be created either by specifying the Account ID
 
 ```powershell
 New-S3Bucket -Bucket "MyBucket" -AccountId $AccountId
