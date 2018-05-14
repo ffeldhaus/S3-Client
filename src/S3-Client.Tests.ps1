@@ -10,6 +10,20 @@ $Content = "Hello World!"
 $CustomMetadata = @{"MetadataKey"="MetadataValue"}
 $Profiles = Get-AwsProfiles | Where-Object { $_.ProfileName -match "AWS|webscaledemo" }
 
+# create temporary file
+$TestFileSize = 5MB
+$TestFile = New-TemporaryFile
+# Note: block size must be a factor of 1MB to avoid rounding errors :)
+$BlockSize = 8KB
+$ByteBuffer = [Byte[]]::new($BlockSize)
+$Random = [System.Random]::new()
+$Stream = [System.IO.FileStream]::new($TestFile, [System.IO.FileMode]::Open)
+for ($i = 0; $i -lt ($TestFileSize / $BlockSize); $i++) {
+    $Random.NextBytes($ByteBuffer)
+    $Stream.Write($ByteBuffer, 0, $ByteBuffer.Length)
+}
+$TestFileHash = $TestFile | Get-FileHash
+
 function Setup() {
     New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
     New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
@@ -193,6 +207,19 @@ foreach ($ProfileName in $Profiles.ProfileName) {
             }
         }
 
+        Context "Upload file" {
+            It "Given file -InFile `"$TestFile`" it is succesfully created" {
+                Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $TestFile
+                $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+                $TestFile.Name | Should -BeIn $Objects.Key
+                $TempFile = New-TemporaryFile
+                Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $TestFile.Name -OutFile $TempFile.FullName
+                $TempFileHash = $TempFile | Get-FileHash
+                $TempFileHash.Hash | Should -Be $TestFileHash.Hash
+                $TempFile | Remove-Item
+            }
+        }
+
         Cleanup
     }
 
@@ -211,3 +238,5 @@ foreach ($ProfileName in $Profiles.ProfileName) {
         Cleanup
     }
 }
+
+$TestFile | Remove-Item

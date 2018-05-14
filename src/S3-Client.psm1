@@ -4079,7 +4079,7 @@ function Global:Read-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=13,
-                HelpMessage="Path where object should be stored")][Alias("OutFile")][System.IO.DirectoryInfo]$Path
+                HelpMessage="Path where object should be stored")][Alias("OutFile")][String]$Path
     )
 
     Begin {
@@ -4107,20 +4107,21 @@ function Global:Read-S3Object {
         }
 
         if ($Path) {
-            if ($Path.Exists) {
-                $Item = Get-Item $Path
+            $DirectoryPath = [System.IO.DirectoryInfo]$Path
+            if ($DirectoryPath.Exists) {
+                $Item = Get-Item $DirectoryPath
                 if ($Item -is [FileInfo]) {
                     $OutFile = $Item
                 }
                 else {
-                    $OutFile = Join-Path -Path $Path -ChildPath $Key
+                    $OutFile = Join-Path -Path $DirectoryPath -ChildPath $Key
                 }
             }
-            elseif ($Path.Parent.Exists) {
-                $OutFile = $Path
+            elseif ($DirectoryPath.Parent.Exists) {
+                $OutFile = $DirectoryPath
             }
             else {
-                Throw "Path $Path does not exist and parent directory $($Path.Parent) also does not exist"
+                Throw "Path $DirectoryPath does not exist and parent directory $($DirectoryPath.Parent) also does not exist"
             }
         }
 
@@ -4314,35 +4315,35 @@ function Global:Write-S3Object {
     }
  
     Process {
-        # if the file size is larger than the multipart threshold, then a multipart upload should be done
-        # if the
-        if ($InFile.Length -ge $Config.multipart_threshold) {
-            Write-Verbose "Using multipart upload as file is larger than multipart threshold of $($Config.multipart_threshold)"
-            Write-S3MultipartUpload --SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Metadata $Metadata
-        }
-        if ($InFile.Length -ge $Config.multipart_threshold -or $InFile.Length -gt 5GB) {
-            Write-Warn "Using multipart upload as PUT uploads are only allowed for files smaller than 5GB and file is larger than 5GB."
-            Write-S3MultipartUpload --SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Metadata $Metadata
-        }
-
         if (!$Region) {
             $Region = $Config.Region
         }
-
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         if ($InFile -and !$InFile.Exists) {
             Throw "File $InFile does not exist"
         }
 
+        if (!$Key) {
+            $Key = $InFile.Name
+        }
+
+        # if the file size is larger than the multipart threshold, then a multipart upload should be done
+        if (!$Content -and $Config.multipart_threshold -and $InFile.Length -ge $Config.multipart_threshold) {
+            Write-Verbose "Using multipart upload as file is larger than multipart threshold of $($Config.multipart_threshold)"
+            Write-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+        }
+        # if the file size is larger than 5GB multipart upload must be used as PUT Object is only allowed up to 5GB files
+        if ($InFile.Length -gt 5GB) {
+            Write-Warning "Using multipart upload as PUT uploads are only allowed for files smaller than 5GB and file is larger than 5GB."
+            Write-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+        }
+
+        # Convert Bucket Name to IDN mapping to support Unicode Names
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+
         # TODO: Check MIME type of file
         if (!$InFile) {
             $ContentType = "text/plain"
-        }
-
-        if (!$Key) {
-            $Key = $InFile.Name
         }
 
         $Headers = @{}
@@ -4927,13 +4928,8 @@ function Global:Write-S3MultipartUpload {
                 Position=5,
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
-                ParameterSetName="ProfileAndFile",
-                Mandatory=$False,
-                Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")]
-        [parameter(
-                ParameterSetName="ProfileAndContent",
-                Mandatory=$False,
+                ParameterSetName="profile",
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
         [parameter(
@@ -4942,36 +4938,19 @@ function Global:Write-S3MultipartUpload {
                 Position=7,
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
-                ParameterSetName="KeyAndFile",
-                Mandatory=$True,
-                Position=6,
-                HelpMessage="S3 Access Key")]
-        [parameter(
-                ParameterSetName="KeyAndContent",
+                ParameterSetName="keys",
                 Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
-                ParameterSetName="KeyAndFile",
-                Mandatory=$True,
-                Position=7,
-                HelpMessage="S3 Secret Access Key")]
-        [parameter(
-                ParameterSetName="KeyAndContent",
+                ParameterSetName="keys",
                 Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
-                ParameterSetName="AccountAndFile",
+                ParameterSetName="account",
                 Mandatory=$True,
                 Position=6,
-                HelpMessage="StorageGRID account ID to execute this command against")]
-        [parameter(
-                ParameterSetName="AccountAndContent",
-                Mandatory=$True,
-                Position=6,
-                ValueFromPipeline=$True,
-                ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
@@ -5038,7 +5017,7 @@ function Global:Write-S3MultipartUpload {
             $Key = $InFile.Name
         }
 
-        $FileSize = $FileInfo.Length
+        $FileSize = $InFile.Length
 
         if ($Config.max_concurrent_requests) {
             $MaxRunspaces = $Config.max_concurrent_requests
@@ -5048,11 +5027,15 @@ function Global:Write-S3MultipartUpload {
         }
         Write-Verbose "Uploading maximum $MaxRunspaces parts in parallel"
 
-        if (!$Chunksize -and $Config.multipart_chunksize -and (($FileSize / $Config.multipart_chunksize) -le 1000) ) {
-            # division by one necessary as we need to convert string in number format (e.g. 16MB) to integer
-            $Chunksize = ($Config.multipart_chunksize/1)
+        if ($Config.multipart_chunksize -gt 0) {
+            # Chunksize must be at least 1/1000 of the file size, as max 1000 parts are allowed
+            if (($FileSize / $Config.multipart_chunksize) -le 1000) {
+                # division by one necessary as we need to convert string in number format (e.g. 16MB) to integer
+                $Chunksize = ($Config.multipart_chunksize/ 1)
+            }
         }
-        else {
+
+        if (!$Chunksize) {
             # S3 only allows 1000 parts, therefore we need to set the chunksize to something larger than 1GB
             if ($FileSize -gt 1TB) {
                 $Chunksize = [Math]::Pow(2,[Math]::Ceiling([Math]::Log($FileSize/1000)/[Math]::Log(2)))
@@ -5128,27 +5111,28 @@ function Global:Write-S3MultipartUpload {
 
                 $Response = $HttpClient.SendAsync($PutRequest)
 
-                $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
-
                 $Etag = New-Object 'System.Collections.Generic.List[string]'
                 [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
                 $Etag = $Etag[0] -replace '"',''
 
-                # TODO: compare calculated MD5 sum with ETag
+                $CryptoStream.Dispose()
+                $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
 
                 if ($Response.Result.StatusCode -ne "OK") {
                     Write-Output $Response
                 }
+                elseif ($Etag -ne $MD5Sum) {
+                    $Output = [PSCustomObject]@{Etag=$Etag;MD5Sum=$MD5Sum}
+                    Write-Output $Output
+                }
                 else {
-
                     Write-Output $Etag
                 }
 
-                #$Response.Dispose()
-                #$PutRequest.Dispose()
-                #$StreamContent.Dispose()
-                #$CryptoStream.Dispose()
-                #$Stream.Dispose()
+                $Response.Dispose()
+                $PutRequest.Dispose()
+                $StreamContent.Dispose()
+                $Stream.Dispose()
             })
 
             if (($PartNumber * $Chunksize) -gt $FileSize) {
@@ -5180,6 +5164,10 @@ function Global:Write-S3MultipartUpload {
 
         $return = $jobs | ForEach {
             $Output = $_.powershell.EndInvoke($_.handle)
+            if ($Output[0] -isnot [String]) {
+                Write-Verbose (ConvertTo-Json -InputObject $Output)
+                throw "Upload of part $($_.PartNumber) failed"
+            }
             $Etags[$_.PartNumber] = $Output
             Write-Verbose "Part $($_.PartNumber) has completed with ETag $Output"
             $_.PowerShell.Dispose()
