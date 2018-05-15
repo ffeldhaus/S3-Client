@@ -2424,7 +2424,7 @@ function Global:Get-S3BucketEncryption {
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.Content)
+                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
                     }
                     else {
                         $Content = [XML]$Result.Content
@@ -2609,7 +2609,7 @@ function Global:Set-S3BucketEncryption {
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.Content)
+                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
                     }
                     else {
                         $Content = [XML]$Result.Content
@@ -3110,7 +3110,7 @@ function Global:Get-S3BucketVersioning {
 
             # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
             if (!$Result.Headers.'Content-Type') {
-                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.Content)
+                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             }
             else {
                 $Content = [XML]$Result.Content
@@ -3224,7 +3224,7 @@ function Global:Enable-S3BucketVersioning {
 
             # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
             if (!$Result.Headers.'Content-Type') {
-                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.Content)
+                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             }
             else {
                 $Content = [XML]$Result.Content
@@ -3342,7 +3342,7 @@ function Global:Suspend-S3BucketVersioning {
 
             # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
             if (!$Result.Headers.'Content-Type') {
-                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.Content)
+                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             }
             else {
                 $Content = [XML]$Result.Content
@@ -3458,7 +3458,7 @@ function Global:Get-S3BucketLocation {
 
             # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
             if (!$Result.Headers.'Content-Type') {
-                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.Content)
+                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             }
             else {
                 $Content = [XML]$Result.Content
@@ -4883,7 +4883,7 @@ function Global:Start-S3MultipartUpload {
         }
         else {
             $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
-            $Xml = [XML][System.Text.Encoding]::UTF8.GetString($Result.Content)
+            $Xml = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             $Content = $Xml.InitiateMultipartUploadResult
             $InitiateMultipartUploadResult = [PSCustomObject]@{Bucket=$Content.Bucket;Key=$Content.Key;UploadId=$Content.UploadId}
             Write-Output $InitiateMultipartUploadResult
