@@ -708,6 +708,10 @@ function Global:Get-AwsRequest {
             $RequestPayloadHash=Get-AwsHash -StringToHash $RequestPayload
         }
 
+        if ($RequestPayload) {
+            $Md5 = ([System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($RequestPayload)) -replace "-","").ToLower()
+        }
+
         if (!$Headers["host"]) { $Headers["host"] = $EndpointUrl.Uri.Authority }
 
         if (!$Presign.IsPresent) {
@@ -719,6 +723,7 @@ function Global:Get-AwsRequest {
             }
             if (!$Headers["x-amz-content-sha256"] -and $SignerType -eq "AWS4") { $Headers["x-amz-content-sha256"] = $RequestPayloadHash }
             if (!$Headers["content-type"] -and $ContentType) { $Headers["content-type"] = $ContentType }
+            if (!$Headers["content-md5"] -and $Md5) { $Headers["content-md5"] = [Convert]::ToBase64String($Md5) }
         }
 
         $SortedHeaders = ConvertTo-SortedDictionary $Headers
@@ -2772,6 +2777,711 @@ function Global:Remove-S3BucketEncryption {
                     if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
                         Remove-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                    }
+                }
+            }
+        }
+    }
+}
+
+Set-Alias -Name Get-S3BucketCors -Value Get-S3BucketCorsConfiguration
+Set-Alias -Name Get-S3CORSConfiguration -Value Get-S3BucketCorsConfiguration
+<#
+    .SYNOPSIS
+    Retrieve Bucket CORS Configuration
+    .DESCRIPTION
+    Retrieve Bucket CORS Configuration
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Path)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
+#>
+function Global:Get-S3BucketCorsConfiguration {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$False,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+        $Method = "GET"
+    }
+
+    Process {
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $Query = @{cors=""}
+
+        # convert BucketName to Punycode to support Unicode Bucket Names
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+
+        if ($Config)  {
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            if ($DryRun.IsPresent) {
+                Write-Output $AwsRequest
+            }
+            else {
+                try {
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+
+                    # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
+                    if (!$Result.Headers.'Content-Type') {
+                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
+                    }
+                    else {
+                        $Content = [XML]$Result.Content
+                    }
+
+                    foreach ($Rule in $Content.CORSConfiguration.CORSRule) {
+                        $Output = [PSCustomObject]@{
+                            Id=$Rule.Id
+                            AllowedMethod = $Rule.AllowedMethod
+                            AllowedOrigin = $Rule.AllowedOrigin
+                            AllowedHeader = $Rule.AllowedHeader
+                            MaxAgeSeconds = $Rule.MaxAgeSeconds
+                            ExposeHeader = $Rule.ExposeHeader
+                        }
+                        Write-Output $Output
+                    }
+                }
+                catch {
+                    $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                    if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                        Get-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                    }
+                    elseif ($_.Exception.Response.StatusCode -ne [System.Net.HttpStatusCode]::NotFound) {
+                        Throw $_
+                    }
+                }
+            }
+        }
+    }
+}
+
+Set-Alias -Name Add-S3BucketCorsConfiguration -Value Add-S3BucketCorsConfigurationRule
+Set-Alias -Name Write-S3CorsConfiguration -Value Add-S3BucketCorsConfigurationRule
+Set-Alias -Name Add-S3BucketCorsRule -Value Add-S3BucketCorsConfigurationRule
+<#
+    .SYNOPSIS
+    Add Bucket CORS Configuration Rule
+    .DESCRIPTION
+    Add Bucket CORS Configuration Rule
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Path)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Id
+    A unique identifier for the rule.
+    .PARAMETER AllowedMethods
+    The HTTP methods the origin shall be allowed to execute.
+    .PARAMETER AllowedOrigins
+    Origins which shall be allowed to execute.
+    .PARAMETER AllowedHeaders
+    Specifies which headers are allowed in a pre-flight OPTIONS request via the Access-Control-Request-Headers header.
+    .PARAMETER MaxAgeSeconds
+    The time in seconds that the browser is to cache the preflight response for the specified resource.
+    .PARAMETER ExposeHeaders
+    One or more headers in the response that the client is able to access from his applications (for example, from a JavaScript XMLHttpRequest object).
+#>
+function Global:Add-S3BucketCorsConfigurationRule {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$False,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="A unique identifier for the rule.")][ValidateLength(1,255)][String]$Id,
+        [parameter(
+                Mandatory=$True,
+                Position=12,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The HTTP methods the origin shall be allowed to execute.")][ValidateSet("GET", "PUT", "HEAD", "POST", "DELETE")][Alias("AllowedMethod")][String[]]$AllowedMethods,
+        [parameter(
+                Mandatory=$True,
+                Position=13,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Origins which shall be allowed to execute.")][Alias("AllowedOrigin")][String[]]$AllowedOrigins,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Specifies which headers are allowed in a pre-flight OPTIONS request via the Access-Control-Request-Headers header.")][Alias("AllowedHeader")][String[]]$AllowedHeaders,
+        [parameter(
+                Mandatory=$False,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The time in seconds that the browser is to cache the preflight response for the specified resource.")][Int]$MaxAgeSeconds,
+        [parameter(
+                Mandatory=$False,
+                Position=16,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="One or more headers in the response that the client is able to access from his applications (for example, from a JavaScript XMLHttpRequest object).")][Alias("ExposeHeader")][String[]]$ExposeHeaders
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+        $Method = "PUT"
+    }
+
+    Process {
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $Query = @{cors=""}
+
+        # convert BucketName to Punycode to support Unicode Bucket Names
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+
+        $CorsConfigurationRules = @()
+
+        $CorsConfigurationRules += Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+
+        $CorsConfigurationRule = [PSCustomObject]@{
+            ID = $Id
+            AllowedMethod = $AllowedMethods
+            AllowedOrigin = $AllowedOrigins
+            AllowedHeader = $AllowedHeaders
+            MaxAgeSeconds = $MaxAgeSeconds
+            ExposeHeader = $ExposeHeaders
+        }
+
+        $CorsConfigurationRules += $CorsConfigurationRule
+
+        $Body = "<CORSConfiguration>"
+        foreach ($CorsConfigurationRule in $CorsConfigurationRules) {
+            $Body += "<CORSRule>"
+            if ($CorsConfigurationRule.Id) {
+                $Body += "<ID>$($CorsConfigurationRule.Id)</ID>"
+            }
+            foreach ($AllowedMethod in $CorsConfigurationRule.AllowedMethod) {
+                $Body += "<AllowedMethod>$AllowedMethod</AllowedMethod>"
+            }
+            foreach ($AllowedOrigin in $CorsConfigurationRule.AllowedOrigin) {
+                $Body += "<AllowedOrigin>$AllowedOrigin</AllowedOrigin>"
+            }
+            foreach ($AllowedHeader in $CorsConfigurationRule.AllowedHeader) {
+                $Body += "<AllowedHeader>$AllowedHeader</AllowedHeader>"
+            }
+            if ($MaxAgeSeconds) {
+                $Body += "<MaxAgeSeconds>$($CorsConfigurationRule.MaxAgeSeconds)</MaxAgeSeconds>"
+            }
+            foreach ($ExposeHeader in $ExposeHeader) {
+                $Body += "<ExposeHeader>$($CorsConfigurationRule.ExposeHeader)</ExposeHeader>"
+            }
+            $Body += "</CORSRule>"
+        }
+        $Body += "</CORSConfiguration>"
+
+        Write-Verbose "Body:`n$Body"
+
+        if ($Config)  {
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body
+            if ($DryRun.IsPresent) {
+                Write-Output $AwsRequest
+            }
+            else {
+                try {
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
+                }
+                catch {
+                    $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                    if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                        Set-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -SSEAlgorithm $SSEAlgorithm -KMSMasterKeyID $KMSMasterKeyID
+                    }
+                    else {
+                        throw $_
+                    }
+                }
+            }
+        }
+    }
+}
+
+<#
+    .SYNOPSIS
+    Remove Bucket CORS Configuration Rule
+    .DESCRIPTION
+    Remove Bucket CORS Configuration Rule
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Path)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Id
+    A unique identifier for the rule.
+#>
+function Global:Remove-S3BucketCorsConfigurationRule {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$False,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$True,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="A unique identifier for the rule.")][ValidateLength(1,255)][String]$Id
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+    }
+
+    Process {
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        # convert BucketName to Punycode to support Unicode Bucket Names
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+
+        # get all rules
+        $CorsConfigurationRules = Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+
+        if (!($CorsConfigurationRules | Where-Object { $_.Id -eq $Id })) {
+            Write-Warning "CORS Configuration Rule ID $Id does not exist"
+            break
+        }
+
+        # remove the rule with the specified ID
+        $CorsConfigurationRules = $CorsConfigurationRules | Where-Object { $_.Id -ne $Id }
+
+        Remove-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+
+        # write all rules
+        $CorsConfigurationRules | Add-S3BucketCorsConfigurationRule -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+    }
+}
+
+Set-Alias -Name Remove-S3BucketCors -Value Remove-S3BucketCorsConfiguration
+Set-Alias -Name Remove-S3CORSConfiguration -Value Remove-S3BucketCorsConfiguration
+<#
+    .SYNOPSIS
+    Remove Bucket CORS Configuration
+    .DESCRIPTION
+    Remove Bucket CORS Configuration
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Path)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
+#>
+function Global:Remove-S3BucketCorsConfiguration {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$False,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
+        $Method = "DELETE"
+    }
+
+    Process {
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $Query = @{cors=""}
+
+        # convert BucketName to Punycode to support Unicode Bucket Names
+        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+
+        if ($Config)  {
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            if ($DryRun.IsPresent) {
+                Write-Output $AwsRequest
+            }
+            else {
+                try {
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                }
+                catch {
+                    $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                    if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                        Get-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                    }
+                    elseif ($_.Exception.Response.StatusCode -ne [System.Net.HttpStatusCode]::NotFound) {
+                        Throw $_
                     }
                 }
             }
