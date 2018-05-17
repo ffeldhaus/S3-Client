@@ -22,32 +22,13 @@ if ($PSVersionTable.PSVersion.Major -lt 6) {
     $global:javaScriptSerializer.RecursionLimit = 99
 }
 else {
-    # unfortunately AWS Authentication is not RFC-7232 compliant (it is using semicolons in the value) 
+    # unfortunately AWS Authentication is not RFC-7232 compliant (it is using semicolons in the value)
     # and PowerShell 6 enforces strict header verification by default
     # therefore disabling strict header verification until AWS fixed this
     $PSDefaultParameterValues.Add("Invoke-WebRequest:SkipHeaderValidation",$true)
 }
 
 ### Helper Functions ###
-
-function ParseErrorForResponseBody($Error) {
-    #private
-    if ($PSVersionTable.PSVersion.Major -lt 6) {
-        if ($Error.Exception.Response) {  
-            $Reader = New-Object System.IO.StreamReader($Error.Exception.Response.GetResponseStream())
-            $Reader.BaseStream.Position = 0
-            $Reader.DiscardBufferedData()
-            $ResponseBody = $Reader.ReadToEnd()
-            if ($ResponseBody.StartsWith('{')) {
-                $ResponseBody = $ResponseBody | ConvertFrom-Json | ConvertTo-Json
-            }
-            return $ResponseBody
-        }
-    }
-    else {
-        return $Error.ErrorDetails.Message
-    }
-}
 
 function ConvertTo-SortedDictionary($HashTable) {
     #private
@@ -304,7 +285,7 @@ function Global:Get-AwsHash {
             ParameterSetName="file",
             HelpMessage="File to hash")][System.IO.FileInfo]$FileToHash
     )
- 
+
     Process {
         $Hasher = [System.Security.Cryptography.SHA256]::Create()
 
@@ -375,7 +356,7 @@ function Global:New-AwsSignatureV2 {
             Position=11,
             HelpMessage="Query String (unencoded)")][String]$QueryString
     )
- 
+
     Process {
         # this Cmdlet follows the steps outlined in https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
 
@@ -391,7 +372,7 @@ function Global:New-AwsSignatureV2 {
 
         if ($BucketName -and $EndpointUrl.Host -match "^$BucketName") {
             $CanonicalizedResource += "/$BucketName"
-            Write-Debug "2. Add the bucketname for virtual host style:`n$CanonicalizedResource" 
+            Write-Debug "2. Add the bucketname for virtual host style:`n$CanonicalizedResource"
         }
         else {
             Write-Debug "2. Bucketname already part of Url for path style therefore skipping this step"
@@ -401,12 +382,12 @@ function Global:New-AwsSignatureV2 {
         $CanonicalURI = ([System.UriBuilder]"$EndpointUrl$($Uri -replace '^/','')").Uri.PathAndQuery
 
         $CanonicalizedResource += $CanonicalURI
-        Write-Debug "3. Append the path part of the un-decoded HTTP Request-URI, up-to but not including the query string:`n$CanonicalizedResource" 
+        Write-Debug "3. Append the path part of the un-decoded HTTP Request-URI, up-to but not including the query string:`n$CanonicalizedResource"
 
         if ($QueryString) {
             $CanonicalizedResource += "?$QueryString"
         }
-        Write-Debug "4. Append the query string unencoded for signing:`n$CanonicalizedResource" 
+        Write-Debug "4. Append the query string unencoded for signing:`n$CanonicalizedResource"
 
         Write-Debug "Task 2: Constructing the CanonicalizedAmzHeaders Element"
 
@@ -414,7 +395,7 @@ function Global:New-AwsSignatureV2 {
         $AmzHeaders = $Headers.Clone()
         # remove all headers which do not start with x-amz
         $Headers.Keys | ForEach-Object { if ($_ -notmatch "x-amz" -or $_ -eq "x-amz-date") { $AmzHeaders.Remove($_) } }
-        
+
         Write-Debug "2. Sort headers lexicographically"
         $SortedAmzHeaders = ConvertTo-SortedDictionary $AmzHeaders
         $CanonicalizedAmzHeaders = ($SortedAmzHeaders.GetEnumerator()  | ForEach-Object { "$($_.Key.toLower()):$($_.Value)" }) -join "`n"
@@ -434,7 +415,7 @@ function Global:New-AwsSignatureV2 {
         $SignedString = Get-SignedString -Key ([Text.Encoding]::UTF8.GetBytes($SecretKey)) -Message $StringToSign -Algorithm SHA1
         $Signature = [Convert]::ToBase64String($SignedString)
 
-        Write-Debug "1. Signature:`n$Signature" 
+        Write-Debug "1. Signature:`n$Signature"
 
         Write-Output $Signature
     }
@@ -513,7 +494,7 @@ function Global:New-AwsSignatureV4 {
             $RequestPayloadHash = Get-AwsHash -StringToHash ""
         }
         if (!$DateTime) {
-            $DateTime = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")        
+            $DateTime = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
         }
         if (!$DateString) {
             $DateString = [DateTime]::UtcNow.ToString('yyyyMMdd')
@@ -522,7 +503,7 @@ function Global:New-AwsSignatureV4 {
         Write-Debug "Task 1: Create a Canonical Request for Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
 
-        Write-Debug "1. HTTP Request Method:`n$Method" 
+        Write-Debug "1. HTTP Request Method:`n$Method"
 
         # TODO: Think of a better way to get the properly encoded relative URI
         $CanonicalURI = ([System.UriBuilder]"$EndpointUrl$($Uri -replace '^/','')").Uri.PathAndQuery
@@ -876,7 +857,7 @@ function Global:Invoke-AwsRequest {
             }
         }
     }
- 
+
     Process {
         # check if untrusted SSL certificates should be ignored
         if ($SkipCertificateCheck.IsPresent) {
@@ -1085,7 +1066,7 @@ function Global:Add-AwsConfig {
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled
     )
- 
+
     Process {
         $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
 
@@ -1365,7 +1346,7 @@ function Global:Get-AwsConfig {
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled
     )
-    
+
     Begin {
         if (!$Server -and $CurrentSgwServer) {
             $Server = $CurrentSgwServer.PSObject.Copy()
@@ -1803,7 +1784,7 @@ function Global:Get-S3Buckets {
         $Method = "GET"
         $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
     }
- 
+
     Process {
         Write-Verbose "Retrieving all buckets"
 
@@ -2139,7 +2120,7 @@ function Global:New-S3Bucket {
         }
         $Method = "PUT"
     }
- 
+
     Process {
         $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId
 
@@ -5142,7 +5123,7 @@ function Global:Read-S3Object {
         $Uri = "/$Key"
 
         $Headers = @{}
-        if ($Range) {            
+        if ($Range) {
             $Headers["Range"] = $Range
         }
 
@@ -5353,7 +5334,7 @@ function Global:Write-S3Object {
 
         $Method = "PUT"
     }
- 
+
     Process {
         if (!$Region) {
             $Region = $Config.Region
@@ -5396,7 +5377,7 @@ function Global:Write-S3Object {
             }
         }
         Write-Verbose "Metadata:`n$($Headers | ConvertTo-Json)"
-        
+
         $Uri = "/$Key"
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers
@@ -6675,7 +6656,7 @@ function Global:Remove-S3Object {
 
         $Method = "DELETE"
     }
- 
+
     Process {
         if (!$Region) {
             $Region = $Config.Region
@@ -6996,7 +6977,7 @@ function Global:Get-S3BucketConsistency {
 
         $Method = "GET"
     }
- 
+
     Process {
         if (!$Region) {
             $Region = $Config.Region
@@ -7113,7 +7094,7 @@ function Global:Update-S3BucketConsistency {
 
         $Method = "PUT"
     }
- 
+
     Process {
         if (!$Region) {
             $Region = $Config.Region
@@ -7312,7 +7293,7 @@ function Global:Get-S3BucketLastAccessTime {
 
         $Method = "GET"
     }
- 
+
     Process {
         if (!$Region) {
             $Region = $Config.Region
@@ -7425,7 +7406,7 @@ function Global:Enable-S3BucketLastAccessTime {
 
         $Method = "PUT"
     }
- 
+
     Process {
         if (!$Region) {
             $Region = $Config.Region
