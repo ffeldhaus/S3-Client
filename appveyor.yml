@@ -8,6 +8,12 @@ configuration:
 - WebscaleDemoNext
 - Minio
 
+matrix:
+  fast_finish: true
+  exclude:
+  - image: Visual Studio 2018
+    configuration: Minio
+
 build: off
 
 # Version number
@@ -50,8 +56,8 @@ install:
   - sh: mkdir $HOME/.aws
   - sh: ./appveyor-tools/secure-file -decrypt etc/config.enc -out $HOME/.aws/config -secret $my_secret
   - sh: ./appveyor-tools/secure-file -decrypt etc/credentials.enc -out $HOME/.aws/credentials -secret $my_secret
-  - ps: docker pull minio/minio
-  - ps: docker run -p 9000:9000 -a STDERR -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data
+  - sh: docker pull minio/minio
+  - sh: docker run -p 9000:9000 -a STDERR -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data
 
 # Invoke Pester to run all of the unit tests, then save the results into XML in order to populate the AppVeyor tests section
 # If any of the tests fail, consider the pipeline failed
