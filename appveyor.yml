@@ -9,7 +9,6 @@ configuration:
 - Minio
 
 matrix:
-  fast_finish: true
   exclude:
   - configuration: Minio
     image: Visual Studio 2017
