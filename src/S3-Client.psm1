@@ -177,6 +177,7 @@ function ConvertTo-AwsConfigFile {
                 {
                     $Output += "[profile $( $ConfigEntry.ProfileName )]`n"
                 }
+                # TODO: Implement S3 Settings like multipart_chunksize
                 $Properties = $Config | Select-Object -ExcludeProperty aws_access_key_id, aws_secret_access_key, ProfileName | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name
                 foreach ($Property in $Properties)
                 {
@@ -1064,7 +1065,7 @@ function Global:Add-AwsConfig {
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled
+                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled=$false
     )
 
     Process {
@@ -2765,6 +2766,7 @@ function Global:Remove-S3BucketEncryption {
     }
 }
 
+Set-Alias -Name Get-S3BucketCorsConfigurationRule -Value Get-S3BucketCorsConfiguration
 Set-Alias -Name Get-S3BucketCors -Value Get-S3BucketCorsConfiguration
 Set-Alias -Name Get-S3CORSConfiguration -Value Get-S3BucketCorsConfiguration
 <#
@@ -2802,6 +2804,8 @@ Set-Alias -Name Get-S3CORSConfiguration -Value Get-S3BucketCorsConfiguration
     Bucket Region
     .PARAMETER BucketName
     Bucket Name
+    .PARAMETER Id
+    A unique identifier for the rule.
 #>
 function Global:Get-S3BucketCorsConfiguration {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -2871,7 +2875,12 @@ function Global:Get-S3BucketCorsConfiguration {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="A unique identifier for the rule.")][ValidateLength(1,255)][String]$Id
     )
 
     Begin {
@@ -2911,14 +2920,17 @@ function Global:Get-S3BucketCorsConfiguration {
 
                     foreach ($Rule in $Content.CORSConfiguration.CORSRule) {
                         $Output = [PSCustomObject]@{
-                            Id=$Rule.Id
-                            AllowedMethod = $Rule.AllowedMethod
-                            AllowedOrigin = $Rule.AllowedOrigin
-                            AllowedHeader = $Rule.AllowedHeader
-                            MaxAgeSeconds = $Rule.MaxAgeSeconds
-                            ExposeHeader = $Rule.ExposeHeader
+                            BucketName      = $BucketName
+                            Id              = $Rule.Id
+                            AllowedMethod   = $Rule.AllowedMethod
+                            AllowedOrigin   = $Rule.AllowedOrigin
+                            AllowedHeader   = $Rule.AllowedHeader
+                            MaxAgeSeconds   = $Rule.MaxAgeSeconds
+                            ExposeHeader    = $Rule.ExposeHeader
                         }
-                        Write-Output $Output
+                        if (!$Id -or ($Id -and $Output.Id -match $Id)) {
+                            Write-Output $Output
+                        }
                     }
                 }
                 catch {
@@ -3139,8 +3151,8 @@ function Global:Add-S3BucketCorsConfigurationRule {
             if ($MaxAgeSeconds) {
                 $Body += "<MaxAgeSeconds>$($CorsConfigurationRule.MaxAgeSeconds)</MaxAgeSeconds>"
             }
-            foreach ($ExposeHeader in $ExposeHeader) {
-                $Body += "<ExposeHeader>$($CorsConfigurationRule.ExposeHeader)</ExposeHeader>"
+            foreach ($ExposeHeader in $CorsConfigurationRule.ExposeHeader) {
+                $Body += "<ExposeHeader>$ExposeHeader</ExposeHeader>"
             }
             $Body += "</CORSRule>"
         }
