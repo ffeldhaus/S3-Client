@@ -2,6 +2,12 @@ image:
 - Visual Studio 2017
 - Ubuntu
 
+configuration:
+- AWS
+- WebscaleDemo
+- WebscaleDemoNext
+- Minio
+
 build: off
 
 # Version number
@@ -26,10 +32,14 @@ init:
 environment:
   my_secret:
     secure: XglRq9/YLH8mWAX9jBnwdyAbu0cVTEWbHR+a8zHd+ddhgFriOQv9C7hubgm+DCp5
+  accesskey:
+    secure: adgci5dfQHHEkDaS78UHMq7EZFyz5FlFBj5GCjTAM0g
+  secretkey:
+    secure: yfhbYXx6lQZfjayZ8RkkvjFvVZUFIhPROuBzkj6HHey2bflN0PeKJgGeIWXFF0p
   APPVEYOR_SSH_KEY: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDCoyP+9UxLay7fZC94l+LCzGhDOpJx1Chyt4zAVSvTuEYBpowR0x6YFNAEvxSTdVkHP+L0gMQggWdDspuKmJGruomK9kcxV5d/BBru8jcsivCWcHGei+V5wjUciIXp3CYEcM68SgkwlDlJ465owogQfFRbJeskq5TR4pwqBfkQ0suYxKE8zBmBryDbSV5U1Z31W5JGuF3tQsIPINP08aXmHLJ+eEST1tc0MLYFGI0nohk1ZgFlW2uzmWKPVQJRieO0NUTTDwmjdp9lbMqy8iZo/V3jkgh9+hJpftFOBBREWGbfDA+atrbOpTm4RRjrW56Q0GetYyIvha3I6053oU9POOWx12qn92303Rt8QRgMKomlXphmK5F39y2V3gorHuoMLsJM1yW4kVhLGzftA1ocLfRBHElnuRf6gRUFm957njPTzxb1TtmAXsbYaIz0zbX4X/yZIG3LZkMBUHWd01BPKmwSLEa8GOxKB3uvck80KPjB7qHAzGmCwv0NHAk+KsGAAp7+6ZLr7nVdBIYtJIBDMWl3cZk/tCsaqn1IuW2kZqu5nM/19o13dGSo6A2BoCuuQ7iCPktlgvaJBQA1Sc90gmdbM+CxFtSufXaGX3AEEGAp+vMePnSL9t2G+Dy1sg5xEBqET7TL3VqB075ksTyeXJCZPRgQSdiGYyTR9wv/cQ== florian.feldhaus@gmail.com
   APPVEYOR_SSH_BLOCK: false
 
-# Install Pester for testing
+# Install Pester for testing, setup AWS Profiles and deploy minio via docker
 install:
   - ps: $PSVersionTable
   - ps: Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
@@ -40,10 +50,12 @@ install:
   - sh: mkdir $HOME/.aws
   - sh: ./appveyor-tools/secure-file -decrypt etc/config.enc -out $HOME/.aws/config -secret $my_secret
   - sh: ./appveyor-tools/secure-file -decrypt etc/credentials.enc -out $HOME/.aws/credentials -secret $my_secret
+  - ps: docker pull minio/minio
+  - ps: docker run -p 9000:9000 -a STDERR -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data
 
 # Invoke Pester to run all of the unit tests, then save the results into XML in order to populate the AppVeyor tests section
 # If any of the tests fail, consider the pipeline failed
 test_script:
-  - ps: $res = Invoke-Pester -OutputFormat NUnitXml -OutputFile TestsResults.xml -PassThru
+  - ps: $res = Invoke-Pester -OutputFormat NUnitXml -OutputFile TestsResults.xml -PassThru -Script @{Path="./src/S3-Client.Tests.ps1";Parameters=@{ProfileName=$CONFIGURATION}}
   - ps: (New-Object System.Net.WebClient).UploadFile("https://ci.appveyor.com/api/testresults/nunit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\TestsResults.xml))
   - ps: if ($res.FailedCount -gt 0) { throw "$($res.FailedCount) tests failed."}
