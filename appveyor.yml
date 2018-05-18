@@ -1,5 +1,5 @@
 image:
-- Previous Ubuntu
+- Ubuntu
 - Visual Studio 2017
 
 configuration:
@@ -33,7 +33,7 @@ pull_requests:
 
 # enable SSH on Linux build
 #init:
-#  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
+  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
 
 environment:
   my_secret:
@@ -53,6 +53,7 @@ install:
   - cmd: mkdir %USERPROFILE%\.aws
   - cmd: appveyor-tools\secure-file -decrypt etc\config.enc -out %USERPROFILE%\.aws\config -secret %my_secret%
   - cmd: appveyor-tools\secure-file -decrypt etc\credentials.enc -out %USERPROFILE%\.aws\credentials -secret %my_secret%
+  - sh: printenv
   - sh: mkdir $HOME/.aws
   - sh: ./appveyor-tools/secure-file -decrypt etc/config.enc -out $HOME/.aws/config -secret $my_secret
   - sh: ./appveyor-tools/secure-file -decrypt etc/credentials.enc -out $HOME/.aws/credentials -secret $my_secret
