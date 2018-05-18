@@ -32,7 +32,7 @@ pull_requests:
   do_not_increment_build_number: true
 
 # enable SSH on Linux build
-#init:
+init:
   - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
 
 environment:
