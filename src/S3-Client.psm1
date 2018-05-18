@@ -178,12 +178,13 @@ function ConvertTo-AwsConfigFile {
                     $Output += "[profile $( $ConfigEntry.ProfileName )]`n"
                 }
                 # TODO: Implement S3 Settings like multipart_chunksize
-                $Properties = $Config | Select-Object -ExcludeProperty aws_access_key_id, aws_secret_access_key, ProfileName | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name
-                foreach ($Property in $Properties)
-                {
-                    if ($ConfigEntry.$Property)
-                    {
-                        $Output += "$Property = $( $ConfigEntry.$Property )`n"
+                $Properties = $Config | Select-Object -ExcludeProperty aws_access_key_id,aws_secret_access_key,ProfileName | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name
+                if ($Properties) {
+                    $Output += "S3 =`n"
+                    foreach ($Property in $Properties) {
+                        if ($ConfigEntry.$Property) {
+                            $Output += "  $Property = $( $ConfigEntry.$Property )`n"
+                        }
                     }
                 }
             }
