@@ -57,12 +57,12 @@ install:
   - sh: mkdir $HOME/.aws
   - sh: ./appveyor-tools/secure-file -decrypt etc/config.enc -out $HOME/.aws/config -secret $my_secret
   - sh: ./appveyor-tools/secure-file -decrypt etc/credentials.enc -out $HOME/.aws/credentials -secret $my_secret
-  - sh: if [[ "$CONFIGURATION" == "Minio" ]]; then docker pull minio/minio;fi
-  - sh: if [[ "$CONFIGURATION" == "Minio" ]]; then docker run -d -p 9000:9000 -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data;fi
+  - sh: if [[ "$Configuration" == "Minio" ]]; then docker pull minio/minio;fi
+  - sh: if [[ "$Configuration" == "Minio" ]]; then docker run -d -p 9000:9000 -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data;fi
 
 # Invoke Pester to run all of the unit tests, then save the results into XML in order to populate the AppVeyor tests section
 # If any of the tests fail, consider the pipeline failed
 test_script:
-  - ps: $res = Invoke-Pester -OutputFormat NUnitXml -OutputFile TestsResults.xml -PassThru -Script @{Path="./src/S3-Client.Tests.ps1";Parameters=@{ProfileName=$($env:CONFIGURATION)}}
+  - ps: $res = Invoke-Pester -OutputFormat NUnitXml -OutputFile TestsResults.xml -PassThru -Script @{Path="./src/S3-Client.Tests.ps1";Parameters=@{ProfileName=$($env:Configuration)}}
   - ps: (New-Object System.Net.WebClient).UploadFile("https://ci.appveyor.com/api/testresults/nunit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\TestsResults.xml))
   - ps: if ($res.FailedCount -gt 0) { throw "$($res.FailedCount) tests failed."}
