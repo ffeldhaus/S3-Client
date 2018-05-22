@@ -296,10 +296,10 @@ Describe "Write-S3MultipartUpload" {
         It "Given file -InFile `"$LargeFile`" it is succesfully uploaded" {
             Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $BucketName -InFile $LargeFile
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
-            $SmallFile.Name | Should -BeIn $Objects.Key
+            $LargeFile.Name | Should -BeIn $Objects.Key
             $TempFile = New-TemporaryFile
             sleep 1
-            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $SmallFile.Name -OutFile $TempFile.FullName
+            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $LargeFile.Name -OutFile $TempFile.FullName
             $TempFileHash = $TempFile | Get-FileHash
             $TempFileHash.Hash | Should -Be $LargeFileHash.Hash
             $TempFile | Remove-Item

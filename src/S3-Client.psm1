@@ -6365,10 +6365,13 @@ function Global:Write-S3MultipartUpload {
 
         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$PercentCompleted% Complete:" -PercentComplete $PercentCompleted
 
+        $StartTime = Get-Date
+
         while ($Jobs.Status -ne $null) {
-            $WrittenBytes = $PartUploadProgress.Values | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+            $WrittenBytes = $PartUploadProgress.Clone().Values | Measure-Object -Sum | Select-Object -ExpandProperty Sum
             $PercentCompleted = [Math]::Floor($WrittenBytes / $InFile.Length * 10000) / 100
-            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$PercentCompleted% Complete:" -PercentComplete $PercentCompleted
+            $Throughput = $WrittenBytes / ((Get-Date) - $StartTime).TotalSeconds / 1MB
+            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$PercentCompleted% Complete / $Throughput MiB/s" -PercentComplete $PercentCompleted
             sleep 1
             $CompletedJobs = $Jobs | Where-Object { $_.Status.IsCompleted -eq $true }
             foreach ($Job in $CompletedJobs) {
