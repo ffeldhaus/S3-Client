@@ -1,18 +1,18 @@
 S3 Client Tutorial
 ==================
 
-This S3 Client allows to run S3 Operations against any S3 endpoint, but it includes some shortcuts for [NetApp StorageGRID](https://netapp.com/storagegrid) users to handle S3 credentials. 
+This S3 Client allows to run S3 Operations against any S3 endpoint, but it includes some shortcuts for [NetApp StorageGRID](https://netapp.com/storagegrid) users to handle S3 credentials.
 
-If you are using the Cmdlets together with StorageGRID, proceed with the next section, otherwise skip to the [Bucket Cmdlets](#Bucket-Cmdlets)
+If you are using the Cmdlets together with StorageGRID, proceed with the next section, otherwise skip to the [Configuration and Credential Management](#Configuration-and-Credential-Management)
 
-## StorageGRID Specific simplifications
+## StorageGRID specific simplifications
 
-If a StorageGRID administrator is connected, then the Cmdlets automatically create temporary Cmdlets for all tenants where an operation is performed. If a StorageGRID tenant user is connected, the temporary S3 credentials will be automatically created for the tenant user. All temporary credentials have an expiry time of 60 minutes by default. When logged in as a tenant user, you must provide the `-endpointUrl` parameter for all S3 commands. For grid administrators the Cmdlets automatically query the configured domain endpoints and check if connections via S3 are possible. The endpoints are then stored in the S3EndpointUrl parameter of the server object (e.g. `$CurrentSgwServer.S3EndpointUrl`). It is always possible to supply a different URL by specifying the `-EndpointUrl` parameter for all S3 commands.
+If a StorageGRID administrator is connected, then the Cmdlets automatically create temporary AWS Access Key and Secret Access Key for all tenants where an operation is performed. If a StorageGRID tenant user is connected, the temporary S3 credentials will be automatically created for the tenant user. All temporary credentials have an expiry time of 60 minutes by default.
 
-For tenant users it is recommended to add the endpoint URL to the server object, so that the `-EndpointUrl` parameter is not required for every command. The following Commands expect that this has occurred:
+For grid administrators the Cmdlets automatically query the configured domain endpoints and check if connections via S3 are possible. The endpoints are then stored in the S3EndpointUrl parameter of the server object (e.g. `$CurrentSgwServer.S3EndpointUrl`). As the domain endpoints cannot be queried as tenant user, you must provide the `-S3EndpointUrl` parameter when connecting to the StorageGRID server or you can add the `-EndpointUrl` parameter when executing S3 commands.
 
 ```powershell
-$CurrentSgwServer.S3EndpointUrl = "https://s3.example.org:8082"   
+Connect-SgwServer -Name $Name -Credential $Credential -S3EndpointUrl "https://s3.example.org:8082"
 ```
 
 Automatic Access Key generation can be disabled when connecting to the StorageGRID server with
@@ -37,6 +37,50 @@ The grid administrator must be able to create S3 credentials for individual tena
 
 ```powershell
 Update-SgwConfigManagement -MinApiVersion 1
+```
+
+## Configuration and Credential Management
+
+The S3-Client Cmdlets use the AWS configuration files in the same way the AWS SDK or AWS CLI does. The available configuration options are defined in the [AWS CLI S3 Configuration](https://docs.aws.amazon.com/cli/latest/topic/s3-config.html) guide. Individual configuration can be specified using separate profiles. The S3-Client Module simplifies adding, modifying and retrieving the configuration by providing several AWS Cmdlets.
+
+### Create a new Profile
+
+To create a new profile, specify at least the `ProfileName`, `AccessKey` and `SecretKey`
+
+```powershell
+New-AwsProfile -ProfileName "Profile" -AccessKey "ABCDEFGHIJKLMNOPQRST" -SecretKey "abcdefghijklmnopqrst1234567890ABCDEFGHIJ"
+```
+
+### Update an existing Profile
+
+An existing profile can be updated using `Update-AwsProfile`, which is an alias to `New-AwsProfile`. If the profile does not yet exist, it will be created.
+
+```powershell
+Update-AwsProfile -ProfileName "Profile" -EndpointUrl "https://s3.example.org"
+```
+
+### Retrieve all Profiles
+
+To list all available profiles use
+
+```powershell
+Get-AwsProfiles
+```
+
+### Retrieve a single Profile
+
+A single profile can be retrieved using
+
+```powershell
+Get-AwsProfile -ProfileName "Profile"
+```
+
+### Remove Profile
+
+A profile can be removed using
+
+```powershell
+Remove-AwsProfile -ProfileName "Profile
 ```
 
 ## Bucket Cmdlets
@@ -81,7 +125,7 @@ $Account | New-S3Bucket -Bucket "MyBucket"
 
 There are some StorageGRID specific S3 calls which are only supported by StorageGRID.
 
-StorageGRID since 10.3 disables last access time updates if an object is retrieved as this causes a lot of updates on the Metadata databases and may cause slower response times if many objects are retrieved per second. 
+StorageGRID since 10.3 disables last access time updates if an object is retrieved as this causes a lot of updates on the Metadata databases and may cause slower response times if many objects are retrieved per second.
 
 The following Cmdlet checks if the last access time update is enabled for a bucket
 
@@ -89,10 +133,10 @@ The following Cmdlet checks if the last access time update is enabled for a buck
 Get-S3BucketLastAccessTime -Bucket "MyBucket"
 ```
 
-Updating the last access time for each object can be enabled per bucket with 
+Updating the last access time for each object can be enabled per bucket with
 
 ```powershell
-Enable-S3BucketLastAccessTime -Bucket "MyBucket"  
+Enable-S3BucketLastAccessTime -Bucket "MyBucket"
 ```
 
 It can be disabled with
@@ -104,13 +148,13 @@ Disable-S3BucketLastAccessTime -Bucket "MyBucket"
 StorageGRID supports different consistency settings for Buckets, which impact availability or integrity of the data. The consistency setting can be retrieved per Bucket with
 
 ```powershell
-Get-S3BucketConsistency -Bucket "MyBucket"  
+Get-S3BucketConsistency -Bucket "MyBucket"
 ```
 
 The consistency setting can be changed per Bucket with e.g.
 
 ```powershell
-Update-S3BucketConsistency -Bucket "MyBucket" -Consistency available 
+Update-S3BucketConsistency -Bucket "MyBucket" -Consistency available
 ```
 
 ## Objects
@@ -216,7 +260,7 @@ To see the detailed signing steps of the AWS V2 signing process, as shown in the
 ```powershell
 $VerbosePreference = "Continue"
 $DebugPreference = "Continue"
-# Examples from 
+# Examples from
 $AccessKey = "AKIAIOSFODNN7EXAMPLE"
 $SecretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 # Object GET

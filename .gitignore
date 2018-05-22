@@ -5,3 +5,4 @@ out/
 /StorageGRID-Webscale.iml
 secure/
 appveyor-tools/
+.vscode/launch.json

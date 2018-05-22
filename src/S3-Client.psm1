@@ -107,32 +107,37 @@ function ConvertFrom-AwsConfigFile {
         Write-Verbose "Reading AWS Configuration from $AwsConfigFile"
 
         $Content = Get-Content -Path $AwsConfigFile -Raw
-        # replace all carriage returns
-        $Content = $Content -replace "`r",""
-        # remove empty lines
-        $Content = $Content -replace "(`n$)*", ""
         # convert to JSON structure
+        # replace all carriage returns
+        $Content = $Content -replace "\r",""
+        # remove empty lines
+        $Content = $Content -replace "(\n$)*", ""
+        # remove profile string from profile section
         $Content = $Content -replace "profile ", ""
-        $Content = $Content -replace "`n([^\[])", ',$1'
-        $Content = $Content -replace "\[", "{`"ProfileName = "
-        $Content = $Content -replace "]", ""
-        $Content = $Content -replace ",s3\s*=\s*", ""
-        $Content = $Content -replace "  ", ""
-        $Content = $Content -replace "\s*=\s*", "`":`""
-        $Content = $Content -replace ",", "`",`""
-        $Content = $Content -replace "`n", "`"},"
-        $Content = $Content -replace "^", "["
-        $Content = $Content -replace "$", "`"}]"
-        $Content = $Content -replace "{`"}", "{}"
+
+        # replace sections like s3 or iam where the line ends with a = with a JSON object including opening and closing curly brackets
+        $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*((?:\n  .+)+)",'"$1":{ $2 },'
+        $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*\n","`"`$1`":{ },`n"
+        $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*\z",'"$1":{ },'
+
+        # replace key value pairs with quoted key value pairs and replace = with :
+        $Content = $Content -replace "\n\s*([^=^\s^`"]+)\s*=\s*([^\s^\n^}]*)","`n`"`$1`":`"`$2`","
+
+        # make sure that Profile is a Key Value inside the JSON Object
+        $Content = $Content -replace "\[([^\]]+)\]([^\[]+)","{`"ProfileName`":`"`$1`",`$2},`n"
+
+        # remove additional , before a closing curly bracket
+        $Content = $Content -replace "\s*,\s*\n?}","}"
+
+        # ensure that the complete output is an array consisting of multiple JSON objects
+        $Content = $Content -replace "\A","["
+        $Content = $Content -replace "},?\s*\n?\s*\z","}]"
 
         # parse JSON
         Write-Debug "Content to convert:`n$Content"
 
-        if ($Content -match "{.*}") {
-            $Config = ConvertFrom-Json -InputObject $Content
-            $Config = $Config | Select-Object -Property ProfileName,aws_access_key_id,aws_secret_access_key,region,endpoint_url,max_concurrent_requests,max_queue_size,multipart_threshold,multipart_chunksize,max_bandwidth,use_accelerate_endpoint,use_dualstack_endpoint,addressing_style,payload_signing_enabled
-            Write-Output $Config
-        }
+        $Config = ConvertFrom-Json -InputObject $Content
+        Write-Output $Config
     }
 }
 
@@ -144,7 +149,7 @@ function ConvertTo-AwsConfigFile {
         [parameter(
             Mandatory=$True,
             Position=0,
-            HelpMessage="Config to store in config file")][PSObject[]]$Config,
+            HelpMessage="Configs to store in config file")][PSCustomObject]$Configs,
         [parameter(
             Mandatory=$True,
             Position=1,
@@ -158,33 +163,31 @@ function ConvertTo-AwsConfigFile {
 
         Write-Verbose "Writing AWS Configuration to $AwsConfigFile"
 
-        $Output = ""
-        if ($AwsConfigFile -match "credentials$")
-        {
-            foreach ($ConfigEntry in $Config) {
-                $Output += "[$( $ConfigEntry.ProfileName )]`n"
-                $Output += "aws_access_key_id = $($ConfigEntry.aws_access_key_id)`n"
-                $Output += "aws_secret_access_key = $($ConfigEntry.aws_secret_access_key)`n"
+        if ($AwsConfigFile -match "credentials$") {
+            foreach ($Config in $Configs) {
+                $Output += "[$( $Config.ProfileName )]`n"
+                $Output += "aws_access_key_id = $($Config.aws_access_key_id)`n"
+                $Output += "aws_secret_access_key = $($Config.aws_secret_access_key)`n"
             }
         }
         else {
-            foreach ($ConfigEntry in $Config) {
-                if ($ConfigEntry.ProfileName -eq "default")
-                {
-                    $Output += "[$( $ConfigEntry.ProfileName )]`n"
+            foreach ($Config in $Configs) {
+                if ($Config.ProfileName -eq "default") {
+                    $Output += "[$( $Config.ProfileName )]`n"
                 }
-                else
-                {
-                    $Output += "[profile $( $ConfigEntry.ProfileName )]`n"
+                else {
+                    $Output += "[profile $( $Config.ProfileName )]`n"
                 }
-                # TODO: Implement S3 Settings like multipart_chunksize
-                $Properties = $Config | Select-Object -ExcludeProperty aws_access_key_id,aws_secret_access_key,ProfileName | Get-Member -MemberType NoteProperty | Select-Object -ExpandProperty Name
-                if ($Properties) {
-                    $Output += "S3 =`n"
+                $Properties = $Config.PSObject.Members | Where-Object { $_.MemberType -eq "NoteProperty" -and $_.Name -ne "ProfileName" -and $_.Value -isnot [PSCustomObject] }
+                $Sections = $Config.PSObject.Members | Where-Object { $_.MemberType -eq "NoteProperty" -and $_.Name -ne "ProfileName" -and $_.Value -is [PSCustomObject]}
+                foreach ($Property in $Properties) {
+                    $Output += "$($Property.Name) = $($Property.Value)`n"
+                }
+                foreach ($Section in $Sections) {
+                    $Output += "$($Section.Name) =`n"
+                    $Properties = $Section.Value.PSObject.Members | Where-Object { $_.MemberType -eq "NoteProperty" }
                     foreach ($Property in $Properties) {
-                        if ($ConfigEntry.$Property) {
-                            $Output += "  $Property = $( $ConfigEntry.$Property )`n"
-                        }
+                        $Output += "  $($Property.Name) = $($Property.Value)`n"
                     }
                 }
             }
@@ -563,6 +566,44 @@ function Global:New-AwsSignatureV4 {
     Get AWS URL
     .DESCRIPTION
     Get AWS URL
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER Method
+    HTTP Request Method
+    .PARAMETER EndpointUrl
+    Endpoint URL
+    .PARAMETER UrlStyle
+    URL Style
+    .PARAMETER Uri
+    URI (e.g. / or /key)
+    .PARAMETER Query
+    Query
+    .PARAMETER RequestPayload
+    Request payload
+    .PARAMETER Region
+    Region
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Service
+    Service (e.g. S3)
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER Headers
+    Headers
+    .PARAMETER ContentType
+    Content type
+    .PARAMETER BucketName
+    Bucket name
+    .PARAMETER Date
+    Date
+    .PARAMETER InFile
+    File to read data from
+    .PARAMETER Presign
+    Presign URL
+    .PARAMETER Expires
+    Presign URL Expiration Date
 #>
 function Global:Get-AwsRequest {
     [CmdletBinding()]
@@ -591,7 +632,7 @@ function Global:Get-AwsRequest {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="URI")][String]$Uri="/",
+                HelpMessage="URI (e.g. / or /key)")][String]$Uri="/",
         [parameter(
                 Mandatory=$False,
                 Position=6,
@@ -611,7 +652,7 @@ function Global:Get-AwsRequest {
         [parameter(
                 Mandatory=$False,
                 Position=10,
-                HelpMessage="Service")][String]$Service="s3",
+                HelpMessage="Service (e.g. S3)")][String]$Service="s3",
         [parameter(
                 Mandatory=$False,
                 Position=11,
@@ -1102,45 +1143,49 @@ function Global:Add-AwsConfig {
         }
 
         try {
-            $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
+            $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
         }
         catch {
             Write-Verbose "Retrieving config from $ConfigLocation failed"
         }
 
-        if (($Config | Where-Object { $_.ProfileName -eq $ProfileName })) {
-            $ConfigEntry = $Config | Where-Object { $_.ProfileName -eq $ProfileName }
+        $Config = $Configs | Where-Object { $_.ProfileName -eq $ProfileName }
+        if ($Config) {
+            if (!$Config.S3) {
+                $Config | Add-Member -MemberType NoteProperty -Name "S3" -Value [PSCustomObject]@{}
+            }
         }
         else {
-            $ConfigEntry = [PSCustomObject]@{ ProfileName = $ProfileName }
+            $Config = [PSCustomObject]@{ ProfileName = $ProfileName;s3 = [PSCustomObject]@{} }
         }
 
         if ($Region -ne "us-east-1") {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name region -Value $Region -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name region -Value $Region -Force
         }
 
         if ($EndpointUrl) {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrl -Force
+            $EndpointUrlString = $EndpointUrl -replace "(http://.*:80)",'$1' -replace "(https://.*):443",'$1' -replace "/$",""
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrlString -Force
         }
 
         if ($MaxConcurrentRequests -ne 10) {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name max_concurrent_requests -Value $MaxConcurrentRequests -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name max_concurrent_requests -Value $MaxConcurrentRequests -Force
         }
 
         if ($MaxQueueSize -ne 1000) {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name max_queue_size -Value $MaxQueueSize -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name max_queue_size -Value $MaxQueueSize -Force
         }
 
         if ($MultipartThreshold -ne "8MB") {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name multipart_threshold -Value $MultipartThreshold -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_threshold -Value $MultipartThreshold -Force
         }
 
         if ($MultipartChunksize -ne "8MB") {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name multipart_chunksize -Value $MultipartChunksize -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_chunksize -Value $MultipartChunksize -Force
         }
 
         if ($MaxBandwidth) {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name max_bandwidth -Value $MaxBandwidth -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name max_bandwidth -Value $MaxBandwidth -Force
         }
 
         if ($UseAccelerateEndpoint -and $UseDualstackEndpoint) {
@@ -1148,23 +1193,23 @@ function Global:Add-AwsConfig {
         }
 
         if ($UseAccelerateEndpoint) {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name use_accelerate_endpoint -Value $UseAccelerateEndpoint -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name use_accelerate_endpoint -Value $UseAccelerateEndpoint -Force
         }
 
         if ($UseDualstackEndpoint) {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name use_dualstack_endpoint -Value $UseDualstackEndpoint -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name use_dualstack_endpoint -Value $UseDualstackEndpoint -Force
         }
 
         if ($AddressingStyle -ne "auto") {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
         }
 
         if ($PayloadSigningEnabled) {
-            $ConfigEntry | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigningEnabled -Force
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigningEnabled -Force
         }
 
-        $Config = @($Config | Where-Object { $_.ProfileName -ne $ProfileName}) + $ConfigEntry
-        ConvertTo-AwsConfigFile -Config $Config -AwsConfigFile $ConfigLocation
+        $Configs = @($Configs | Where-Object { $_.ProfileName -ne $ProfileName}) + $Config
+        ConvertTo-AwsConfigFile -Config $Configs -AwsConfigFile $ConfigLocation
     }
 }
 
@@ -1208,25 +1253,123 @@ function Global:Get-AwsConfigs {
             Write-Verbose "Retrieving credentials from $ProfileLocation failed"
         }
         try {
-            $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
+            $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
         }
         catch {
             Write-Verbose "Retrieving credentials from $ConfigLocation failed"
         }
 
         foreach ($Credential in $Credentials) {
-            $ConfigEntry = $Config | Where-Object { $_.ProfileName -eq $Credential.ProfileName } | Select-Object -First 1
-            if ($ConfigEntry) {
-                $ConfigEntry.aws_access_key_id = $Credential.aws_access_key_id
-                $ConfigEntry.aws_secret_access_key = $Credential.aws_secret_access_key
+            $Config = $Configs | Where-Object { $_.ProfileName -eq $Credential.ProfileName } | Select-Object -First 1
+            if (!$Config) {
+                $Config = [PSCustomObject]@{ProfileName=$Credential.ProfileName}
+                $Configs = @($Configs) + $Config
             }
-            else {
-                $ConfigEntry = [PSCustomObject]@{ProfileName=$Credential.ProfileName;aws_access_key_id=$Credential.aws_access_key_id;aws_secret_access_key=$Credential.aws_secret_access_key;region="";endpoint_url=$null;max_concurrent_requests=10;max_queue_size=1000;multipart_threshold="8MB";multipart_chunksize="8MB";max_bandwidth=$null;use_accelerate_endpoint=$false;use_dualstack_endpoint=$false;addressing_style="auto";payload_signing_enabled=$null}
-                $Config = @($Config) + $ConfigEntry
+            if ($Credential.aws_access_key_id) {
+                $Config | Add-Member -MemberType NoteProperty -Name aws_access_key_id -Value $Credential.aws_access_key_id -Force
+            }
+            if ($Credential.aws_secret_access_key) {
+                $Config | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $Credential.aws_secret_access_key -Force
             }
         }
 
-        Write-Output $Config
+        foreach ($Config in $Configs) {
+            $Output = [PSCustomObject]@{ProfileName = $Config.ProfileName;AccessKey = $Config.aws_access_key_id;SecretKey = $Config.aws_secret_access_key}
+            if ($Config.S3.Region) {
+                $Output | Add-Member -MemberType NoteProperty -Name Region -Value $Config.S3.Region
+            }
+            elseif ($Config.Region) {
+                $Output | Add-Member -MemberType NoteProperty -Name Region -Value $Config.Region
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name Region -Value "us-east-1"
+            }
+            if ($Config.S3.endpoint_url) {
+                $Output | Add-Member -MemberType NoteProperty -Name EndpointUrl -Value $Config.S3.endpoint_url
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name EndpointUrl -Value $Config.EndpointUrl
+            }
+            if ($Config.S3.max_concurrent_requests) {
+                $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value $Config.S3.max_concurrent_requests
+            }
+            elseif ($Config.MaxConcurrentRequests) {
+                $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value $Config.MaxConcurrentRequests
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value 10
+            }
+            if ($Config.S3.max_queue_size) {
+                $Output | Add-Member -MemberType NoteProperty -Name MaxQueueSize -Value $Config.S3.max_queue_size
+            }
+            elseif ($Config.max_queue_size) {
+                $Output | Add-Member -MemberType NoteProperty -Name MaxQueueSize -Value $Config.max_queue_size
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name MaxQueueSize -Value 1000
+            }
+            if ($Config.S3.multipart_threshold) {
+                $Output | Add-Member -MemberType NoteProperty -Name MultipartThreshold -Value $Config.S3.multipart_threshold
+            }
+            elseif ($Config.MultipartThreshold) {
+                $Output | Add-Member -MemberType NoteProperty -Name MultipartThreshold -Value $Config.MultipartThreshold
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name MultipartThreshold -Value "8MB"
+            }
+            if ($Config.S3.multipart_chunksize) {
+                $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value $Config.S3.multipart_chunksize
+            }
+            elseif ($Config.MultipartChunksize) {
+                $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value $Config.MultipartChunksize
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value "8MB"
+            }
+            if ($Config.S3.max_bandwidth) {
+                $Output | Add-Member -MemberType NoteProperty -Name MaxBandwidth -Value $Config.S3.max_bandwidth
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name MaxBandwidth -Value $Config.max_bandwidth
+            }
+            if ($Config.S3.use_accelerate_endpoint) {
+                $Output | Add-Member -MemberType NoteProperty -Name UseAccelerateEndpoint -Value $Config.S3.use_accelerate_endpoint
+            }
+            elseif ($Config.use_accelerate_endpoint) {
+                $Output | Add-Member -MemberType NoteProperty -Name UseAccelerateEndpoint -Value $Config.use_accelerate_endpoint
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name UseAccelerateEndpoint -Value $false
+            }
+            if ($Config.S3.use_dualstack_endpoint) {
+                $Output | Add-Member -MemberType NoteProperty -Name UseDualstackEndpoint -Value $Config.S3.use_dualstack_endpoint
+            }
+            elseif ($Config.use_dualstack_endpoint) {
+                $Output | Add-Member -MemberType NoteProperty -Name UseDualstackEndpoint -Value $Config.use_dualstack_endpoint
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name UseDualstackEndpoint -Value $false
+            }
+            if ($Config.S3.addressing_style) {
+                $Output | Add-Member -MemberType NoteProperty -Name AddressingStyle -Value $Config.S3.addressing_style
+            }
+            elseif ($Config.addressing_style) {
+                $Output | Add-Member -MemberType NoteProperty -Name AddressingStyle -Value $Config.addressing_style
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name AddressingStyle -Value "auto"
+            }
+            if ($Config.S3.payload_signing_enabled) {
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $Config.S3.payload_signing_enabled
+            }
+            elseif ($Config.payload_signing_enabled) {
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $Config.payload_signing_enabled
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $false
+            }
+            Write-Output $Output
+        }
     }
 }
 
@@ -1403,9 +1546,9 @@ function Global:Get-AwsConfig {
                     $Credential = New-SgwS3AccessKey -Server $Server -Expires (Get-Date).AddSeconds($Server.TemporaryAccessKeyExpirationTime) -AccountId $AccountId
                     Write-Verbose "Created new temporary Access Key $( $Credential.AccessKey )"
                 }
-                $Config.aws_access_key_id = $Credential.AccessKey
-                $Config.aws_secret_access_key = $Credential.SecretAccessKey
-                $Config.endpoint_url = [System.UriBuilder]::new($EndpointUrl)
+                $Config.AccessKey = $Credential.AccessKey
+                $Config.SecretKey = $Credential.SecretKey
+                $Config.EndpointUrl = [System.UriBuilder]::new($EndpointUrl)
             }
         }
 
@@ -1416,9 +1559,7 @@ function Global:Get-AwsConfig {
             $Config.region = "us-east-1"
         }
 
-        if ($Config.aws_access_key_id) {
-            Write-Output $Config
-        }
+        Write-Output $Config
     }
 }
 
@@ -1793,7 +1934,7 @@ function Global:Get-S3Buckets {
         $Uri = "/"
 
         if ($Config) {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -1810,7 +1951,7 @@ function Global:Get-S3Buckets {
                         $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes
                     }
                     foreach ($XmlBucket in $XmlBuckets) {
-                        $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.endpoint_url -Bucket $XmlBucket.Name -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
+                        $Location = Get-S3BucketLocation -SkipCertificateCheck:$SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -Bucket $XmlBucket.Name -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
                         $UnicodeName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
                         $Bucket = [PSCustomObject]@{ BucketName = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
                         Write-Output $Bucket
@@ -1821,7 +1962,7 @@ function Global:Get-S3Buckets {
         elseif ($CurrentSgwServer.SupportedApiVersions -match "1" -and !$CurrentSgwServer.AccountId -and !$AccountId) {
             $Accounts = Get-SgwAccounts -Capabilities "s3"
             foreach ($Account in $Accounts) {
-                Get-S3Buckets -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccountId $Account.Id -UseDualstackEndpoint:$UseDualstackEndpoint
+                Get-S3Buckets -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccountId $Account.Id -UseDualstackEndpoint:$UseDualstackEndpoint
             }
         }
     }
@@ -1958,7 +2099,7 @@ function Global:Test-S3Bucket {
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -1971,7 +2112,7 @@ function Global:Test-S3Bucket {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                     if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                        Test-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                        Test-S3Bucket -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
                     }
                     else {
                         Write-Output $false
@@ -2144,7 +2285,7 @@ function Global:New-S3Bucket {
         # convert BucketName to Punycode to support Unicode Bucket Names
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2262,10 +2403,10 @@ function Global:Remove-S3Bucket {
 
         if ($Force -or $DeleteBucketContent) {
             Write-Verbose "Force parameter specified, removing all objects in the bucket before removing the bucket"
-            Get-S3Objects -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint | Remove-S3Object -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint
+            Get-S3Objects -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint | Remove-S3Object -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2402,7 +2543,7 @@ function Global:Get-S3BucketEncryption {
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -2428,7 +2569,7 @@ function Global:Get-S3BucketEncryption {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                     if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                        Get-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                        Get-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
                     }
                 }
             }
@@ -2587,7 +2728,7 @@ function Global:Set-S3BucketEncryption {
         $Body += "</ServerSideEncryptionConfiguration>"
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -2613,7 +2754,7 @@ function Global:Set-S3BucketEncryption {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                     if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                        Set-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -SSEAlgorithm $SSEAlgorithm -KMSMasterKeyID $KMSMasterKeyID
+                        Set-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -SSEAlgorithm $SSEAlgorithm -KMSMasterKeyID $KMSMasterKeyID
                     }
                 }
             }
@@ -2747,7 +2888,7 @@ function Global:Remove-S3BucketEncryption {
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -2759,7 +2900,7 @@ function Global:Remove-S3BucketEncryption {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                     if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                        Remove-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                        Remove-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
                     }
                 }
             }
@@ -2903,7 +3044,7 @@ function Global:Get-S3BucketCorsConfiguration {
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -2938,7 +3079,7 @@ function Global:Get-S3BucketCorsConfiguration {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                     if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                        Get-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                        Get-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
                     }
                     elseif ($_.Exception.Response.StatusCode -ne [System.Net.HttpStatusCode]::NotFound) {
                         Throw $_
@@ -3121,7 +3262,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
 
         $CorsConfigurationRules = @()
 
-        $CorsConfigurationRules += Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+        $CorsConfigurationRules += Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
 
         $CorsConfigurationRule = [PSCustomObject]@{
             ID = $Id
@@ -3162,7 +3303,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
         Write-Verbose "Body:`n$Body"
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -3174,7 +3315,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                     if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                        Set-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -SSEAlgorithm $SSEAlgorithm -KMSMasterKeyID $KMSMasterKeyID
+                        Set-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -SSEAlgorithm $SSEAlgorithm -KMSMasterKeyID $KMSMasterKeyID
                     }
                     else {
                         throw $_
@@ -3315,7 +3456,7 @@ function Global:Remove-S3BucketCorsConfigurationRule {
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         # get all rules
-        $CorsConfigurationRules = Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+        $CorsConfigurationRules = Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
 
         if (!($CorsConfigurationRules | Where-Object { $_.Id -eq $Id })) {
             Write-Warning "CORS Configuration Rule ID $Id does not exist"
@@ -3325,10 +3466,10 @@ function Global:Remove-S3BucketCorsConfigurationRule {
         # remove the rule with the specified ID
         $CorsConfigurationRules = $CorsConfigurationRules | Where-Object { $_.Id -ne $Id }
 
-        Remove-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+        Remove-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
 
         # write all rules
-        $CorsConfigurationRules | Add-S3BucketCorsConfigurationRule -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+        $CorsConfigurationRules | Add-S3BucketCorsConfigurationRule -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
     }
 }
 
@@ -3460,7 +3601,7 @@ function Global:Remove-S3BucketCorsConfiguration {
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -3472,7 +3613,7 @@ function Global:Remove-S3BucketCorsConfiguration {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                     if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                        Get-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                        Get-S3BucketEncryption -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
                     }
                     elseif ($_.Exception.Response.StatusCode -ne [System.Net.HttpStatusCode]::NotFound) {
                         Throw $_
@@ -3578,7 +3719,7 @@ function Global:Get-S3BucketPolicy {
 
         $Query = @{policy=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3696,7 +3837,7 @@ function Global:Set-S3BucketPolicy {
         # pretty print JSON to simplify debugging
         $Policy = ConvertFrom-Json -InputObject $Policy | ConvertTo-Json -Depth 10
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region -RequestPayload $Policy
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region -RequestPayload $Policy
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3804,7 +3945,7 @@ function Global:Get-S3BucketVersioning {
 
         $Query = @{versioning=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -3918,7 +4059,7 @@ function Global:Enable-S3BucketVersioning {
 
         $RequestPayload = "<VersioningConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><Status>Enabled</Status></VersioningConfiguration>"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -4036,7 +4177,7 @@ function Global:Suspend-S3BucketVersioning {
 
         $RequestPayload = "<VersioningConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><Status>Suspended</Status></VersioningConfiguration>"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -4152,7 +4293,7 @@ function Global:Get-S3BucketLocation {
 
         $Query = @{location=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -4313,7 +4454,7 @@ function Global:Get-S3MultipartUploads {
             $Query["upload-id-​marker"] = $UploadIdMarker
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -4344,14 +4485,14 @@ function Global:Get-S3MultipartUploads {
                     Write-Verbose "1000 Uploads were returned and max uploads was not limited so continuing to get all uploads"
                     Write-Debug "NextKeyMarker: $($Content.ListMultipartUploadsResult.NextKeyMarker)"
                     Write-Debug "NextUploadIdMarker: $($Content.ListMultipartUploadsResult.NextUploadIdMarker)"
-                    Get-S3MultipartUploads -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxUploads $MaxUploads -KeyMarker $Content.ListMultipartUploadsResult.NextKeyMarker -UploadIdMarker $Content.ListMultipartUploadsResult.UploadIdMarker
+                    Get-S3MultipartUploads -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxUploads $MaxUploads -KeyMarker $Content.ListMultipartUploadsResult.NextKeyMarker -UploadIdMarker $Content.ListMultipartUploadsResult.UploadIdMarker
                 }
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                 if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                     Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Get-S3MultipartUploads -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxUploads $MaxUploads -KeyMarker $Content.ListMultipartUploadsResult.NextKeyMarker -UploadIdMarker $Content.ListMultipartUploadsResult.UploadIdMarker -EncodingType $EncodingType
+                    Get-S3MultipartUploads -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxUploads $MaxUploads -KeyMarker $Content.ListMultipartUploadsResult.NextKeyMarker -UploadIdMarker $Content.ListMultipartUploadsResult.UploadIdMarker -EncodingType $EncodingType
                 }
                 else {
                     Throw $_
@@ -4523,7 +4664,7 @@ function Global:Get-S3Objects {
 
         $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -UseDualstackEndpoint:$UseDualstackEndpoint
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun) {
             Write-Output $AwsRequest
@@ -4548,14 +4689,14 @@ function Global:Get-S3Objects {
                 if ($Content.ListBucketResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
                     Write-Verbose "1000 Objects were returned and max keys was not limited so continuing to get all objects"
                     Write-Debug "NextMarker: $($Content.ListBucketResult.NextMarker)"
-                    Get-S3Objects -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -FetchOwner:$FetchOwner -StartAfter $StartAfter -ContinuationToken $Content.ListBucketResult.NextContinuationToken -Marker $Content.ListBucketResult.NextMarker
+                    Get-S3Objects -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -FetchOwner:$FetchOwner -StartAfter $StartAfter -ContinuationToken $Content.ListBucketResult.NextContinuationToken -Marker $Content.ListBucketResult.NextMarker
                 }
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                 if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                     Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Get-S3Objects -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -Delimiter $Delimiter -FetchOwner:$FetchOwner -StartAfter $StartAfter -Marker $Marker -ContinuationToken $ContinuationToken -EncodingType $EncodingType
+                    Get-S3Objects -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -Delimiter $Delimiter -FetchOwner:$FetchOwner -StartAfter $StartAfter -Marker $Marker -ContinuationToken $ContinuationToken -EncodingType $EncodingType
                 }
                 else {
                     Throw $_
@@ -4692,7 +4833,7 @@ function Global:Get-S3ObjectVersions {
         if ($KeyMarker) { $Query["key-marker"] = $KeyMarker }
         if ($VersionIdMarker) { $Query["version-id-marker"] = $VersionIdMarker }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -4720,7 +4861,7 @@ function Global:Get-S3ObjectVersions {
 
             if ($Content.ListVersionsResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
                 Write-Verbose "1000 Versions were returned and max keys was not limited so continuing to get all Versions"
-                Get-S3BucketVersions -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -KeyMarker $Content.ListVersionsResult.NextKeyMarker -VersionIdMarker $Content.ListVersionsResult.NextVersionIdMarker
+                Get-S3BucketVersions -Server $Server -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -KeyMarker $Content.ListVersionsResult.NextKeyMarker -VersionIdMarker $Content.ListVersionsResult.NextVersionIdMarker
             }
         }
     }
@@ -4855,7 +4996,7 @@ function Global:Get-S3PresignedUrl {
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Expires $Expires
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Expires $Expires
 
         Write-Output $AwsRequest.Uri.ToString()
     }
@@ -4974,7 +5115,7 @@ function Global:Get-S3ObjectMetadata {
             $Query = @{}
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -5159,7 +5300,7 @@ function Global:Read-S3Object {
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -5362,14 +5503,14 @@ function Global:Write-S3Object {
         }
 
         # if the file size is larger than the multipart threshold, then a multipart upload should be done
-        if (!$Content -and $Config.multipart_threshold -and $InFile.Length -ge $Config.multipart_threshold) {
-            Write-Verbose "Using multipart upload as file is larger than multipart threshold of $($Config.multipart_threshold)"
-            Write-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+        if (!$Content -and $Config.MultipartThreshold -and $InFile.Length -ge $Config.MultipartThreshold) {
+            Write-Verbose "Using multipart upload as file is larger than multipart threshold of $($Config.MultipartThreshold)"
+            Write-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
         # if the file size is larger than 5GB multipart upload must be used as PUT Object is only allowed up to 5GB files
         if ($InFile.Length -gt 5GB) {
             Write-Warning "Using multipart upload as PUT uploads are only allowed for files smaller than 5GB and file is larger than 5GB."
-            Write-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+            Write-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
 
         # Convert Bucket Name to IDN mapping to support Unicode Names
@@ -5393,7 +5534,7 @@ function Global:Write-S3Object {
 
         $Uri = "/$Key"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -5407,10 +5548,10 @@ function Global:Write-S3Object {
                 if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                     Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
                     if ($InFile) {
-                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
                     }
                     else {
-                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Content $Content -Metadata $Metadata
+                        Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Content $Content -Metadata $Metadata
                     }
                 }
                 else {
@@ -5580,7 +5721,7 @@ function Global:Start-S3MultipartUpload {
 
         $Query = @{uploads=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Headers $Headers -Query $Query
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Headers $Headers -Query $Query
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -5739,7 +5880,7 @@ function Global:Stop-S3MultipartUpload {
 
         $Query = @{uploadId=$uploadId}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -5907,7 +6048,7 @@ function Global:Complete-S3MultipartUpload {
 
         $ContentType = "application/xml"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -ContentType $ContentType -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -ContentType $ContentType -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -6053,19 +6194,19 @@ function Global:Write-S3MultipartUpload {
 
         $FileSize = $InFile.Length
 
-        if ($Config.max_concurrent_requests) {
-            $MaxRunspaces = $Config.max_concurrent_requests
+        if ($Config.MaxConcurrentRequests) {
+            $MaxRunspaces = $Config.MaxConcurrentRequests
         }
         else {
             $MaxRunspaces = [Environment]::ProcessorCount
         }
         Write-Verbose "Uploading maximum $MaxRunspaces parts in parallel"
 
-        if ($Config.multipart_chunksize -gt 0) {
+        if ($Config.MultipartChunksize -gt 0) {
             # Chunksize must be at least 1/1000 of the file size, as max 1000 parts are allowed
-            if (($FileSize / $Config.multipart_chunksize) -le 1000) {
+            if (($FileSize / $Config.MultipartChunksize) -le 1000) {
                 # division by one necessary as we need to convert string in number format (e.g. 16MB) to integer
-                $Chunksize = ($Config.multipart_chunksize/ 1)
+                $Chunksize = ($Config.MultipartChunksize/ 1)
             }
         }
 
@@ -6095,7 +6236,7 @@ function Global:Write-S3MultipartUpload {
         Write-Verbose "File will be uploaded in $PartCount parts"
 
         Write-Verbose "Initiating Multipart Upload"
-        $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -SignerType $SignerType -EndpointUrl $Config.endpoint_url -Region $Region -BucketName $BucketName -Key $Key -Metadata $Metadata
+        $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -BucketName $BucketName -Key $Key -Metadata $Metadata
 
         Write-Verbose "Multipart Upload ID: $($MultipartUpload.UploadId)"
 
@@ -6180,7 +6321,7 @@ function Global:Write-S3MultipartUpload {
             $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile)
             $Stream = $MemoryMappedFile.CreateViewStream(($PartNumber - 1) * $Chunksize,$ViewSize)
 
-            $AwsRequest = $MultipartUpload | Write-S3ObjectPart -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Presign -DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -PartNumber $PartNumber -Stream $Stream
+            $AwsRequest = $MultipartUpload | Write-S3ObjectPart -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Presign -DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -PartNumber $PartNumber -Stream $Stream
 
             $Parameters = @{
                 Stream = $Stream
@@ -6207,7 +6348,7 @@ function Global:Write-S3MultipartUpload {
             $_.PowerShell.Dispose()
         }
 
-        $MultipartUpload | Complete-S3MultipartUpload  -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -SignerType $SignerType -EndpointUrl $Config.endpoint_url -Etags $Etags
+        $MultipartUpload | Complete-S3MultipartUpload  -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Etags $Etags
 
         $jobs.clear()
     }
@@ -6339,7 +6480,7 @@ function Global:Write-S3ObjectPart {
         # again for performance reasons and then compare the calculated MD5 with the returned MD5/Etag
         $Presign = [Switch]::new($true)
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Headers $Headers
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Headers $Headers
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -6376,7 +6517,7 @@ function Global:Write-S3ObjectPart {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                 if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                     Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -UploadId $UploadId -PartNumber $PartNumber -Stream $Stream
+                    Write-S3Object -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -UploadId $UploadId -PartNumber $PartNumber -Stream $Stream
                 }
                 else {
                     Throw $_
@@ -6517,7 +6658,7 @@ function Global:Get-S3ObjectParts {
             $Query["part-number-marker"] = $PartNumberMarker
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -6553,14 +6694,14 @@ function Global:Get-S3ObjectParts {
                 if ($Content.ListPartsResult.IsTruncated -eq "true" -and $MaxParts -eq 0) {
                     Write-Verbose "1000 Parts were returned and max parts was not limited so continuing to get all parts"
                     Write-Debug "NextPartNumberMarker: $($Content.ListPartsResult.NextPartNumberMarker)"
-                    Get-S3ObjectParts -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -EndpointUrl $Config.endpoint_url -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxParts $MaxParts -PartNumberMarker $Content.ListPartsResult.NextPartNumberMarker
+                    Get-S3ObjectParts -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -SkipCertificateCheck:$SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxParts $MaxParts -PartNumberMarker $Content.ListPartsResult.NextPartNumberMarker
                 }
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                 if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                     Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Get-S3ObjectParts -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.endpoint_url -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxParts $MaxParts -PartNumberMarker $PartNumberMarker -EncodingType $EncodingType
+                    Get-S3ObjectParts -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxParts $MaxParts -PartNumberMarker $PartNumberMarker -EncodingType $EncodingType
                 }
                 else {
                     Throw $_
@@ -6687,7 +6828,7 @@ function Global:Remove-S3Object {
             $Query = @{}
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -6892,7 +7033,7 @@ function Global:Copy-S3Object {
             $Headers["x-amz-server-side​-encryption"] = $ServerSideEncryption
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Headers $Headers -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Headers $Headers -Region $Region
 
         if ($DryRun) {
             Write-Output $AwsRequest
@@ -7001,7 +7142,7 @@ function Global:Get-S3BucketConsistency {
 
         $Query = @{"x-ntap-sg-consistency"=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -7118,7 +7259,7 @@ function Global:Update-S3BucketConsistency {
 
         $Query = @{"x-ntap-sg-consistency"=$Consistency}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -7204,7 +7345,7 @@ function Global:Get-S3StorageUsage {
 
         $Query = @{"x-ntap-sg-usage"=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -7317,7 +7458,7 @@ function Global:Get-S3BucketLastAccessTime {
 
         $Query = @{"x-ntap-sg-lastaccesstime"=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -7430,7 +7571,7 @@ function Global:Enable-S3BucketLastAccessTime {
 
         $Query = @{"x-ntap-sg-lastaccesstime"="enabled"}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -7537,7 +7678,7 @@ function Global:Disable-S3BucketLastAccessTime {
 
         $Query = @{"x-ntap-sg-lastaccesstime"="disabled"}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.aws_access_key_id -SecretKey $Config.aws_secret_access_key -Method $Method -EndpointUrl $Config.endpoint_url -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
