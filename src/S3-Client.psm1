@@ -1288,13 +1288,13 @@ function Global:Get-AwsConfigs {
                 $Output | Add-Member -MemberType NoteProperty -Name EndpointUrl -Value $Config.S3.endpoint_url
             }
             else {
-                $Output | Add-Member -MemberType NoteProperty -Name EndpointUrl -Value $Config.EndpointUrl
+                $Output | Add-Member -MemberType NoteProperty -Name EndpointUrl -Value $Config.endpoint_url
             }
             if ($Config.S3.max_concurrent_requests) {
                 $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value $Config.S3.max_concurrent_requests
             }
-            elseif ($Config.MaxConcurrentRequests) {
-                $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value $Config.MaxConcurrentRequests
+            elseif ($Config.max_concurrent_requests) {
+                $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value $Config.max_concurrent_requests
             }
             else {
                 $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value 10
@@ -1311,8 +1311,8 @@ function Global:Get-AwsConfigs {
             if ($Config.S3.multipart_threshold) {
                 $Output | Add-Member -MemberType NoteProperty -Name MultipartThreshold -Value $Config.S3.multipart_threshold
             }
-            elseif ($Config.MultipartThreshold) {
-                $Output | Add-Member -MemberType NoteProperty -Name MultipartThreshold -Value $Config.MultipartThreshold
+            elseif ($Config.multipart_threshold) {
+                $Output | Add-Member -MemberType NoteProperty -Name MultipartThreshold -Value $Config.multipart_threshold
             }
             else {
                 $Output | Add-Member -MemberType NoteProperty -Name MultipartThreshold -Value "8MB"
@@ -1320,8 +1320,8 @@ function Global:Get-AwsConfigs {
             if ($Config.S3.multipart_chunksize) {
                 $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value $Config.S3.multipart_chunksize
             }
-            elseif ($Config.MultipartChunksize) {
-                $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value $Config.MultipartChunksize
+            elseif ($Config.multipart_chunksize) {
+                $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value $Config.multipart_chunksize
             }
             else {
                 $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value "8MB"
@@ -6068,6 +6068,7 @@ function Global:Complete-S3MultipartUpload {
     }
 }
 
+Set-Alias -Name Invoke-S3MultipartUpload -Value Write-S3MultipartUpload
 <#
     .SYNOPSIS
     Write S3 Object as Multipart Upload
