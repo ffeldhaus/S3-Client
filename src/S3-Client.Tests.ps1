@@ -337,6 +337,7 @@ Describe "S3BucketEncryption" {
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
             $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
+            sleep 1
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
             $BucketEncryption | Should -BeNullOrEmpty
         }
@@ -347,6 +348,7 @@ Describe "S3BucketEncryption" {
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            sleep 1
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketEncryption | Should -BeNullOrEmpty
         }
@@ -398,6 +400,7 @@ Describe "S3BucketCorsConfiguration" {
             $CorsConfigurationRule = Get-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id
             $CorsConfigurationRule.Id | Should -Be $Id
             $CorsConfigurationRule | Remove-S3BucketCorsConfigurationRule -ProfileName $ProfileName
+            sleep 1
             $CorsConfigurationRule = Get-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id
             $CorsConfigurationRule | Should -BeNullOrEmpty
         }
@@ -409,6 +412,7 @@ Describe "S3BucketCorsConfiguration" {
             $CorsConfigurationRule = Get-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id
             $CorsConfigurationRule.Id | Should -Be $Id
             Remove-S3BucketCorsConfiguration -ProfileName $ProfileName -BucketName $BucketName
+            sleep 1
             $CorsConfiguration = Get-S3BucketCorsConfiguration -ProfileName $ProfileName -BucketName $BucketName
             $CorsConfiguration | Should -BeNullOrEmpty
         }
