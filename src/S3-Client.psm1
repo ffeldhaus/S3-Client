@@ -6397,6 +6397,7 @@ function Global:Write-S3MultipartUpload {
 
         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key completed" -Completed
 
+        $MemoryMappedFile.Dispose()
         $RunspacePool.Close()
         $RunspacePool.Dispose()
 
