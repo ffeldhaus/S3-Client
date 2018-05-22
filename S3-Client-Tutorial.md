@@ -107,20 +107,20 @@ $Account | Get-S3Buckets
 A new Bucket can be created with
 
 ```powershell
-New-S3Bucket -Bucket "MyBucket"
+New-S3Bucket -BucketName "MyBucket"
 ```
 
 A StorageGRID administrator needs to specify for which tenant the bucket should be created either by specifying the Account ID
 
 ```powershell
-New-S3Bucket -Bucket "MyBucket" -AccountId $AccountId
+New-S3Bucket -BucketName "MyBucket" -AccountId $AccountId
 ```
 
 or by retrieving an Account Object via e.g.
 
 ```powershell
 $Account = Get-SgwAccount -Tenant "MyTenant"
-$Account | New-S3Bucket -Bucket "MyBucket"
+$Account | New-S3Bucket -BucketName "MyBucket"
 ```
 
 There are some StorageGRID specific S3 calls which are only supported by StorageGRID.
@@ -130,31 +130,31 @@ StorageGRID since 10.3 disables last access time updates if an object is retriev
 The following Cmdlet checks if the last access time update is enabled for a bucket
 
 ```powershell
-Get-S3BucketLastAccessTime -Bucket "MyBucket"
+Get-S3BucketLastAccessTime -BucketName "MyBucket"
 ```
 
 Updating the last access time for each object can be enabled per bucket with
 
 ```powershell
-Enable-S3BucketLastAccessTime -Bucket "MyBucket"
+Enable-S3BucketLastAccessTime -BucketName "MyBucket"
 ```
 
 It can be disabled with
 
 ```powershell
-Disable-S3BucketLastAccessTime -Bucket "MyBucket"
+Disable-S3BucketLastAccessTime -BucketName "MyBucket"
 ```
 
 StorageGRID supports different consistency settings for Buckets, which impact availability or integrity of the data. The consistency setting can be retrieved per Bucket with
 
 ```powershell
-Get-S3BucketConsistency -Bucket "MyBucket"
+Get-S3BucketConsistency -BucketName "MyBucket"
 ```
 
 The consistency setting can be changed per Bucket with e.g.
 
 ```powershell
-Update-S3BucketConsistency -Bucket "MyBucket" -Consistency available
+Update-S3BucketConsistency -BucketName "MyBucket" -Consistency available
 ```
 
 ## Objects
@@ -162,19 +162,27 @@ Update-S3BucketConsistency -Bucket "MyBucket" -Consistency available
 Objects in a bucket can be listed with
 
 ```powershell
-Get-S3Objects -Bucket "MyBucket"
+Get-S3Objects -BucketName "MyBucket"
 ```
 
-Uploading objects can be done with
+Uploading objects can be done with the `Write-S3Object` for objects smaller 5GB. To improve performance and to upload files larger than 5GB up to 5TB, use `Write-S3MultipartUpload` which uploads several parts in parallel.
+
+Simple file upload
 
 ```powershell
-Write-S3Object -Bucket "MyBucket" -InFile "$HOME\test"
+Write-S3Object -BucketName "MyBucket" -InFile "$HOME\test"
+```
+
+Multipart File upload
+
+```powershell
+Write-S3MultipartUpload -BucketName "MyBucket"
 ```
 
 Downloading objects can be done with
 
 ```powershell
-Read-S3Object -Bucket "MyBucket" -Key "test" -OutFile "$HOME\test"
+Read-S3Object -BucketName "MyBucket" -Key "test" -OutFile "$HOME\test"
 ```
 
 ## Platform Services
@@ -220,13 +228,13 @@ Get-S3Buckets -Profile "AWS"
 Configure the AWS destination bucket as Endpoint in StorageGRID
 
 ```powershell
-Add-SgwS3Endpoint -DisplayName "AWS S3 endpoint" -Bucket $DestinationBucket -Profile "AWS"
+Add-SgwS3Endpoint -DisplayName "AWS S3 endpoint" -BucketName $DestinationBucket -Profile "AWS"
 ```
 
 Add a bucket replication rule which defines which source bucket (on StorageGRID) should be replicated to which destination bucket (on AWS)
 
 ```powershell
-Add-SgwBucketReplicationRule -Bucket $SourceBucket -DestinationBucket $DestinationBucket -Id "AWS Replication of bucket $SourceBucket"
+Add-SgwBucketReplicationRule -BucketName $SourceBucket -DestinationBucket $DestinationBucket -Id "AWS Replication of bucket $SourceBucket"
 ```
 
 Write an object to the source bucket on StorageGRID
@@ -234,19 +242,19 @@ Write an object to the source bucket on StorageGRID
 ```powershell
 $Key = "testobject"
 $Content = "Hello World!"
-Write-S3Object -Bucket $SourceBucket -Key $Key -Content $Content
+Write-S3Object -BucketName $SourceBucket -Key $Key -Content $Content
 ```
 
 Read the object from the source bucket
 
 ```powershell
-Read-S3Object -Bucket $SourceBucket -Key $Key
+Read-S3Object -BucketName $SourceBucket -Key $Key
 ```
 
 Read the object from the destination bucket (you can add `-verbose` to verify that the REST call is indeed sent to AWS)
 
 ```powershell
-Read-S3Object -Bucket $DestinationBucket -Key $Key -Profile "AWS"
+Read-S3Object -BucketName $DestinationBucket -Key $Key -Profile "AWS"
 ```
 
 ## Creating AWS Signatures
@@ -264,22 +272,22 @@ $DebugPreference = "Continue"
 $AccessKey = "AKIAIOSFODNN7EXAMPLE"
 $SecretAccessKey = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
 # Object GET
-$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "johnsmith.s3.amazonaws.com" -HTTPRequestMethod "GET" -DateTime "Tue, 27 Mar 2007 19:36:42 +0000" -Bucket "johnsmith" -Uri "/photos/puppy.jpg"
+$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "johnsmith.s3.amazonaws.com" -HTTPRequestMethod "GET" -DateTime "Tue, 27 Mar 2007 19:36:42 +0000" -BucketName "johnsmith" -Uri "/photos/puppy.jpg"
 $Signature -eq "bWq2s1WEIj+Ydj0vQ697zp+IXMU="
 # Object GET
-$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "johnsmith.s3.amazonaws.com" -HTTPRequestMethod "PUT" -DateTime "Tue, 27 Mar 2007 21:15:45 +0000" -Bucket "johnsmith" -Uri "/photos/puppy.jpg" -ContentType "image/jpeg"
+$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "johnsmith.s3.amazonaws.com" -HTTPRequestMethod "PUT" -DateTime "Tue, 27 Mar 2007 21:15:45 +0000" -BucketName "johnsmith" -Uri "/photos/puppy.jpg" -ContentType "image/jpeg"
 $Signature -eq "MyyxeRY7whkBe+bq8fHCL/2kKUg="
 # List
-$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "johnsmith.s3.amazonaws.com" -HTTPRequestMethod "GET" -DateTime "Tue, 27 Mar 2007 19:42:41 +0000" -Bucket "johnsmith"
+$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "johnsmith.s3.amazonaws.com" -HTTPRequestMethod "GET" -DateTime "Tue, 27 Mar 2007 19:42:41 +0000" -BucketName "johnsmith"
 $Signature -eq "htDYFYduRNen8P9ZfE/s9SuKy0U="
 # Fetch
-$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "johnsmith.s3.amazonaws.com" -HTTPRequestMethod "GET" -DateTime "Tue, 27 Mar 2007 19:44:46 +0000" -Bucket "johnsmith" -QueryString "?acl"
+$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "johnsmith.s3.amazonaws.com" -HTTPRequestMethod "GET" -DateTime "Tue, 27 Mar 2007 19:44:46 +0000" -BucketName "johnsmith" -QueryString "?acl"
 $Signature -eq "c2WLPFtWHVgbEmeEG93a4cG37dM="
 # Delete
-$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "s3.amazonaws.com" -HTTPRequestMethod "DELETE" -DateTime "Tue, 27 Mar 2007 21:20:26 +0000" -Bucket "johnsmith" -Uri "/johnsmith/photos/puppy.jpg"
+$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "s3.amazonaws.com" -HTTPRequestMethod "DELETE" -DateTime "Tue, 27 Mar 2007 21:20:26 +0000" -BucketName "johnsmith" -Uri "/johnsmith/photos/puppy.jpg"
 $Signature -eq "$Signature -eq "
 # Upload
-$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "static.johnsmith.net" -HTTPRequestMethod "PUT" -DateTime "Tue, 27 Mar 2007 21:06:08 +0000" -Bucket "static.johnsmith.net" -Uri "/db-backup.dat.gz" -ContentType "application/x-download" -ContentMD5 "4gJE4saaMU4BqNR0kLY+lw==" -Headers @{"x-amz-acl"="public-read";"content-type"="application/x-download";"Content-MD5"="4gJE4saaMU4BqNR0kLY+lw==";"X-Amz-Meta-ReviewedBy"="joe@johnsmith.net,jane@johnsmith.net";"X-Amz-Meta-FileChecksum"="0x02661779";"X-Amz-Meta-ChecksumAlgorithm"="crc32";"Content-Disposition"="attachment; filename=database.dat";"Content-Encoding"="gzip";"Content-Length"="5913339"}
+$Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "static.johnsmith.net" -HTTPRequestMethod "PUT" -DateTime "Tue, 27 Mar 2007 21:06:08 +0000" -BucketName "static.johnsmith.net" -Uri "/db-backup.dat.gz" -ContentType "application/x-download" -ContentMD5 "4gJE4saaMU4BqNR0kLY+lw==" -Headers @{"x-amz-acl"="public-read";"content-type"="application/x-download";"Content-MD5"="4gJE4saaMU4BqNR0kLY+lw==";"X-Amz-Meta-ReviewedBy"="joe@johnsmith.net,jane@johnsmith.net";"X-Amz-Meta-FileChecksum"="0x02661779";"X-Amz-Meta-ChecksumAlgorithm"="crc32";"Content-Disposition"="attachment; filename=database.dat";"Content-Encoding"="gzip";"Content-Length"="5913339"}
 $Signature -eq "ilyl83RwaSoYIEdixDQcA4OnAnc="
 # List All My Buckets
 $Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretAccessKey $SecretAccessKey -EndpointUrl "s3.amazonaws.com" -HTTPRequestMethod "GET" -DateTime "Wed, 28 Mar 2007 01:29:59 +0000"
