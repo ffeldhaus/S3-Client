@@ -18,20 +18,37 @@ if (!$ProfileName) {
 
 Write-Host "Running S3 Client tests for profile $ProfileName"
 
-# create temporary file
-$TestFileSize = 5MB
-$TestFile = New-TemporaryFile
+# create temporary small file
+$SmallFileSize = 1MB
+$SmallFile = New-TemporaryFile
 # Note: block size must be a factor of 1MB to avoid rounding errors :)
 $BlockSize = 8KB
 $ByteBuffer = [Byte[]]::new($BlockSize)
 $Random = [System.Random]::new()
-$Stream = [System.IO.FileStream]::new($TestFile, [System.IO.FileMode]::Open)
-for ($i = 0; $i -lt ($TestFileSize / $BlockSize); $i++) {
+$Stream = [System.IO.FileStream]::new($SmallFile, [System.IO.FileMode]::Open)
+for ($i = 0; $i -lt ($SmallFileSize / $BlockSize); $i++) {
     $Random.NextBytes($ByteBuffer)
     $Stream.Write($ByteBuffer, 0, $ByteBuffer.Length)
 }
+$SmallFileHash = $SmallFile | Get-FileHash
+$Stream.Close()
 $Stream.Dispose()
-$TestFileHash = $TestFile | Get-FileHash
+
+# create temporary large file
+$LargeFileSize = 6MB
+$LargeFile = New-TemporaryFile
+# Note: block size must be a factor of 1MB to avoid rounding errors :)
+$BlockSize = 8KB
+$ByteBuffer = [Byte[]]::new($BlockSize)
+$Random = [System.Random]::new()
+$Stream = [System.IO.FileStream]::new($LargeFile, [System.IO.FileMode]::Open)
+for ($i = 0; $i -lt ($LargeFileSize / $BlockSize); $i++) {
+    $Random.NextBytes($ByteBuffer)
+    $Stream.Write($ByteBuffer, 0, $ByteBuffer.Length)
+}
+$LargeFileHash = $LargeFile | Get-FileHash
+$Stream.Close()
+$Stream.Dispose()
 
 function Setup() {
     New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
@@ -255,16 +272,36 @@ Describe "Write-S3Object" {
         }
     }
 
-    Context "Upload file" {
-        It "Given file -InFile `"$TestFile`" it is succesfully uploaded" {
-            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $TestFile
+    Context "Upload small file" {
+        It "Given file -InFile `"$SmallFile`" it is succesfully uploaded" {
+            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
-            $TestFile.Name | Should -BeIn $Objects.Key
+            $SmallFile.Name | Should -BeIn $Objects.Key
             $TempFile = New-TemporaryFile
             sleep 1
-            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $TestFile.Name -OutFile $TempFile.FullName
+            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $SmallFile.Name -OutFile $TempFile.FullName
             $TempFileHash = $TempFile | Get-FileHash
-            $TempFileHash.Hash | Should -Be $TestFileHash.Hash
+            $TempFileHash.Hash | Should -Be $SmallFileHash.Hash
+            $TempFile | Remove-Item
+        }
+    }
+
+    Cleanup
+}
+
+Describe "Write-S3MultipartUpload" {
+    Setup
+
+    Context "Upload large file" {
+        It "Given file -InFile `"$LargeFile`" it is succesfully uploaded" {
+            Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $BucketName -InFile $LargeFile
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+            $SmallFile.Name | Should -BeIn $Objects.Key
+            $TempFile = New-TemporaryFile
+            sleep 1
+            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $SmallFile.Name -OutFile $TempFile.FullName
+            $TempFileHash = $TempFile | Get-FileHash
+            $TempFileHash.Hash | Should -Be $LargeFileHash.Hash
             $TempFile | Remove-Item
         }
     }
@@ -380,4 +417,5 @@ Describe "S3BucketCorsConfiguration" {
     Cleanup
 }
 
-$TestFile | Remove-Item
+$SmallFile | Remove-Item
+$LargeFile | Remove-Item
