@@ -30,9 +30,9 @@ for ($i = 0; $i -lt ($SmallFileSize / $BlockSize); $i++) {
     $Random.NextBytes($ByteBuffer)
     $Stream.Write($ByteBuffer, 0, $ByteBuffer.Length)
 }
-$SmallFileHash = $SmallFile | Get-FileHash
 $Stream.Close()
 $Stream.Dispose()
+$SmallFileHash = $SmallFile | Get-FileHash
 
 # create temporary large file
 $LargeFileSize = 6MB
@@ -46,9 +46,9 @@ for ($i = 0; $i -lt ($LargeFileSize / $BlockSize); $i++) {
     $Random.NextBytes($ByteBuffer)
     $Stream.Write($ByteBuffer, 0, $ByteBuffer.Length)
 }
-$LargeFileHash = $LargeFile | Get-FileHash
 $Stream.Close()
 $Stream.Dispose()
+$LargeFileHash = $LargeFile | Get-FileHash
 
 function Setup() {
     New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
