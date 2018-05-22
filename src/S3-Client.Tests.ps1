@@ -97,7 +97,7 @@ Describe "AWS Configuration and Credential Management" {
             $Config = Get-AwsConfig -ProfileName $ProfileName
             $Config.ProfileName | Should -Be $ProfileName
             $Config.AccessKey | Should -Be $AccessKey
-            $Config.SecretAccessKey | Should -Be $SecretKey
+            $Config.SecretKey | Should -Be $SecretKey
             $Config.Region | Should -Be $Region
             $Config.EndpointUrl | Should -Be $EndpointUrl
             $Config.MaxConcurrentRequests | Should -Be $MaxConcurrentRequest

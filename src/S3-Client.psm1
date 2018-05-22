@@ -1500,19 +1500,19 @@ function Global:Get-AwsConfig {
 
     Process {
         $Config = [PSCustomObject]@{ProfileName = $ProfileName;
-                                    aws_access_key_id = $AccessKey;
-                                    aws_secret_access_key = $SecretKey;
-                                    region = $Region;
-                                    endpoint_url = $EndpointUrl;
-                                    max_concurrent_requests = $MaxConcurrentRequests;
-                                    max_queue_size = $MaxQueueSize;
-                                    multipart_threshold = $MultipartThreshold;
-                                    multipart_chunksize = $MultipartChunksize;
-                                    max_bandwidth = $MaxBandwidth;
-                                    use_accelerate_endpoint = $UseAccelerateEndpoint;
-                                    use_dualstack_endpoint = $UseDualstackEndpoint;
-                                    addressing_style = $AddressingStyle;
-                                    payload_signing_enabled = $PayloadSigningEnabled}
+                                    AccessKey = $AccessKey;
+                                    SecretKey = $SecretKey;
+                                    Region = $Region;
+                                    EndpointUrl = $EndpointUrl;
+                                    MaxConcurrentRequests = $MaxConcurrentRequests;
+                                    MaxQueueSize = $MaxQueueSize;
+                                    MultipartThreshold = $MultipartThreshold;
+                                    MultipartChunksize = $MultipartChunksize;
+                                    MaxBandwidth = $MaxBandwidth;
+                                    UseAccelerateEndpoint = $UseAccelerateEndpoint;
+                                    UseDualstackEndpoint = $UseDualstackEndpoint;
+                                    AddressingStyle = $AddressingStyle;
+                                    PayloadSigningEnabled = $PayloadSigningEnabled}
 
         if (!$ProfileName -and !$AccessKey -and !$Server) {
             $ProfileName = "default"
@@ -1547,7 +1547,7 @@ function Global:Get-AwsConfig {
                     Write-Verbose "Created new temporary Access Key $( $Credential.AccessKey )"
                 }
                 $Config.AccessKey = $Credential.AccessKey
-                $Config.SecretKey = $Credential.SecretKey
+                $Config.SecretKey = $Credential.SecretAccessKey
                 $Config.EndpointUrl = [System.UriBuilder]::new($EndpointUrl)
             }
         }
@@ -1887,7 +1887,7 @@ function Global:Get-S3Buckets {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2038,7 +2038,7 @@ function Global:Test-S3Bucket {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2198,7 +2198,7 @@ function Global:New-S3Bucket {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2334,7 +2334,7 @@ function Global:Remove-S3Bucket {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2485,7 +2485,7 @@ function Global:Get-S3BucketEncryption {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2649,7 +2649,7 @@ function Global:Set-S3BucketEncryption {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2830,7 +2830,7 @@ function Global:Remove-S3BucketEncryption {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -2981,7 +2981,7 @@ function Global:Get-S3BucketCorsConfiguration {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3173,7 +3173,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3396,7 +3396,7 @@ function Global:Remove-S3BucketCorsConfigurationRule {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3543,7 +3543,7 @@ function Global:Remove-S3BucketCorsConfiguration {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3662,7 +3662,7 @@ function Global:Get-S3BucketPolicy {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3772,7 +3772,7 @@ function Global:Set-S3BucketPolicy {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -3888,7 +3888,7 @@ function Global:Get-S3BucketVersioning {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4004,7 +4004,7 @@ function Global:Enable-S3BucketVersioning {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4118,7 +4118,7 @@ function Global:Suspend-S3BucketVersioning {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4237,7 +4237,7 @@ function Global:Get-S3BucketLocation {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4360,7 +4360,7 @@ function Global:Get-S3MultipartUploads {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4543,7 +4543,7 @@ function Global:Get-S3Objects {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4746,7 +4746,7 @@ function Global:Get-S3ObjectVersions {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -4901,7 +4901,7 @@ function Global:Get-S3PresignedUrl {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -5040,7 +5040,7 @@ function Global:Get-S3ObjectMetadata {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -5205,7 +5205,7 @@ function Global:Read-S3Object {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -5355,7 +5355,7 @@ function Global:Write-S3Object {
                 ParameterSetName="ProfileAndContent",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -5632,7 +5632,7 @@ function Global:Start-S3MultipartUpload {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -5802,7 +5802,7 @@ function Global:Stop-S3MultipartUpload {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -5957,7 +5957,7 @@ function Global:Complete-S3MultipartUpload {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -6106,7 +6106,7 @@ function Global:Write-S3MultipartUpload {
                 ParameterSetName="profile",
                 Mandatory=$True,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -6392,7 +6392,7 @@ function Global:Write-S3ObjectPart {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -6567,7 +6567,7 @@ function Global:Get-S3ObjectParts {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -6749,7 +6749,7 @@ function Global:Remove-S3Object {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -6877,7 +6877,7 @@ function Global:Copy-S3Object {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -7084,7 +7084,7 @@ function Global:Get-S3BucketConsistency {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -7197,7 +7197,7 @@ function Global:Update-S3BucketConsistency {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -7308,7 +7308,7 @@ function Global:Get-S3StorageUsage {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -7400,7 +7400,7 @@ function Global:Get-S3BucketLastAccessTime {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -7513,7 +7513,7 @@ function Global:Enable-S3BucketLastAccessTime {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
@@ -7620,7 +7620,7 @@ function Global:Disable-S3BucketLastAccessTime {
                 ParameterSetName="profile",
                 Mandatory=$False,
                 Position=6,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
                 ParameterSetName="profile",
                 Mandatory=$False,
