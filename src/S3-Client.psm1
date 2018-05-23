@@ -6438,7 +6438,7 @@ function Global:Write-S3MultipartUpload {
                     $MemoryMappedFile.Dispose()
                     $RunspacePool.Close()
                     $RunspacePool.Dispose()
-                    $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl
+                    $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
                     throw "Upload of part $($Job.PartNumber) failed, Multipart Upload aborted"
                 }
                 $Etags[$Job.PartNumber] = $Output
