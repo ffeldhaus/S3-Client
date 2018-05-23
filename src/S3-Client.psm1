@@ -6341,7 +6341,7 @@ function Global:Write-S3MultipartUpload {
             }
 
             Write-Verbose "Creating File view from position $(($PartNumber -1) * $Chunksize) with size $ViewSize"
-            $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile)
+            $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile, [System.IO.FileMode]::Open)
             $Stream = $MemoryMappedFile.CreateViewStream(($PartNumber - 1) * $Chunksize,$ViewSize)
 
             $AwsRequest = $MultipartUpload | Write-S3ObjectPart -SkipCertificateCheck:$SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -Presign -DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -PartNumber $PartNumber -Stream $Stream
