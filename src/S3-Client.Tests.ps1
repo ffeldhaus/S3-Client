@@ -333,22 +333,22 @@ Describe "S3BucketEncryption" {
     Context "Set Bucket encryption" {
         It "Given -BucketName $BucketName and -SSEAlgorithm AWS256 server side encryption is enabled" {
             Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName -SSEAlgorithm AES256
-            sleep 2
+            sleep 3
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
             $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
-            sleep 1
+            sleep 3
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
             $BucketEncryption | Should -BeNullOrEmpty
         }
 
         It "Given -BucketName $UnicodeBucketName and -SSEAlgorithm AWS256 server side encryption is enabled" {
             Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName -SSEAlgorithm AES256
-            sleep 2
+            sleep 3
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            sleep 1
+            sleep 3
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketEncryption | Should -BeNullOrEmpty
         }
