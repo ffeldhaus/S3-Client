@@ -993,6 +993,8 @@ function Global:Invoke-AwsRequest {
     }
 }
 
+# TODO: Implement separate Update Cmdlet which does not overwrite values with defaults
+
 Set-Alias -Name Set-AwsProfile -Value Add-AwsConfig
 Set-Alias -Name New-AwsProfile -Value Add-AwsConfig
 Set-Alias -Name Add-AwsProfile -Value Add-AwsConfig
@@ -1029,7 +1031,7 @@ function Global:Add-AwsConfig {
 
     PARAM (
         [parameter(
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=0,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="default",
@@ -1057,7 +1059,7 @@ function Global:Add-AwsConfig {
                 Mandatory=$False,
                 Position=5,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Default Region to use for all requests made with these credentials")][String]$Region="us-east-1",
+                HelpMessage="Default Region to use for all requests made with these credentials")][String]$Region,
         [parameter(
                 Mandatory=$False,
                 Position=6,
@@ -1067,22 +1069,22 @@ function Global:Add-AwsConfig {
                 Mandatory=$False,
                 Position=7,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of concurrent requests (Default: 10)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests=10,
+                HelpMessage="The maximum number of concurrent requests (Default: 10)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
         [parameter(
                 Mandatory=$False,
                 Position=8,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of tasks in the task queue")][Alias("max_queue_size")][UInt16]$MaxQueueSize=1000,
+                HelpMessage="The maximum number of tasks in the task queue")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
         [parameter(
                 Mandatory=$False,
                 Position=9,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold="8MB",
+                HelpMessage="The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold,
         [parameter(
                 Mandatory=$False,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files (Default: 8MB)")][Alias("multipart_chunksize")][String]$MultipartChunksize="8MB",
+                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files (Default: 8MB)")][Alias("multipart_chunksize")][String]$MultipartChunksize,
         [parameter(
                 Mandatory=$False,
                 Position=11,
@@ -1092,26 +1094,26 @@ function Global:Add-AwsConfig {
                 Mandatory=$False,
                 Position=12,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][Boolean]$UseAccelerateEndpoint=$false,
+                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][Boolean]$UseAccelerateEndpoint,
         [parameter(
                 Mandatory=$False,
                 Position=13,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][Boolean]$UseDualstackEndpoint=$false,
+                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][Boolean]$UseDualstackEndpoint,
         [parameter(
                 Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("addressing_style")][ValidateSet("auto","path","virtual")][String]$AddressingStyle="auto",
+                HelpMessage="Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("addressing_style")][ValidateSet("auto","path","virtual")][String]$AddressingStyle,
         [parameter(
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled=$false,
+                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled,
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Boolean]$SkipCertificateCheck=$false
+                HelpMessage="Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Boolean]$SkipCertificateCheck
     )
 
     Process {
@@ -1215,7 +1217,7 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigningEnabled -Force
         }
 
-        if ($SkipCertificateCheck) {
+        if ($SkipCertificateCheck -ne $null) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name skip_certificate_check -Value $SkipCertificateCheck -Force
         }
 
