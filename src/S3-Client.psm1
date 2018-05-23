@@ -1165,7 +1165,7 @@ function Global:Add-AwsConfig {
             $Config = [PSCustomObject]@{ ProfileName = $ProfileName;s3 = [PSCustomObject]@{} }
         }
 
-        if ($Region -ne "us-east-1") {
+        if ($Region -and $Region -ne "us-east-1") {
             $Config | Add-Member -MemberType NoteProperty -Name region -Value $Region -Force
         }
 
@@ -1174,19 +1174,19 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrlString -Force
         }
 
-        if ($MaxConcurrentRequests -ne 10) {
+        if ($MaxConcurrentRequests -and $MaxConcurrentRequests -ne 10) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name max_concurrent_requests -Value $MaxConcurrentRequests -Force
         }
 
-        if ($MaxQueueSize -ne 1000) {
+        if ($MaxQueueSize -and $MaxQueueSize -ne 1000) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name max_queue_size -Value $MaxQueueSize -Force
         }
 
-        if ($MultipartThreshold -ne "8MB") {
+        if ($MultipartThreshold -and $MultipartThreshold -ne "8MB") {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_threshold -Value $MultipartThreshold -Force
         }
 
-        if ($MultipartChunksize -ne "8MB") {
+        if ($MultipartChunksize -and $MultipartChunksize -ne "8MB") {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_chunksize -Value $MultipartChunksize -Force
         }
 
@@ -1206,7 +1206,7 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name use_dualstack_endpoint -Value $UseDualstackEndpoint -Force
         }
 
-        if ($AddressingStyle -ne "auto") {
+        if ($AddressingStyle -and $AddressingStyle -ne "auto") {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
         }
 
