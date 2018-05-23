@@ -6304,7 +6304,7 @@ function Global:Write-S3MultipartUpload {
                 $Response = $HttpClient.SendAsync($PutRequest, $CancellationToken)
 
                 # TODO: Report progress using stream position
-                while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested) {
+                while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
                     sleep 0.1
                     $PartUploadProgress.$PartNumber = $Stream.Position
                 }
