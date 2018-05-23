@@ -133,9 +133,6 @@ function ConvertFrom-AwsConfigFile {
         $Content = $Content -replace "\A","["
         $Content = $Content -replace "},?\s*\n?\s*\z","}]"
 
-        # parse JSON
-        Write-Debug "Content to convert:`n$Content"
-
         $Config = ConvertFrom-Json -InputObject $Content
         Write-Output $Config
     }
