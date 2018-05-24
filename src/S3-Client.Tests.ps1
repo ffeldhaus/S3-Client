@@ -131,7 +131,7 @@ Describe "AWS Configuration and Credential Management" {
             New-AwsConfig -ProfileName $ProfileName
             $Config = Get-AwsConfig -ProfileName $ProfileName
             $Config.ProfileName | Should -Be $ProfileName
-            Remove-AwsConfig -ProfileName
+            Remove-AwsConfig -ProfileName $ProfileName
             $Config = Get-AwsConfig -ProfileName $ProfileName
             $Config | Should -BeNullOrEmpty
         }
