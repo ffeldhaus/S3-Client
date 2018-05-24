@@ -625,7 +625,7 @@ function Global:Get-AwsRequest {
         [parameter(
                 Mandatory=$False,
                 Position=4,
-                HelpMessage="URL Style")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="URL Style")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=5,
@@ -708,7 +708,11 @@ function Global:Get-AwsRequest {
             $EndpointUrl = [System.UriBuilder]::new($EndpointUrl.ToString())
         }
 
-        if ($UrlStyle -eq "virtual-hosted" -and $BucketName) {
+        if ($UrlStyle -match "virtual" -and $BucketName) {
+            Write-Verbose "Using virtual-hosted style URL"
+            $EndpointUrl.host = $BucketName + '.' + $EndpointUrl.host
+        }
+        elseif ($UrlStyle -eq "auto" -and $EndpointUrl -match "amazonaws.com" -and $BucketName) {
             Write-Verbose "Using virtual-hosted style URL"
             $EndpointUrl.host = $BucketName + '.' + $EndpointUrl.host
         }
@@ -1198,11 +1202,11 @@ function Global:Add-AwsConfig {
             Throw "The parameters use_accelerate_endpoint and use_dualstack_endpoint are mutually exclusive!"
         }
 
-        if ($UseAccelerateEndpoint) {
+        if ($UseAccelerateEndpoint -ne $null) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name use_accelerate_endpoint -Value $UseAccelerateEndpoint -Force
         }
 
-        if ($UseDualstackEndpoint) {
+        if ($UseDualstackEndpoint -ne $null) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name use_dualstack_endpoint -Value $UseDualstackEndpoint -Force
         }
 
@@ -1210,7 +1214,7 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
         }
 
-        if ($PayloadSigningEnabled) {
+        if ($PayloadSigningEnabled -ne $null) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigningEnabled -Force
         }
 
@@ -1343,19 +1347,19 @@ function Global:Get-AwsConfigs {
                 $Output | Add-Member -MemberType NoteProperty -Name MaxBandwidth -Value $Config.max_bandwidth
             }
             if ($Config.S3.use_accelerate_endpoint) {
-                $Output | Add-Member -MemberType NoteProperty -Name UseAccelerateEndpoint -Value $Config.S3.use_accelerate_endpoint
+                $Output | Add-Member -MemberType NoteProperty -Name UseAccelerateEndpoint -Value ([System.Convert]::ToBoolean($Config.S3.use_accelerate_endpoint))
             }
             elseif ($Config.use_accelerate_endpoint) {
-                $Output | Add-Member -MemberType NoteProperty -Name UseAccelerateEndpoint -Value $Config.use_accelerate_endpoint
+                $Output | Add-Member -MemberType NoteProperty -Name UseAccelerateEndpoint -Value ([System.Convert]::ToBoolean($Config.use_accelerate_endpoint))
             }
             else {
                 $Output | Add-Member -MemberType NoteProperty -Name UseAccelerateEndpoint -Value $false
             }
             if ($Config.S3.use_dualstack_endpoint) {
-                $Output | Add-Member -MemberType NoteProperty -Name UseDualstackEndpoint -Value $Config.S3.use_dualstack_endpoint
+                $Output | Add-Member -MemberType NoteProperty -Name UseDualstackEndpoint -Value ([System.Convert]::ToBoolean($Config.S3.use_dualstack_endpoint))
             }
             elseif ($Config.use_dualstack_endpoint) {
-                $Output | Add-Member -MemberType NoteProperty -Name UseDualstackEndpoint -Value $Config.use_dualstack_endpoint
+                $Output | Add-Member -MemberType NoteProperty -Name UseDualstackEndpoint -Value ([System.Convert]::ToBoolean($Config.use_dualstack_endpoint))
             }
             else {
                 $Output | Add-Member -MemberType NoteProperty -Name UseDualstackEndpoint -Value $false
@@ -1370,10 +1374,10 @@ function Global:Get-AwsConfigs {
                 $Output | Add-Member -MemberType NoteProperty -Name AddressingStyle -Value "auto"
             }
             if ($Config.S3.payload_signing_enabled) {
-                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $Config.S3.payload_signing_enabled
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value ([System.Convert]::ToBoolean($Config.S3.payload_signing_enabled))
             }
             elseif ($Config.payload_signing_enabled) {
-                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $Config.payload_signing_enabled
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value ([System.Convert]::ToBoolean($Config.payload_signing_enabled))
             }
             else {
                 $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $false
@@ -1494,12 +1498,12 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=13,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][Boolean]$UseAccelerateEndpoint,
+                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][String]$UseAccelerateEndpoint,
         [parameter(
                 Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][Boolean]$UseDualstackEndpoint,
+                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][String]$UseDualstackEndpoint,
         [parameter(
                 Mandatory=$False,
                 Position=15,
@@ -1509,11 +1513,11 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=16,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled,
+                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][String]$PayloadSigningEnabled,
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Boolean]$SkipCertificateCheck
+                HelpMessage="Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][String]$SkipCertificateCheck
     )
 
     Begin {
@@ -1620,15 +1624,15 @@ function Global:Get-AwsConfig {
             $Config.MaxBandwidth = $MaxBandwidth
         }
 
-        if ($UseAccelerateEndpoint -ne $null) {
-            $Config.UseAccelerateEndpoint = $UseAccelerateEndpoint
+        if ($UseAccelerateEndpoint) {
+            $Config.UseAccelerateEndpoint = ([System.Convert]::ToBoolean($UseAccelerateEndpoint))
         }
         elseif ($Config.UseAccelerateEndpoint -eq $null) {
             $UseAccelerateEndpoint = $false
         }
 
-        if ($UseDualstackEndpoint -ne $null) {
-            $Config.UseDualstackEndpoint = $UseDualstackEndpoint
+        if ($UseDualstackEndpoint) {
+            $Config.UseDualstackEndpoint = ([System.Convert]::ToBoolean($UseDualstackEndpoint))
         }
         elseif ($Config.UseDualstackEndpoint -eq $null) {
             $UseDualstackEndpoint = $false
@@ -1641,15 +1645,15 @@ function Global:Get-AwsConfig {
             $AddressingStyle = "auto"
         }
 
-        if ($PayloadSigningEnabled -ne $null) {
-            $Config.PayloadSigningEnabled = $PayloadSigningEnabled
+        if ($PayloadSigningEnabled) {
+            $Config.PayloadSigningEnabled = ([System.Convert]::ToBoolean($PayloadSigningEnabled))
         }
         elseif ($Config.PayloadSigningEnabled -eq $null) {
             $PayloadSigningEnabled = $false
         }
 
-        if ($SkipCertificateCheck -ne $null) {
-            $Config.SkipCertificateCheck = $SkipCertificateCheck
+        if ($SkipCertificateCheck) {
+            $Config.SkipCertificateCheck = ([System.Convert]::ToBoolean($SkipCertificateCheck))
         }
         elseif ($SkipCertificateCheck -eq $null) {
             $SkipCertificateCheck = $false
@@ -2165,7 +2169,7 @@ function Global:Test-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2320,7 +2324,7 @@ function Global:New-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=9,
@@ -2461,7 +2465,7 @@ function Global:Remove-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -2612,7 +2616,7 @@ function Global:Get-S3BucketEncryption {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2776,7 +2780,7 @@ function Global:Set-S3BucketEncryption {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2957,7 +2961,7 @@ function Global:Remove-S3BucketEncryption {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3108,7 +3112,7 @@ function Global:Get-S3BucketCorsConfiguration {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3300,7 +3304,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3523,7 +3527,7 @@ function Global:Remove-S3BucketCorsConfigurationRule {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3670,7 +3674,7 @@ function Global:Remove-S3BucketCorsConfiguration {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3789,7 +3793,7 @@ function Global:Get-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3899,7 +3903,7 @@ function Global:Set-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4015,7 +4019,7 @@ function Global:Get-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4131,7 +4135,7 @@ function Global:Enable-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4245,7 +4249,7 @@ function Global:Suspend-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4359,7 +4363,7 @@ function Global:Get-S3BucketLocation {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -4482,7 +4486,7 @@ function Global:Get-S3MultipartUploads {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -4671,7 +4675,7 @@ function Global:Get-S3Objects {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -4873,7 +4877,7 @@ function Global:Get-S3ObjectVersions {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -5028,7 +5032,7 @@ function Global:Get-S3PresignedUrl {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=9,
@@ -5167,7 +5171,7 @@ function Global:Get-S3ObjectMetadata {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -5332,7 +5336,7 @@ function Global:Read-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -5497,7 +5501,7 @@ function Global:Write-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -5754,7 +5758,7 @@ function Global:Start-S3MultipartUpload {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -5924,7 +5928,7 @@ function Global:Stop-S3MultipartUpload {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -6079,7 +6083,7 @@ function Global:Complete-S3MultipartUpload {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -6232,7 +6236,7 @@ function Global:Write-S3MultipartUpload {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -6600,7 +6604,7 @@ function Global:Write-S3ObjectPart {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -6775,7 +6779,7 @@ function Global:Get-S3ObjectParts {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -6962,7 +6966,7 @@ function Global:Remove-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -7090,7 +7094,7 @@ function Global:Copy-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -7297,7 +7301,7 @@ function Global:Get-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -7410,7 +7414,7 @@ function Global:Update-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -7613,7 +7617,7 @@ function Global:Get-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -7726,7 +7730,7 @@ function Global:Enable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -7833,7 +7837,7 @@ function Global:Disable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual-hosted")]$UrlStyle="path",
+                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,

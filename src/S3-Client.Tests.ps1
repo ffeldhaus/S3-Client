@@ -126,6 +126,15 @@ Describe "AWS Configuration and Credential Management" {
             $Config.AddressingStyle  | Should -Be $AddressingStyle
             $Config.PayloadSigningEnabled  | Should -Be $PayloadSigningEnabled
         }
+
+        It "Remove -ProfileName $ProfileName" {
+            New-AwsConfig -ProfileName $ProfileName
+            $Config = Get-AwsConfig -ProfileName $ProfileName
+            $Config.ProfileName | Should -Be $ProfileName
+            Remove-AwsConfig -ProfileName
+            $Config = Get-AwsConfig -ProfileName $ProfileName
+            $Config | Should -BeNullOrEmpty
+        }
     }
 }
 
