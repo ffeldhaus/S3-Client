@@ -6337,194 +6337,201 @@ function Global:Write-S3MultipartUpload {
 
         Write-Verbose "Multipart Upload ID: $($MultipartUpload.UploadId)"
 
-        Write-Verbose "Initializing Runspace Pool"
-        $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
-        $CancellationToken = $CancellationTokenSource.Token
-        $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
-        $PartUploadProgress = [Hashtable]::Synchronized(@{})
-        $PartUploadProgressVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('PartUploadProgress',$PartUploadProgress,$Null)
-        $InitialSessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
-        $InitialSessionState.Variables.Add($CancellationTokenVariable)
-        $InitialSessionState.Variables.Add($PartUploadProgressVariable)
-        $RunspacePool = [runspacefactory]::CreateRunspacePool(1, $MaxRunspaces, $InitialSessionState, $Host)
-        $RunspacePool.Open()
+            try {
+            Write-Verbose "Initializing Runspace Pool"
+            $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
+            $CancellationToken = $CancellationTokenSource.Token
+            $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
+            $PartUploadProgress = [Hashtable]::Synchronized(@{})
+            $PartUploadProgressVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('PartUploadProgress',$PartUploadProgress,$Null)
+            $InitialSessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+            $InitialSessionState.Variables.Add($CancellationTokenVariable)
+            $InitialSessionState.Variables.Add($PartUploadProgressVariable)
+            $RunspacePool = [runspacefactory]::CreateRunspacePool(1, $MaxRunspaces, $InitialSessionState, $Host)
+            $RunspacePool.Open()
 
-        Write-Verbose "Initializing Memory Mapped File"
-        $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile, [System.IO.FileMode]::Open)
+            Write-Verbose "Initializing Memory Mapped File"
+            $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile, [System.IO.FileMode]::Open)
 
-        Write-Verbose "Initializing Part Upload Jobs"
-        $Etags = New-Object 'System.Collections.Generic.SortedDictionary[int, string]'
-        $Jobs = New-Object System.Collections.ArrayList
+            Write-Verbose "Initializing Part Upload Jobs"
+            $Etags = New-Object 'System.Collections.Generic.SortedDictionary[int, string]'
+            $Jobs = New-Object System.Collections.ArrayList
 
-        foreach ($PartNumber in 1..$PartCount) {
-            $Runspace = [PowerShell]::Create()
-            $Runspace.RunspacePool = $RunspacePool
-            [void]$Runspace.AddScript({
-                Param (
-                    [parameter(
-                            Mandatory=$True,
-                            Position=0,
-                            HelpMessage="Content Stream")][System.IO.Stream]$Stream,
-                    [parameter(
-                            Mandatory=$True,
-                            Position=1,
-                            HelpMessage="Request URI")][Uri]$Uri,
-                    [parameter(
-                            Mandatory=$True,
-                            Position=2,
-                            HelpMessage="Request Headers")][Hashtable]$Headers,
-                    [parameter(
-                            Mandatory=$True,
-                            Position=3,
-                            HelpMessage="Part number")][Int]$PartNumber,
-                    [parameter(
-                            Mandatory=$False,
-                            Position=4,
-                            HelpMessage="Skip Certificate Check")][Boolean]$SkipCertificateCheck
-                )
+            foreach ($PartNumber in 1..$PartCount) {
+                $Runspace = [PowerShell]::Create()
+                $Runspace.RunspacePool = $RunspacePool
+                [void]$Runspace.AddScript({
+                    Param (
+                        [parameter(
+                                Mandatory=$True,
+                                Position=0,
+                                HelpMessage="Content Stream")][System.IO.Stream]$Stream,
+                        [parameter(
+                                Mandatory=$True,
+                                Position=1,
+                                HelpMessage="Request URI")][Uri]$Uri,
+                        [parameter(
+                                Mandatory=$True,
+                                Position=2,
+                                HelpMessage="Request Headers")][Hashtable]$Headers,
+                        [parameter(
+                                Mandatory=$True,
+                                Position=3,
+                                HelpMessage="Part number")][Int]$PartNumber,
+                        [parameter(
+                                Mandatory=$False,
+                                Position=4,
+                                HelpMessage="Skip Certificate Check")][Boolean]$SkipCertificateCheck
+                    )
 
-                if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
-                    Add-Type @"
-                        using System.Net;
-                        using System.Security.Cryptography.X509Certificates;
-                        public class TrustAllCertsPolicy : ICertificatePolicy {
-                           public bool CheckValidationResult(
-                                ServicePoint srvPoint, X509Certificate certificate,
-                                WebRequest request, int certificateProblem) {
-                                return true;
+                    if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
+                        Add-Type @"
+                            using System.Net;
+                            using System.Security.Cryptography.X509Certificates;
+                            public class TrustAllCertsPolicy : ICertificatePolicy {
+                            public bool CheckValidationResult(
+                                    ServicePoint srvPoint, X509Certificate certificate,
+                                    WebRequest request, int certificateProblem) {
+                                    return true;
+                                }
                             }
-                        }
 "@
 
-                    [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-                }
-                elseif ($SkipCertificateCheck) {
-                    $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
-                    $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
-                }
-                else {
-                    $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
-                }
-
-                # using CryptoSteam to calculate the MD5 sum while uploading the part
-                # this allows to only read the stream once and increases performance compared with other S3 clients
-                $Md5 = [System.Security.Cryptography.MD5]::Create()
-                $CryptoStream = [System.Security.Cryptography.CryptoStream]::new($Stream, $Md5, [System.Security.Cryptography.CryptoStreamMode]::Read)
-
-                $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
-
-                # set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)
-                $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Ceiling($Stream.Length / 1KB / 100))
-
-                $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$Uri)
-
-                $PutRequest.Headers.Add("Host",$Headers["Host"])
-
-                $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
-                $StreamContent.Headers.ContentLength = $Stream.Length
-                $PutRequest.Content = $StreamContent
-
-                $Response = $HttpClient.SendAsync($PutRequest, $CancellationToken)
-
-                # TODO: Report progress using stream position
-                while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
-                    sleep 0.1
-                    $PartUploadProgress.$PartNumber = $Stream.Position
-                }
-
-                $Etag = New-Object 'System.Collections.Generic.List[string]'
-                [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
-                $Etag = $Etag[0] -replace '"',''
-
-                $CryptoStream.Dispose()
-                $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
-
-                if ($Response.Result.StatusCode -ne "OK") {
-                    Write-Output $Response
-                }
-                elseif ($Etag -ne $MD5Sum) {
-                    $Output = [PSCustomObject]@{Etag=$Etag;MD5Sum=$MD5Sum}
-                    Write-Output $Output
-                }
-                else {
-                    Write-Output $Etag
-                }
-
-                $Response.Dispose()
-                $PutRequest.Dispose()
-                $StreamContent.Dispose()
-                $Stream.Dispose()
-            })
-
-            if (($PartNumber * $Chunksize) -gt $FileSize) {
-                $ViewSize = $Chunksize - ($PartNumber * $Chunksize - $FileSize)
-            }
-            else {
-                $ViewSize = $Chunksize
-            }
-
-            Write-Verbose "Creating File view from position $(($PartNumber -1) * $Chunksize) with size $ViewSize"
-            $Stream = $MemoryMappedFile.CreateViewStream(($PartNumber - 1) * $Chunksize,$ViewSize)
-
-            $AwsRequest = $MultipartUpload | Write-S3ObjectPart -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -Presign -DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -PartNumber $PartNumber -Stream $Stream
-
-            $Parameters = @{
-                Stream                  = $Stream
-                Uri                     = $AwsRequest.Uri
-                Headers                 = $AwsRequest.Headers
-                PartNumber              = $PartNumber
-                SkipCertificateCheck    = $Config.SkipCertificateCheck
-            }
-            [void]$Runspace.AddParameters($Parameters)
-            $Job = [PSCustomObject]@{
-                Pipe        = $Runspace
-                Status      = $Runspace.BeginInvoke()
-                PartNumber  = $PartNumber
-             }
-            [void]$Jobs.Add($Job)
-        }
-
-        $PercentCompleted = 0
-
-        Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$PercentCompleted% Complete:" -PercentComplete $PercentCompleted
-
-        $StartTime = Get-Date
-
-        while ($Jobs.Status -ne $null) {
-            $WrittenBytes = $PartUploadProgress.Clone().Values | Measure-Object -Sum | Select-Object -ExpandProperty Sum
-            $PercentCompleted = [Math]::Floor($WrittenBytes / $InFile.Length * 10000) / 100
-            $Throughput = $WrittenBytes / ((Get-Date) - $StartTime).TotalSeconds / 1MB
-            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$PercentCompleted% Complete / $Throughput MiB/s" -PercentComplete $PercentCompleted
-            sleep 1
-            $CompletedJobs = $Jobs | Where-Object { $_.Status.IsCompleted -eq $true }
-            foreach ($Job in $CompletedJobs) {
-                $Output = $Job.Pipe.EndInvoke($Job.Status)
-                Write-Verbose "Output: $Output"
-                if ($Output[0] -isnot [String]) {
-                    Write-Verbose (ConvertTo-Json -InputObject $Output)
-                    foreach ($Job in $Jobs) {
-                        $CancellationToken = $CancellationTokenSource.Cancel()
-                        $Job.Pipe.Stop()
+                        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
                     }
-                    $MemoryMappedFile.Dispose()
-                    $RunspacePool.Close()
-                    $RunspacePool.Dispose()
-                    $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
-                    throw "Upload of part $($Job.PartNumber) failed, Multipart Upload aborted"
+                    elseif ($SkipCertificateCheck) {
+                        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
+                        $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+                    }
+                    else {
+                        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
+                    }
+
+                    # using CryptoSteam to calculate the MD5 sum while uploading the part
+                    # this allows to only read the stream once and increases performance compared with other S3 clients
+                    $Md5 = [System.Security.Cryptography.MD5]::Create()
+                    $CryptoStream = [System.Security.Cryptography.CryptoStream]::new($Stream, $Md5, [System.Security.Cryptography.CryptoStreamMode]::Read)
+
+                    $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
+
+                    # set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)
+                    $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Ceiling($Stream.Length / 1KB / 100))
+
+                    $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$Uri)
+
+                    $PutRequest.Headers.Add("Host",$Headers["Host"])
+
+                    $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
+                    $StreamContent.Headers.ContentLength = $Stream.Length
+                    $PutRequest.Content = $StreamContent
+
+                    $Response = $HttpClient.SendAsync($PutRequest, $CancellationToken)
+
+                    # TODO: Report progress using stream position
+                    while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
+                        sleep 0.1
+                        $PartUploadProgress.$PartNumber = $Stream.Position
+                    }
+
+                    $Etag = New-Object 'System.Collections.Generic.List[string]'
+                    [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
+                    $Etag = $Etag[0] -replace '"',''
+
+                    $CryptoStream.Dispose()
+                    $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
+
+                    if ($Response.Result.StatusCode -ne "OK") {
+                        Write-Output $Response
+                    }
+                    elseif ($Etag -ne $MD5Sum) {
+                        $Output = [PSCustomObject]@{Etag=$Etag;MD5Sum=$MD5Sum}
+                        Write-Output $Output
+                    }
+                    else {
+                        Write-Output $Etag
+                    }
+
+                    $Response.Dispose()
+                    $PutRequest.Dispose()
+                    $StreamContent.Dispose()
+                    $Stream.Dispose()
+                })
+
+                if (($PartNumber * $Chunksize) -gt $FileSize) {
+                    $ViewSize = $Chunksize - ($PartNumber * $Chunksize - $FileSize)
                 }
-                $Etags[$Job.PartNumber] = $Output
-                Write-Verbose "Part $($Job.PartNumber) has completed with ETag $Output"
-                $Job.Pipe.Dispose()
-                $Job.Status = $null
+                else {
+                    $ViewSize = $Chunksize
+                }
+
+                Write-Verbose "Creating File view from position $(($PartNumber -1) * $Chunksize) with size $ViewSize"
+                $Stream = $MemoryMappedFile.CreateViewStream(($PartNumber - 1) * $Chunksize,$ViewSize)
+
+                $AwsRequest = $MultipartUpload | Write-S3ObjectPart -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -Presign -DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -PartNumber $PartNumber -Stream $Stream
+
+                $Parameters = @{
+                    Stream                  = $Stream
+                    Uri                     = $AwsRequest.Uri
+                    Headers                 = $AwsRequest.Headers
+                    PartNumber              = $PartNumber
+                    SkipCertificateCheck    = $Config.SkipCertificateCheck
+                }
+                [void]$Runspace.AddParameters($Parameters)
+                $Job = [PSCustomObject]@{
+                    Pipe        = $Runspace
+                    Status      = $Runspace.BeginInvoke()
+                    PartNumber  = $PartNumber
+                }
+                [void]$Jobs.Add($Job)
+            }
+
+            $PercentCompleted = 0
+
+            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$PercentCompleted% Complete:" -PercentComplete $PercentCompleted
+
+            $StartTime = Get-Date
+
+            while ($Jobs.Status -ne $null) {
+                $WrittenBytes = $PartUploadProgress.Clone().Values | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+                $PercentCompleted = [Math]::Floor($WrittenBytes / $InFile.Length * 10000) / 100
+                $Throughput = $WrittenBytes / ((Get-Date) - $StartTime).TotalSeconds / 1MB
+                Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$PercentCompleted% Complete / $Throughput MiB/s" -PercentComplete $PercentCompleted
+                sleep 1
+                $CompletedJobs = $Jobs | Where-Object { $_.Status.IsCompleted -eq $true }
+                foreach ($Job in $CompletedJobs) {
+                    $Output = $Job.Pipe.EndInvoke($Job.Status)
+                    Write-Verbose "Output: $Output"
+                    if ($Output[0] -isnot [String]) {
+                        Write-Verbose (ConvertTo-Json -InputObject $Output)
+                        foreach ($Job in $Jobs) {
+                            $CancellationToken = $CancellationTokenSource.Cancel()
+                            $Job.Pipe.Stop()
+                        }
+                        throw "Upload of part $($Job.PartNumber) failed, Multipart Upload aborted"
+                    }
+                    $Etags[$Job.PartNumber] = $Output
+                    Write-Verbose "Part $($Job.PartNumber) has completed with ETag $Output"
+                    $Job.Pipe.Dispose()
+                    $Job.Status = $null
+                }
+            }
+        }
+        catch {
+            Write-Verbose "Something has gone wrong, aborting Multipart Upload"
+            $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
+            throw
+        }
+        finally {
+            Write-Verbose "Cleaning up"
+            $MemoryMappedFile.Dispose()
+            $RunspacePool.Close()
+            $RunspacePool.Dispose()
+            if ($Jobs.Status -ne $null) {
+                $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
             }
         }
 
         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key completed" -Completed
-
-        $MemoryMappedFile.Dispose()
-        $RunspacePool.Close()
-        $RunspacePool.Dispose()
-
         $MultipartUpload | Complete-S3MultipartUpload  -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -Etags $Etags
     }
 }
