@@ -1551,7 +1551,8 @@ function Global:Get-AwsConfig {
             Write-Verbose "Profile $ProfileName specified, therefore returning AWS config of this profile"
             $Config = Get-AwsConfigs -ProfileLocation $ProfileLocation | Where-Object { $_.ProfileName -eq $ProfileName }
             if (!$Config) {
-                Throw "Config for profile $ProfileName not found"
+                Write-Verbose "Config for profile $ProfileName not found"
+                return
             }
         }
         elseif ($AccessKey) {
@@ -1697,9 +1698,9 @@ function Global:Remove-AwsConfig {
         $Credentials = $Credentials | Where-Object { $_.ProfileName -ne $ProfileName }
         ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
 
-        $Config = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
-        $Config = $Credentials | Where-Object { $_.ProfileName -ne $ProfileName }
-        ConvertTo-AwsConfigFile -Config $Config -AwsConfigFile $ConfigLocation
+        $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
+        $Configs = $Configs | Where-Object { $_.ProfileName -ne $ProfileName }
+        ConvertTo-AwsConfigFile -Config $Configs -AwsConfigFile $ConfigLocation
     }
 }
 
@@ -6265,7 +6266,7 @@ function Global:Write-S3MultipartUpload {
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Multipart Part Chunksize")][ValidateRange(1,5GB)][int]$Chunksize
+                HelpMessage="Multipart Part Chunksize")][ValidateRange(1,5GB)][int64]$Chunksize
     )
 
     Begin {
@@ -6316,11 +6317,11 @@ function Global:Write-S3MultipartUpload {
             if ($FileSize -gt 1TB) {
                 $Chunksize = [Math]::Pow(2,[Math]::Ceiling([Math]::Log($FileSize/1000)/[Math]::Log(2)))
             }
-            elseif ($FileSize -gt $MaxRunspaces * 1GB) {
+            elseif ($FileSize -gt ([int64]$MaxRunspaces * 1GB)) {
                 # chunksize of 1GB is optimal for fast, lossless connections which we assume
                 $Chunksize = 1GB
             }
-            elseif ($FileSize / $MaxRunspaces -ge 8MB) {
+            elseif (($FileSize / $MaxRunspaces) -ge 8MB) {
                 # if filesize is smaller than max number of runspaces times 1GB
                 # then we need to make sure that we reduce the chunksize so that all runspaces are used
                 $Chunksize = [Math]::Pow(2,[Math]::Floor([Math]::Log($FileSize/$MaxRunspaces)/[Math]::Log(2)))

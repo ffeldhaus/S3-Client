@@ -128,7 +128,7 @@ Describe "AWS Configuration and Credential Management" {
         }
 
         It "Remove -ProfileName $ProfileName" {
-            New-AwsConfig -ProfileName $ProfileName
+            New-AwsConfig -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey
             $Config = Get-AwsConfig -ProfileName $ProfileName
             $Config.ProfileName | Should -Be $ProfileName
             Remove-AwsConfig -ProfileName $ProfileName
