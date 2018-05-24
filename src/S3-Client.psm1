@@ -1158,7 +1158,7 @@ function Global:Add-AwsConfig {
         $Config = $Configs | Where-Object { $_.ProfileName -eq $ProfileName }
         if ($Config) {
             if (!$Config.S3) {
-                $Config | Add-Member -MemberType NoteProperty -Name "S3" -Value [PSCustomObject]@{}
+                $Config | Add-Member -MemberType NoteProperty -Name "S3" -Value ([PSCustomObject]@{})
             }
         }
         else {
