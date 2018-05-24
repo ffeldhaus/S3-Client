@@ -1174,7 +1174,7 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrlString -Force
         }
 
-        if ($MaxConcurrentRequests -and $MaxConcurrentRequests -ne 10) {
+        if ($MaxConcurrentRequests -and $MaxConcurrentRequests -ne [Environment]::ProcessorCount) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name max_concurrent_requests -Value $MaxConcurrentRequests -Force
         }
 
@@ -1307,7 +1307,7 @@ function Global:Get-AwsConfigs {
                 $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value $Config.max_concurrent_requests
             }
             else {
-                $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value 10
+                $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value ([Environment]::ProcessorCount)
             }
             if ($Config.S3.max_queue_size) {
                 $Output | Add-Member -MemberType NoteProperty -Name MaxQueueSize -Value $Config.S3.max_queue_size
@@ -1434,7 +1434,7 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=1,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName="",
+                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName="default",
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -1444,17 +1444,17 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=3,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="S3 Access Key")][String]$AccessKey="",
+                HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 Mandatory=$False,
                 Position=4,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="S3 Secret Access Key")][String]$SecretKey="",
+                HelpMessage="S3 Secret Access Key")][String]$SecretKey,
         [parameter(
                 Mandatory=$False,
                 Position=5,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="StorageGRID Account ID")][String]$AccountId="",
+                HelpMessage="StorageGRID Account ID")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
                 Position=6,
@@ -1464,27 +1464,27 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=7,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl=$null,
+                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 Mandatory=$False,
                 Position=8,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of concurrent requests (Default: 10)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests=10,
+                HelpMessage="The maximum number of concurrent requests (Default: 10)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
         [parameter(
                 Mandatory=$False,
                 Position=9,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of tasks in the task queue")][Alias("max_queue_size")][UInt16]$MaxQueueSize=1000,
+                HelpMessage="The maximum number of tasks in the task queue")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
         [parameter(
                 Mandatory=$False,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold="8MB",
+                HelpMessage="The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold,
         [parameter(
                 Mandatory=$False,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files (Default: 8MB)")][Alias("multipart_chunksize")][String]$MultipartChunksize="8MB",
+                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files (Default: 8MB)")][Alias("multipart_chunksize")][String]$MultipartChunksize,
         [parameter(
                 Mandatory=$False,
                 Position=12,
@@ -1494,17 +1494,17 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=13,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][Boolean]$UseAccelerateEndpoint=$false,
+                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][Boolean]$UseAccelerateEndpoint,
         [parameter(
                 Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][Boolean]$UseDualstackEndpoint=$false,
+                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][Boolean]$UseDualstackEndpoint,
         [parameter(
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("addressing_style")][ValidateSet("auto","path","virtual")][String]$AddressingStyle="auto",
+                HelpMessage="Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("addressing_style")][ValidateSet("auto","path","virtual")][String]$AddressingStyle,
         [parameter(
                 Mandatory=$False,
                 Position=16,
@@ -1513,7 +1513,7 @@ function Global:Get-AwsConfig {
         [parameter(
                 Mandatory=$False,
                 Position=1,
-                HelpMessage="Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Boolean]$SkipCertificateCheck=$false
+                HelpMessage="Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Boolean]$SkipCertificateCheck
     )
 
     Begin {
@@ -1577,11 +1577,82 @@ function Global:Get-AwsConfig {
             }
         }
 
-        if (!$Region -and $Config.region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
-        elseif (!$Region -and !$Config.region) {
-            $Config.region = "us-east-1"
+        elseif (!$Config.region) {
+            $Config.Region = "us-east-1"
+        }
+
+        if ($EndpointUrl) {
+            $Config.EndpointUrl = $EndpointUrl
+        }
+
+        if ($MaxConcurrentRequests) {
+            $Config.MaxConcurrentRequests = $MaxConcurrentRequests
+        }
+        elseif (!$Config.MaxConcurrentRequests) {
+            $Config.MaxConcurrentRequests = ([Environment]::ProcessorCount)
+        }
+
+        if ($MaxQueueSize) {
+            $Config.MaxQueueSize = $MaxQueueSize
+        }
+        elseif (!$Config.MaxQueueSize) {
+            $Config.MaxQueueSize = 1000
+        }
+
+        if ($MultipartThreshold) {
+            $Config.MultipartThreshold = $MultipartThreshold
+        }
+        elseif (!$Config.MultipartThreshold) {
+            $Config.MultipartThreshold = "8MB"
+        }
+
+        if ($MultipartChunksize) {
+            $Config.MultipartChunksize = $MultipartChunksize
+        }
+        elseif (!$Config.MultipartChunksize) {
+            $MultipartChunksize = "8MB"
+        }
+
+        if ($MaxBandwidth) {
+            $Config.MaxBandwidth = $MaxBandwidth
+        }
+
+        if ($UseAccelerateEndpoint -ne $null) {
+            $Config.UseAccelerateEndpoint = $UseAccelerateEndpoint
+        }
+        elseif ($Config.UseAccelerateEndpoint -eq $null) {
+            $UseAccelerateEndpoint = $false
+        }
+
+        if ($UseDualstackEndpoint -ne $null) {
+            $Config.UseDualstackEndpoint = $UseDualstackEndpoint
+        }
+        elseif ($Config.UseDualstackEndpoint -eq $null) {
+            $UseDualstackEndpoint = $false
+        }
+
+        if ($AddressingStyle) {
+            $Config.AddressingStyle = $AddressingStyle
+        }
+        elseif (!$Config.AddressingStyle) {
+            $AddressingStyle = "auto"
+        }
+
+        if ($PayloadSigningEnabled -ne $null) {
+            $Config.PayloadSigningEnabled = $PayloadSigningEnabled
+        }
+        elseif ($Config.PayloadSigningEnabled -eq $null) {
+            $PayloadSigningEnabled = $false
+        }
+
+        if ($SkipCertificateCheck -ne $null) {
+            $Config.SkipCertificateCheck = $SkipCertificateCheck
+        }
+        elseif ($SkipCertificateCheck -eq $null) {
+            $SkipCertificateCheck = $false
         }
 
         Write-Output $Config
