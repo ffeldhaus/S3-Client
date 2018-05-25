@@ -222,11 +222,11 @@ Describe "New-S3Bucket" {
             New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -UrlStyle virtual-hosted
             foreach ($i in 1..60) {
                 sleep 1
-                if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName) {
+                if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName  -UrlStyle virtual-hosted) {
                     break
                 }
             }
-            $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
+            $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName -UrlStyle virtual-hosted
             $NewBucket.BucketName | Should -Be $BucketName
         }
     }
