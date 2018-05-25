@@ -2499,8 +2499,11 @@ function Global:Remove-S3Bucket {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         if ($Force -or $DeleteBucketContent) {
             Write-Verbose "Force parameter specified, removing all objects in the bucket before removing the bucket"
@@ -3815,8 +3818,11 @@ function Global:Get-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{policy=""}
 
@@ -3930,8 +3936,11 @@ function Global:Set-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{policy=""}
 
@@ -4041,8 +4050,11 @@ function Global:Get-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{versioning=""}
 
@@ -4153,8 +4165,11 @@ function Global:Enable-S3BucketVersioning {
     }
 
     Process {
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{versioning=""}
 
@@ -4271,8 +4286,11 @@ function Global:Suspend-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{versioning=""}
 
@@ -4383,8 +4401,11 @@ function Global:Get-S3BucketLocation {
     Process {
         Write-Verbose "Retrieving location for bucket $BucketName"
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/"
 
@@ -4535,8 +4556,11 @@ function Global:Get-S3MultipartUploads {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{uploads=""}
         if ($EncodingType) {
@@ -5074,8 +5098,11 @@ function Global:Get-S3PresignedUrl {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/$Key"
         $Presign = $true
@@ -5201,8 +5228,11 @@ function Global:Get-S3ObjectMetadata {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/$Key"
 
@@ -5369,8 +5399,11 @@ function Global:Read-S3Object {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/$Key"
 
@@ -5611,8 +5644,11 @@ function Global:Write-S3Object {
             Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         # TODO: Check MIME type of file
         if (!$InFile) {
@@ -6278,8 +6314,11 @@ function Global:Write-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         if ($InFile -and !$InFile.Exists) {
             Throw "File $InFile does not exist"
@@ -6649,8 +6688,11 @@ function Global:Write-S3ObjectPart {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/$Key"
 
@@ -6826,8 +6868,11 @@ function Global:Get-S3ObjectParts {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/$Key"
 
@@ -7000,8 +7045,11 @@ function Global:Remove-S3Object {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/$Key"
 
@@ -7184,8 +7232,11 @@ function Global:Copy-S3Object {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/$Key"
 
@@ -7321,8 +7372,11 @@ function Global:Get-S3BucketConsistency {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{"x-ntap-sg-consistency"=""}
 
@@ -7438,8 +7492,11 @@ function Global:Update-S3BucketConsistency {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{"x-ntap-sg-consistency"=$Consistency}
 
@@ -7637,8 +7694,11 @@ function Global:Get-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{"x-ntap-sg-lastaccesstime"=""}
 
@@ -7750,8 +7810,11 @@ function Global:Enable-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{"x-ntap-sg-lastaccesstime"="enabled"}
 
@@ -7857,8 +7920,11 @@ function Global:Disable-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Query = @{"x-ntap-sg-lastaccesstime"="disabled"}
 
