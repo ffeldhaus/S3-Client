@@ -226,7 +226,7 @@ Describe "New-S3Bucket" {
                     break
                 }
             }
-            $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName -UrlStyle virtual-hosted
+            $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
             $NewBucket.BucketName | Should -Be $BucketName
         }
     }
