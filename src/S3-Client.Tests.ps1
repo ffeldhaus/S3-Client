@@ -4,7 +4,7 @@ PARAM(
 
 Import-Module "$PSScriptRoot\S3-Client" -Force
 
-$BucketName = Get-Date -Format "yyyy-MM-dd-HHmmss"
+$BucketName = (Get-Date -Format "yyyy-MM-dd-HHmmss") + "-Bucket"
 $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BucketName"
 $Key = "Key"
 $UnicodeKey = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Key"

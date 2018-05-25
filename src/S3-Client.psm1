@@ -2032,6 +2032,10 @@ function Global:Get-S3Buckets {
     Process {
         Write-Verbose "Retrieving all buckets"
 
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         $Uri = "/"
 
         if ($Config) {
@@ -2053,8 +2057,15 @@ function Global:Get-S3Buckets {
                     }
                     foreach ($XmlBucket in $XmlBuckets) {
                         $Location = Get-S3BucketLocation -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -Bucket $XmlBucket.Name -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
-                        $UnicodeName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
-                        $Bucket = [PSCustomObject]@{ BucketName = $UnicodeName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
+                        $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
+                        # ensure that we keep uppercase letters
+                        if ($UnicodeName = $XmlBucket.Name) {
+                            $BucketName = $XmlBucket.Name
+                        }
+                        else {
+                            $BucketName = $UnicodeBucketName
+                        }
+                        $Bucket = [PSCustomObject]@{ BucketName = $BucketName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
                         Write-Output $Bucket
                     }
                 }
@@ -2192,12 +2203,20 @@ function Global:Test-S3Bucket {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
@@ -2363,10 +2382,13 @@ function Global:New-S3Bucket {
             $Server = $Global:CurrentSgwServer
         }
         $Method = "PUT"
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
     }
 
     Process {
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
 
         if (!$Config) {
             Throw "No S3 credentials found"
@@ -2384,7 +2406,11 @@ function Global:New-S3Bucket {
         }
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
@@ -2495,6 +2521,10 @@ function Global:Remove-S3Bucket {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -2637,6 +2667,10 @@ function Global:Get-S3BucketEncryption {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -2644,7 +2678,11 @@ function Global:Get-S3BucketEncryption {
         $Query = @{encryption=""}
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -2811,6 +2849,10 @@ function Global:Set-S3BucketEncryption {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -2818,7 +2860,11 @@ function Global:Set-S3BucketEncryption {
         $Query = @{encryption=""}
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Body = "<ServerSideEncryptionConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`">"
         $Body += "<Rule>"
@@ -2982,6 +3028,10 @@ function Global:Remove-S3BucketEncryption {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -2989,7 +3039,11 @@ function Global:Remove-S3BucketEncryption {
         $Query = @{encryption=""}
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -3138,6 +3192,10 @@ function Global:Get-S3BucketCorsConfiguration {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -3145,7 +3203,11 @@ function Global:Get-S3BucketCorsConfiguration {
         $Query = @{cors=""}
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -3355,6 +3417,10 @@ function Global:Add-S3BucketCorsConfigurationRule {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -3362,7 +3428,11 @@ function Global:Add-S3BucketCorsConfigurationRule {
         $Query = @{cors=""}
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $CorsConfigurationRules = @()
 
@@ -3552,12 +3622,20 @@ function Global:Remove-S3BucketCorsConfigurationRule {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         # get all rules
         $CorsConfigurationRules = Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
@@ -3695,6 +3773,10 @@ function Global:Remove-S3BucketCorsConfiguration {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -3702,7 +3784,11 @@ function Global:Remove-S3BucketCorsConfiguration {
         $Query = @{cors=""}
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -3814,6 +3900,10 @@ function Global:Get-S3BucketPolicy {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -3932,6 +4022,10 @@ function Global:Set-S3BucketPolicy {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -4046,6 +4140,10 @@ function Global:Get-S3BucketVersioning {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -4165,6 +4263,10 @@ function Global:Enable-S3BucketVersioning {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
         if ($PunycodeBucketName -notmatch $BucketName) {
@@ -4282,6 +4384,10 @@ function Global:Suspend-S3BucketVersioning {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -4399,6 +4505,10 @@ function Global:Get-S3BucketLocation {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         Write-Verbose "Retrieving location for bucket $BucketName"
 
         # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
@@ -4552,6 +4662,10 @@ function Global:Get-S3MultipartUploads {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -4751,10 +4865,14 @@ function Global:Get-S3Objects {
             $Server = $Global:CurrentSgwServer
         }
         $Method = "GET"
+
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
     }
 
     Process {
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
 
         if (!$Config) {
             Throw "No S3 credentials found"
@@ -4784,7 +4902,11 @@ function Global:Get-S3Objects {
             if ($ContinuationToken) { $Query["continuation-token"] = $ContinuationToken }
         }
 
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -UseDualstackEndpoint:$UseDualstackEndpoint
 
@@ -4802,6 +4924,9 @@ function Global:Get-S3Objects {
                 Write-Verbose "ListBucketResult Name: $($Content.ListBucketResult.Name)"
 
                 $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode($Content.ListBucketResult.Name)
+                if ($UnicodeBucket -match $BucketName) {
+                    $UnicodeBucket = $BucketName
+                }
 
                 foreach ($Object in $Objects) {
                     $Object = [PSCustomObject]@{Bucket=$UnicodeBucket;Region=$Region;Key=$Object.Key;LastModified=(Get-Date $Object.LastModified);ETag=($Object.ETag -replace '"','');Size=[long]$Object.Size;OwnerId=$Object.Owner.ID;OwnerDisplayName=$Object.Owner.DisplayName;StorageClass=$Object.StorageClass}
@@ -4940,6 +5065,10 @@ function Global:Get-S3ObjectVersions {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -5094,6 +5223,10 @@ function Global:Get-S3PresignedUrl {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -5224,6 +5357,10 @@ function Global:Get-S3ObjectMetadata {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -5395,6 +5532,10 @@ function Global:Read-S3Object {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -5616,11 +5757,14 @@ function Global:Write-S3Object {
             $Server = $Global:CurrentSgwServer
         }
         $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
-
         $Method = "PUT"
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -5823,11 +5967,14 @@ function Global:Start-S3MultipartUpload {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         $Method = "POST"
     }
 
     Process {
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
 
         if (!$Config) {
             Throw "No S3 credentials found"
@@ -5838,7 +5985,11 @@ function Global:Start-S3MultipartUpload {
         }
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Headers = @{}
         if ($Metadata) {
@@ -5997,6 +6148,10 @@ function Global:Stop-S3MultipartUpload {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
 
         if (!$Config) {
@@ -6008,7 +6163,11 @@ function Global:Stop-S3MultipartUpload {
         }
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/$Key"
 
@@ -6153,11 +6312,14 @@ function Global:Complete-S3MultipartUpload {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         $Method = "POST"
     }
 
     Process {
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
 
         if (!$Config) {
             Throw "No S3 credentials found"
@@ -6168,7 +6330,11 @@ function Global:Complete-S3MultipartUpload {
         }
 
         # convert BucketName to Punycode to support Unicode Bucket Names
-        $BucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        if ($PunycodeBucketName -notmatch $BucketName) {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Uri = "/$Key"
 
@@ -6310,6 +6476,10 @@ function Global:Write-S3MultipartUpload {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -MaxConcurrentRequests $MaxConcurrentRequests -MultipartChunksize $Chunksize -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -6679,11 +6849,14 @@ function Global:Write-S3ObjectPart {
             $Server = $Global:CurrentSgwServer
         }
         $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
-
         $Method = "PUT"
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -6864,6 +7037,10 @@ function Global:Get-S3ObjectParts {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -7041,6 +7218,10 @@ function Global:Remove-S3Object {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -7228,6 +7409,10 @@ function Global:Copy-S3Object {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -7368,6 +7553,10 @@ function Global:Get-S3BucketConsistency {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -7488,6 +7677,10 @@ function Global:Update-S3BucketConsistency {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -7582,6 +7775,10 @@ function Global:Get-S3StorageUsage {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         $Uri = "/"
 
         $Query = @{"x-ntap-sg-usage"=""}
@@ -7690,6 +7887,10 @@ function Global:Get-S3BucketLastAccessTime {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -7806,6 +8007,10 @@ function Global:Enable-S3BucketLastAccessTime {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
@@ -7916,6 +8121,10 @@ function Global:Disable-S3BucketLastAccessTime {
     }
 
     Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
         if (!$Region) {
             $Region = $Config.Region
         }
