@@ -228,6 +228,7 @@ Describe "New-S3Bucket" {
             }
             $NewBucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
             $NewBucket.BucketName | Should -Be $BucketName
+            Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Force
         }
     }
 
