@@ -2059,13 +2059,10 @@ function Global:Get-S3Buckets {
                         $Location = Get-S3BucketLocation -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -Bucket $XmlBucket.Name -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
                         $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
                         # ensure that we keep uppercase letters
-                        if ($UnicodeName = $XmlBucket.Name) {
-                            $BucketName = $XmlBucket.Name
+                        if ($UnicodeBucketName -eq $XmlBucket.Name) {
+                            $UnicodeBucketName = $XmlBucket.Name
                         }
-                        else {
-                            $BucketName = $UnicodeBucketName
-                        }
-                        $Bucket = [PSCustomObject]@{ BucketName = $BucketName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
+                        $Bucket = [PSCustomObject]@{ BucketName = $UnicodeBucketName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
                         Write-Output $Bucket
                     }
                 }
