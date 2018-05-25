@@ -4363,10 +4363,6 @@ function Global:Get-S3BucketLocation {
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
                 Mandatory=$False,
-                Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
-        [parameter(
-                Mandatory=$False,
                 Position=9,
                 HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
         [parameter(
@@ -4394,7 +4390,8 @@ function Global:Get-S3BucketLocation {
 
         $Query = @{location=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType
+        # location requests must use path style, as virtual-host style will fail if the bucket is not in the same region as the request
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -UrlStyle "path"
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
