@@ -1948,7 +1948,7 @@ function Global:New-AwsPolicy {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Region
@@ -2105,7 +2105,7 @@ function Global:Get-S3Buckets {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Region
@@ -2178,7 +2178,7 @@ function Global:Test-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2188,7 +2188,12 @@ function Global:Test-S3Bucket {
                 Mandatory=$False,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Check all regions - by default only the specified region (or us-east-1 if no region is specified) will be checked.")][Switch]$CheckAllRegions
+                HelpMessage="Check all regions - by default only the specified region (or us-east-1 if no region is specified) will be checked.")][Switch]$CheckAllRegions,
+        [parameter(
+                Mandatory=$False,
+                Position=12,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Force check of specified bucketname and do not convert it to IDN compatible string")][Switch]$Force
     )
 
     Begin {
@@ -2208,10 +2213,18 @@ function Global:Test-S3Bucket {
             $Region = $Config.Region
         }
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # if BucketName contains uppercase letters test if bucket was created correctly without uppercase letters or if it contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName -and -not $Force.IsPresent) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+                Write-Output $BucketNameExists
+                break
+            }
+        }
+        if (-not $Force) {
             $BucketName = $PunycodeBucketName
         }
 
@@ -2244,6 +2257,7 @@ function Global:Test-S3Bucket {
     .SYNOPSIS
     Create S3 Bucket
     .DESCRIPTION
+    Create S3 Bucket
     .PARAMETER Server
     StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
     .PARAMETER SkipCertificateCheck
@@ -2267,7 +2281,7 @@ function Global:Test-S3Bucket {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER BucketName
     Bucket Name
     .PARAMETER CannedAclName
@@ -2341,7 +2355,7 @@ function Global:New-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=9,
@@ -2402,12 +2416,13 @@ function Global:New-S3Bucket {
             $RequestPayload = "<CreateBucketConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><LocationConstraint>$Region</LocationConstraint></CreateBucketConfiguration>"
         }
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
-            $BucketName = $PunycodeBucketName
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            Write-Warning "BucketName $BucketName includes uppercase letters which MUST NOT be used. Converting BucketName to lowercase $PunycodeBucketName. AWS S3 and StorageGRID Webscale 11.1 do not support Buckets with uppercase letters!"
         }
+        $BucketName = $PunycodeBucketName
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
@@ -2425,6 +2440,40 @@ function Global:New-S3Bucket {
     Remove S3 Bucket
     .DESCRIPTION
     Remove S3 Bucket
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Force
+    Force deletion even if bucket is not empty
+    .PARAMETER DeleteBucketContent
+    If set, all remaining objects and/or object versions in the bucket are deleted proir to the bucket itself being deleted
 #>
 function Global:Remove-S3Bucket {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -2489,7 +2538,7 @@ function Global:Remove-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -2506,7 +2555,7 @@ function Global:Remove-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=13,
-                HelpMessage="If set, all remaining objects and/or object versions in the bucket are deleted proir to the bucket itself  being deleted.")][Switch]$DeleteBucketContent
+                HelpMessage="If set, all remaining objects and/or object versions in the bucket are deleted proir to the bucket itself being deleted.")][Switch]$DeleteBucketContent
     )
 
     Begin {
@@ -2526,9 +2575,19 @@ function Global:Remove-S3Bucket {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -2576,7 +2635,7 @@ function Global:Remove-S3Bucket {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Region
@@ -2647,7 +2706,7 @@ function Global:Get-S3BucketEncryption {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2674,10 +2733,19 @@ function Global:Get-S3BucketEncryption {
 
         $Query = @{encryption=""}
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -2744,7 +2812,7 @@ function Global:Get-S3BucketEncryption {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Region
@@ -2819,7 +2887,7 @@ function Global:Set-S3BucketEncryption {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -2856,10 +2924,19 @@ function Global:Set-S3BucketEncryption {
 
         $Query = @{encryption=""}
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -2937,7 +3014,7 @@ function Global:Set-S3BucketEncryption {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Region
@@ -3008,7 +3085,7 @@ function Global:Remove-S3BucketEncryption {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3035,10 +3112,19 @@ function Global:Remove-S3BucketEncryption {
 
         $Query = @{encryption=""}
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -3094,7 +3180,7 @@ Set-Alias -Name Get-S3CORSConfiguration -Value Get-S3BucketCorsConfiguration
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Region
@@ -3167,7 +3253,7 @@ function Global:Get-S3BucketCorsConfiguration {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3199,10 +3285,19 @@ function Global:Get-S3BucketCorsConfiguration {
 
         $Query = @{cors=""}
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -3284,7 +3379,7 @@ Set-Alias -Name Add-S3BucketCorsRule -Value Add-S3BucketCorsConfigurationRule
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Region
@@ -3367,7 +3462,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3424,10 +3519,19 @@ function Global:Add-S3BucketCorsConfigurationRule {
 
         $Query = @{cors=""}
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -3525,7 +3629,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Region
@@ -3598,7 +3702,7 @@ function Global:Remove-S3BucketCorsConfigurationRule {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3627,10 +3731,19 @@ function Global:Remove-S3BucketCorsConfigurationRule {
             $Region = $Config.Region
         }
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -3682,7 +3795,7 @@ Set-Alias -Name Remove-S3CORSConfiguration -Value Remove-S3BucketCorsConfigurati
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Region
@@ -3753,7 +3866,7 @@ function Global:Remove-S3BucketCorsConfiguration {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3780,10 +3893,19 @@ function Global:Remove-S3BucketCorsConfiguration {
 
         $Query = @{cors=""}
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -3880,7 +4002,7 @@ function Global:Get-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -3905,9 +4027,19 @@ function Global:Get-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -3997,7 +4129,7 @@ function Global:Set-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4027,9 +4159,19 @@ function Global:Set-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -4120,7 +4262,7 @@ function Global:Get-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4145,9 +4287,19 @@ function Global:Get-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -4243,7 +4395,7 @@ function Global:Enable-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4264,9 +4416,19 @@ function Global:Enable-S3BucketVersioning {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -4364,7 +4526,7 @@ function Global:Suspend-S3BucketVersioning {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -4389,9 +4551,19 @@ function Global:Suspend-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -4508,9 +4680,19 @@ function Global:Get-S3BucketLocation {
 
         Write-Verbose "Retrieving location for bucket $BucketName"
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -4612,7 +4794,7 @@ function Global:Get-S3MultipartUploads {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -4667,9 +4849,19 @@ function Global:Get-S3MultipartUploads {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -4808,7 +5000,7 @@ function Global:Get-S3Objects {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -4899,9 +5091,19 @@ function Global:Get-S3Objects {
             if ($ContinuationToken) { $Query["continuation-token"] = $ContinuationToken }
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -5021,7 +5223,7 @@ function Global:Get-S3ObjectVersions {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -5071,6 +5273,22 @@ function Global:Get-S3ObjectVersions {
         }
 
         $Query = @{versions=""}
+
+        # Convert Bucket Name to IDN mapping to support Unicode Names
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
+            $BucketName = $PunycodeBucketName
+        }
 
         if ($Delimiter) { $Query["delimiter"] = $Delimiter }
         if ($EncodingType) { $Query["encoding-type"] = $EncodingType }
@@ -5180,7 +5398,7 @@ function Global:Get-S3PresignedUrl {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=9,
@@ -5228,9 +5446,19 @@ function Global:Get-S3PresignedUrl {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -5326,7 +5554,7 @@ function Global:Get-S3ObjectMetadata {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -5362,9 +5590,19 @@ function Global:Get-S3ObjectMetadata {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -5498,7 +5736,7 @@ function Global:Read-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -5537,9 +5775,19 @@ function Global:Read-S3Object {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -5670,7 +5918,7 @@ function Global:Write-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -5785,9 +6033,19 @@ function Global:Write-S3Object {
             Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -5867,7 +6125,7 @@ function Global:Write-S3Object {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER BucketName
     Bucket Name
     .PARAMETER Key
@@ -5933,7 +6191,7 @@ function Global:Start-S3MultipartUpload {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -5981,10 +6239,19 @@ function Global:Start-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -6046,7 +6313,7 @@ function Global:Start-S3MultipartUpload {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER BucketName
     Bucket Name
     .PARAMETER Key
@@ -6110,7 +6377,7 @@ function Global:Stop-S3MultipartUpload {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -6159,10 +6426,19 @@ function Global:Stop-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -6209,7 +6485,7 @@ function Global:Stop-S3MultipartUpload {
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER UrlStyle
-    URL Style (Default: Path)
+    URL Style (Default: Auto)
     .PARAMETER BucketName
     Bucket Name
     .PARAMETER Key
@@ -6273,7 +6549,7 @@ function Global:Complete-S3MultipartUpload {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -6326,10 +6602,19 @@ function Global:Complete-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        # convert BucketName to Punycode to support Unicode Bucket Names
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -6433,7 +6718,7 @@ function Global:Write-S3MultipartUpload {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -6481,9 +6766,19 @@ function Global:Write-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -6808,7 +7103,7 @@ function Global:Write-S3ObjectPart {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -6858,9 +7153,19 @@ function Global:Write-S3ObjectPart {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -6989,7 +7294,7 @@ function Global:Get-S3ObjectParts {
         [parameter(
                 Mandatory=$False,
                 Position=8,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=8,
@@ -7042,9 +7347,19 @@ function Global:Get-S3ObjectParts {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -7183,7 +7498,7 @@ function Global:Remove-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -7223,9 +7538,19 @@ function Global:Remove-S3Object {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -7318,7 +7643,7 @@ function Global:Copy-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -7414,9 +7739,19 @@ function Global:Copy-S3Object {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -7532,7 +7867,7 @@ function Global:Get-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -7558,9 +7893,19 @@ function Global:Get-S3BucketConsistency {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -7652,7 +7997,7 @@ function Global:Update-S3BucketConsistency {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -7682,9 +8027,19 @@ function Global:Update-S3BucketConsistency {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -7866,7 +8221,7 @@ function Global:Get-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -7892,9 +8247,19 @@ function Global:Get-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -7986,7 +8351,7 @@ function Global:Enable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -8012,9 +8377,19 @@ function Global:Enable-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
@@ -8100,7 +8475,7 @@ function Global:Disable-S3BucketLastAccessTime {
         [parameter(
                 Mandatory=$False,
                 Position=9,
-                HelpMessage="Bucket URL Style (Default: path)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
                 Mandatory=$True,
                 Position=10,
@@ -8126,9 +8501,19 @@ function Global:Disable-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names but keep existing name if IDN only differs due to lowercase letters
+        # Convert Bucket Name to IDN mapping to support Unicode Names
         $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName)
-        if ($PunycodeBucketName -notmatch $BucketName) {
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
             $BucketName = $PunycodeBucketName
         }
 
