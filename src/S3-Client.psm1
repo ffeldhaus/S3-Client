@@ -3938,6 +3938,36 @@ function Global:Remove-S3BucketCorsConfiguration {
     Get S3 Bucket ACL
     .DESCRIPTION
     Get S3 Bucket ACL
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER BucketName
+    Bucket Name
 #>
 function Global:Get-S3BucketPolicy {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -4065,6 +4095,36 @@ Set-Alias -Name Write-S3BucketPolicy -Value Set-S3BucketPolicy
     Replace S3 Bucket ACL
     .DESCRIPTION
     Replace S3 Bucket ACL
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Policy
+    The bucket policy as a JSON document
 #>
 function Global:Set-S3BucketPolicy {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -4736,6 +4796,36 @@ function Global:Remove-S3BucketTagging {
     Get S3 Bucket Versioning
     .DESCRIPTION
     Get S3 Bucket Versioning
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER BucketName
+    Bucket Name
 #>
 function Global:Get-S3BucketVersioning {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -4869,6 +4959,36 @@ function Global:Get-S3BucketVersioning {
     Enable S3 Bucket Versioning
     .DESCRIPTION
     Enable S3 Bucket Versioning
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER BucketName
+    Bucket Name
 #>
 function Global:Enable-S3BucketVersioning {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -5000,6 +5120,36 @@ function Global:Enable-S3BucketVersioning {
     Suspend S3 Bucket Versioning
     .DESCRIPTION
     Suspend S3 Bucket Versioning
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER BucketName
+    Bucket Name
 #>
 function Global:Suspend-S3BucketVersioning {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -5136,6 +5286,34 @@ Set-Alias -Name Get-S3BucketRegion -Value Get-S3BucketLocation
     Get S3 Bucket Location
     .DESCRIPTION
     Get S3 Bucket Location
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER BucketName
+    Bucket Name
 #>
 function Global:Get-S3BucketLocation {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -5273,6 +5451,46 @@ function Global:Get-S3BucketLocation {
     Get S3 active Multipart Uploads for Bucket
     .DESCRIPTION
     Get S3 active Multipart Uploads for Bucket
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Prefix
+    Lists in-progress uploads only for those keys that begin with the specified prefix
+    .PARAMETER EncodingType
+    Encoding type (Only allowed value is url).
+    .PARAMETER MaxUploads
+    Maximum Number of uploads to return
+    .PARAMETER KeyMarker
+    Continuation part number marker
+    .PARAMETER UploadIdMarker
+    Continuation part number marker
 #>
 function Global:Get-S3MultipartUploads {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -5350,7 +5568,7 @@ function Global:Get-S3MultipartUploads {
         [parameter(
                 Mandatory=$False,
                 Position=12,
-                HelpMessage="Lists in-progress uploads only for those keys that begin with the specified prefix")][String]$Prefix,
+                HelpMessage="Lists in-progress uploads only for those keys that begin with the specified prefix.")][String]$Prefix,
         [parameter(
                 Mandatory=$False,
                 Position=13,
@@ -5358,7 +5576,7 @@ function Global:Get-S3MultipartUploads {
         [parameter(
                 Mandatory=$False,
                 Position=14,
-                HelpMessage="Maximum Number of parts to return")][Int][ValidateRange(0,1000)]$MaxUploads=0,
+                HelpMessage="Maximum Number of uploads to return")][Int][ValidateRange(0,1000)]$MaxUploads=0,
         [parameter(
                 Mandatory=$False,
                 Position=15,
