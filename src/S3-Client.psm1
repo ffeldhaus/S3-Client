@@ -4404,8 +4404,6 @@ function Global:Get-S3BucketTagging {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
-                    Write-Output $Result
-
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
                         $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -4414,9 +4412,8 @@ function Global:Get-S3BucketTagging {
                         $Content = [XML]$Result.Content
                     }
 
-                    foreach ($Rule in $Content.ServerSideEncryptionConfiguration.Rule) {
-                        $Output = [PSCustomObject]@{SSEAlgorithm=$Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm;
-                                    KMSMasterKeyID=$Rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID}
+                    foreach ($Tag in $Content.Tagging.TagSet.Tag) {
+                        $Output = [System.Collections.DictionaryEntry]@{Name=$Tag.Key;Value=$Tag.Value}
                         Write-Output $Output
                     }
                 }
@@ -4425,6 +4422,9 @@ function Global:Get-S3BucketTagging {
                     if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
                         Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
                         Get-S3BucketTagging -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                    }
+                    elseif ([int]$_.Exception.Response.StatusCode -eq 404) {
+                        Write-Verbose "No tags found"
                     }
                     else {
                         Throw
@@ -4470,6 +4470,8 @@ function Global:Get-S3BucketTagging {
     Bucket Region
     .PARAMETER BucketName
     Bucket Name
+    .PARAMETER Tags
+    List of Tags
 #>
 function Global:Set-S3BucketTagging {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -6592,7 +6594,7 @@ function Global:Read-S3Object {
     Write S3 Object
 #>
 function Global:Write-S3Object {
-    [CmdletBinding(DefaultParameterSetName="none")]
+    [CmdletBinding(DefaultParameterSetName="Profile")]
 
     PARAM (
         [parameter(
@@ -6628,9 +6630,24 @@ function Global:Write-S3Object {
                 ParameterSetName="ProfileAndContent",
                 Mandatory=$False,
                 Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")]
+        [parameter(
+                ParameterSetName="Profile",
+                Mandatory=$False,
+                Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
-                ParameterSetName="profile",
+                ParameterSetName="ProfileAndFile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")]
+        [parameter(
+                ParameterSetName="ProfileAndContent",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")]
+        [parameter(
+                ParameterSetName="Profile",
                 Mandatory=$False,
                 Position=7,
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
@@ -6643,6 +6660,11 @@ function Global:Write-S3Object {
                 ParameterSetName="KeyAndContent",
                 Mandatory=$True,
                 Position=6,
+                HelpMessage="S3 Access Key")]
+        [parameter(
+                ParameterSetName="Key",
+                Mandatory=$True,
+                Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="KeyAndFile",
@@ -6653,14 +6675,28 @@ function Global:Write-S3Object {
                 ParameterSetName="KeyAndContent",
                 Mandatory=$True,
                 Position=7,
+                HelpMessage="S3 Secret Access Key")]
+        [parameter(
+                ParameterSetName="Key",
+                Mandatory=$True,
+                Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="AccountAndFile",
                 Mandatory=$True,
                 Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")]
         [parameter(
                 ParameterSetName="AccountAndContent",
+                Mandatory=$True,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")]
+        [parameter(
+                ParameterSetName="Account",
                 Mandatory=$True,
                 Position=6,
                 ValueFromPipeline=$True,
@@ -6714,6 +6750,24 @@ function Global:Write-S3Object {
                 Mandatory=$True,
                 Position=11,
                 ParameterSetName="AccountAndContent",
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Object key. If not provided, filename will be used")]
+        [parameter(
+                Mandatory=$True,
+                Position=11,
+                ParameterSetName="Profile",
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Object key. If not provided, filename will be used")]
+        [parameter(
+                Mandatory=$True,
+                Position=11,
+                ParameterSetName="Key",
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Object key. If not provided, filename will be used")]
+        [parameter(
+                Mandatory=$True,
+                Position=11,
+                ParameterSetName="Account",
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Object key. If not provided, filename will be used")][Alias("Object")][String]$Key,
         [parameter(
@@ -6777,6 +6831,9 @@ function Global:Write-S3Object {
         if (!$Key) {
             $Key = $InFile.Name
         }
+        elseif (!$Content) {
+            $Content = ""
+        }
 
         # if the file size is larger than the multipart threshold, then a multipart upload should be done
         if (!$Content -and $Config.MultipartThreshold -and $InFile.Length -ge $Config.MultipartThreshold) {
@@ -6806,7 +6863,7 @@ function Global:Write-S3Object {
         }
 
         # TODO: Check MIME type of file
-        if (!$InFile) {
+        if (!$InFile -and $Content) {
             $ContentType = "text/plain"
         }
 
@@ -8712,8 +8769,6 @@ function Global:Get-S3ObjectTagging {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
-                    Write-Output $Result
-
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
                         $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -8722,9 +8777,8 @@ function Global:Get-S3ObjectTagging {
                         $Content = [XML]$Result.Content
                     }
 
-                    foreach ($Rule in $Content.ServerSideEncryptionConfiguration.Rule) {
-                        $Output = [PSCustomObject]@{SSEAlgorithm=$Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm;
-                                    KMSMasterKeyID=$Rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID}
+                    foreach ($Tag in $Content.Tagging.TagSet.Tag) {
+                        $Output = [System.Collections.DictionaryEntry]@{Name=$Tag.Key;Value=$Tag.Value}
                         Write-Output $Output
                     }
                 }
@@ -8778,8 +8832,8 @@ function Global:Get-S3ObjectTagging {
     Bucket Region
     .PARAMETER BucketName
     Bucket Name
-    .PARAMETER Key
-    Object Key
+    .PARAMETER Tags
+    Hashtbale with one or more tags consisting of Key and Value.
 #>
 function Global:Set-S3ObjectTagging {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -8915,20 +8969,6 @@ function Global:Set-S3ObjectTagging {
             else {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
-
-                    # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-                    if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-                    }
-                    else {
-                        $Content = [XML]$Result.Content
-                    }
-
-                    foreach ($Rule in $Content.ServerSideEncryptionConfiguration.Rule) {
-                        $Output = [PSCustomObject]@{SSEAlgorithm=$Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm;
-                                    KMSMasterKeyID=$Rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID}
-                        Write-Output $Output
-                    }
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'

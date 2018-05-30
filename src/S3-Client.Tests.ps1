@@ -65,6 +65,8 @@ function Setup() {
             break
         }
     }
+    Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+    Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
 }
 
 function Cleanup() {
@@ -363,6 +365,62 @@ Describe "S3BucketEncryption" {
             sleep 3
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketEncryption | Should -BeNullOrEmpty
+        }
+    }
+
+    Cleanup
+}
+
+Describe "S3 Bucket Tagging" {
+    #if ($ProfileName -eq "webscaledemo") { continue }
+    #if ($ProfileName -eq "webscaledemonext") { continue }
+    #if ($ProfileName -eq "Minio") { continue }
+
+    $Tags = @{Key1="Value1";Key2="Value2"}
+
+    Setup
+
+    Context "Set Bucket tagging" {
+        It "Given -BucketName $BucketName and -Tags $Tags tags should be added to bucket" {
+            Set-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName -Tags $Tags
+            sleep 3
+            $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName
+            $Tags.GetEnumerator() | Should -Be $BucketTagging
+        }
+
+        It "Given -BucketName $UnicodeBucketName and -Tags $Tags tags should be added to bucket" {
+            Set-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Tags $Tags
+            sleep 3
+            $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            $Tags.GetEnumerator() | Should -Be $BucketTagging
+        }
+    }
+
+    Cleanup
+}
+
+Describe "S3 Object Tagging" {
+    #if ($ProfileName -eq "webscaledemo") { continue }
+    #if ($ProfileName -eq "webscaledemonext") { continue }
+    #if ($ProfileName -eq "Minio") { continue }
+
+    $Tags = @{Key1="Value1";Key2="Value2"}
+
+    Setup
+
+    Context "Set Object tagging" {
+        It "Given -BucketName $BucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
+            Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Tags $Tags
+            sleep 3
+            $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+            $Tags.GetEnumerator() | Should -Be $ObjectTagging
+        }
+
+        It "Given -BucketName $UnicodeBucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
+            Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key -Tags $Tags
+            sleep 3
+            $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
+            $Tags.GetEnumerator() | Should -Be $ObjectTagging
         }
     }
 
