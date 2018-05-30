@@ -242,7 +242,7 @@ Describe "Remove-S3Bucket" {
 
     Context "Remove bucket with default parameters" {
         It "Given existing -BucketName $BucketName it is succesfully removed" {
-            Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+            Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Force
             $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
             $Bucket | Should -BeNullOrEmpty
         }
@@ -250,7 +250,7 @@ Describe "Remove-S3Bucket" {
 
     Context "Remove bucket with default parameters" {
         It "Given existing -BucketName $UnicodeBucketName it is succesfully removed" {
-            Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName -Force
             $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $Bucket | Should -BeNullOrEmpty
         }
@@ -372,9 +372,9 @@ Describe "S3BucketEncryption" {
 }
 
 Describe "S3 Bucket Tagging" {
-    #if ($ProfileName -eq "webscaledemo") { continue }
-    #if ($ProfileName -eq "webscaledemonext") { continue }
-    #if ($ProfileName -eq "Minio") { continue }
+    if ($ProfileName -eq "webscaledemo") { continue }
+    if ($ProfileName -eq "webscaledemonext") { continue }
+    if ($ProfileName -eq "Minio") { continue }
 
     $Tags = @{Key1="Value1";Key2="Value2"}
 
@@ -402,7 +402,7 @@ Describe "S3 Bucket Tagging" {
 Describe "S3 Object Tagging" {
     #if ($ProfileName -eq "webscaledemo") { continue }
     #if ($ProfileName -eq "webscaledemonext") { continue }
-    #if ($ProfileName -eq "Minio") { continue }
+    if ($ProfileName -eq "Minio") { continue }
 
     $Tags = @{Key1="Value1";Key2="Value2"}
 

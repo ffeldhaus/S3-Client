@@ -75,7 +75,7 @@ A single profile can be retrieved using
 Get-AwsProfile -ProfileName "Profile"
 ```
 
-### Remove Profile
+### Remove a Profile
 
 A profile can be removed using
 
@@ -84,6 +84,8 @@ Remove-AwsProfile -ProfileName "Profile
 ```
 
 ## Bucket Cmdlets
+
+### Listing Buckets
 
 As a StorageGRID administrator, listing buckets will return all buckets for all tenants by creating S3 credentials for every tenant and then listing their buckets. For StorageGRID tenant users, only the buckets of the individual tenant will be listed. For all other S3 services, only the Buckets of the current user will be listed.
 
@@ -104,6 +106,8 @@ $Account = Get-SgwAccount -Tenant "MyTenant"
 $Account | Get-S3Buckets
 ```
 
+### Creating new Buckets
+
 A new Bucket can be created with
 
 ```powershell
@@ -122,6 +126,26 @@ or by retrieving an Account Object via e.g.
 $Account = Get-SgwAccount -Tenant "MyTenant"
 $Account | New-S3Bucket -BucketName "MyBucket"
 ```
+
+### Deleting Buckets
+
+### Bucket Encryption
+
+### Bucket Cross-Origin Ressource Sharing (CORS)
+
+## Bucket Notification
+
+### Bucket Policies
+
+### Bucket Replication
+
+### Bucket Tagging
+
+### Bucket Versioning
+
+### Bucket Location
+
+### StorageGRID specific Bucket Cmdlets
 
 There are some StorageGRID specific S3 calls which are only supported by StorageGRID.
 
@@ -159,13 +183,23 @@ Update-S3BucketConsistency -BucketName "MyBucket" -Consistency available
 
 ## Objects
 
+### Object Listing
+
 Objects in a bucket can be listed with
 
 ```powershell
 Get-S3Objects -BucketName "MyBucket"
 ```
 
+### Uploading  objects
+
 Uploading objects can be done with the `Write-S3Object` for objects smaller 5GB. To improve performance and to upload files larger than 5GB up to 5TB, use `Write-S3MultipartUpload` which uploads several parts in parallel.
+
+A string can be stored in an object using
+
+```powershell
+Write-S3Object -BucketName "MyBucket" -Content "Hello World!"
+```
 
 Simple file upload
 
@@ -179,11 +213,31 @@ Multipart File upload
 Write-S3MultipartUpload -BucketName "MyBucket"
 ```
 
-Downloading objects can be done with
+### Downloading objects
+
+Objects containing text can be downloaded to the standard output using
+
+```powershell
+Read-S3Object -BucketName "MyBucket" -Key "test"
+```
+
+Objects can be downloaded to a file with
 
 ```powershell
 Read-S3Object -BucketName "MyBucket" -Key "test" -OutFile "$HOME\test"
 ```
+
+### Removing Objects
+
+### Object Tagging
+
+### Object Versions
+
+### Copy Objects
+
+### Object Metadata
+
+## Presign URLs
 
 ## Platform Services
 
