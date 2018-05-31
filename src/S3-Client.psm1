@@ -4471,7 +4471,7 @@ function Global:Get-S3BucketTagging {
     .PARAMETER BucketName
     Bucket Name
     .PARAMETER Tags
-    List of Tags
+    List of Name Value pairs e.g. @(@{Name='Key1';Value='Value1'},@{Name='Key1';Value='Value1'})
 #>
 function Global:Set-S3BucketTagging {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -4546,7 +4546,7 @@ function Global:Set-S3BucketTagging {
                 Mandatory=$True,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Hashtbale with one or more tags consisting of Key and Value.")][Hashtable]$Tags
+                HelpMessage="List of Name Value pairs e.g. @(@{Name='Key1';Value='Value1'},@{Name='Key1';Value='Value1'})")][System.Collections.DictionaryEntry[]]$Tags
     )
 
     Begin {
@@ -4586,8 +4586,8 @@ function Global:Set-S3BucketTagging {
 
         $Body = "<Tagging>"
         $Body += "<TagSet>"
-        foreach ($TagKey in $Tags.Keys) {
-            $Body += "<Tag><Key>$TagKey</Key><Value>$($Tags[$TagKey])</Value></Tag>"
+        foreach ($Tag in $Tags) {
+            $Body += "<Tag><Key>$($Tag.Name)</Key><Value>$($Tag.Value)</Value></Tag>"
         }
         $Body += "</TagSet>"
         $Body += "</Tagging>"
@@ -8833,7 +8833,7 @@ function Global:Get-S3ObjectTagging {
     .PARAMETER BucketName
     Bucket Name
     .PARAMETER Tags
-    Hashtbale with one or more tags consisting of Key and Value.
+    List of Name Value pairs e.g. @(@{Name='Key1';Value='Value1'},@{Name='Key1';Value='Value1'})
 #>
 function Global:Set-S3ObjectTagging {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -8913,8 +8913,7 @@ function Global:Set-S3ObjectTagging {
                 Mandatory=$True,
                 Position=12,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Hashtbale with one or more tags consisting of Key and Value.")][Hashtable]$Tags
-    )
+                HelpMessage="List of Name Value pairs e.g. @(@{Name='Key1';Value='Value1'},@{Name='Key1';Value='Value1'})")][System.Collections.DictionaryEntry[]]$Tags    )
 
     Begin {
         if (!$Server) {
@@ -8955,8 +8954,8 @@ function Global:Set-S3ObjectTagging {
 
         $Body = "<Tagging>"
         $Body += "<TagSet>"
-        foreach ($TagKey in $Tags.Keys) {
-            $Body += "<Tag><Key>$TagKey</Key><Value>$($Tags[$TagKey])</Value></Tag>"
+        foreach ($Tag in $Tags) {
+            $Body += "<Tag><Key>$($Tag.Name)</Key><Value>$($Tag.Value)</Value></Tag>"
         }
         $Body += "</TagSet>"
         $Body += "</Tagging>"

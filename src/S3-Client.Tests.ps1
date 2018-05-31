@@ -376,7 +376,7 @@ Describe "S3 Bucket Tagging" {
     if ($ProfileName -eq "webscaledemonext") { continue }
     if ($ProfileName -eq "Minio") { continue }
 
-    $Tags = @{Key1="Value1";Key2="Value2"}
+    $Tags = @(@{Name="Key1";Value="Value1"},@{Name="Key2";Value="Value2"})
 
     Setup
 
@@ -385,14 +385,16 @@ Describe "S3 Bucket Tagging" {
             Set-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName -Tags $Tags
             sleep 3
             $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName
-            $Tags.GetEnumerator() | Should -Be $BucketTagging
+            $BucketTagging | Sort-Object -Property Name | Select -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $BucketTagging | Sort-Object -Property Name | Select -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
 
         It "Given -BucketName $UnicodeBucketName and -Tags $Tags tags should be added to bucket" {
             Set-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Tags $Tags
             sleep 3
             $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            $Tags.GetEnumerator() | Should -Be $BucketTagging
+            $BucketTagging | Sort-Object -Property Name | Select -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $BucketTagging | Sort-Object -Property Name | Select -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
     }
 
@@ -404,7 +406,7 @@ Describe "S3 Object Tagging" {
     #if ($ProfileName -eq "webscaledemonext") { continue }
     if ($ProfileName -eq "Minio") { continue }
 
-    $Tags = @{Key1="Value1";Key2="Value2"}
+    $Tags = @(@{Name="Key1";Value="Value1"},@{Name="Key2";Value="Value2"})
 
     Setup
 
@@ -413,14 +415,16 @@ Describe "S3 Object Tagging" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Tags $Tags
             sleep 3
             $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-            $Tags.GetEnumerator() | Should -Be $ObjectTagging
+            $ObjectTagging | Sort-Object -Property Name | Select -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $ObjectTagging | Sort-Object -Property Name | Select -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
 
         It "Given -BucketName $UnicodeBucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key -Tags $Tags
             sleep 3
             $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
-            $Tags.GetEnumerator() | Should -Be $ObjectTagging
+            $ObjectTagging | Sort-Object -Property Name | Select -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $ObjectTagging | Sort-Object -Property Name | Select -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
     }
 
