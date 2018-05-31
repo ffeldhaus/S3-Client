@@ -67,18 +67,6 @@ function Setup() {
     }
     Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
     Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
-    foreach ($i in 1..60) {
-        sleep 1
-        if (Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key) {
-            break
-        }
-    }
-    foreach ($i in 1..60) {
-        sleep 1
-        if (Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key) {
-            break
-        }
-    }
 }
 
 function Cleanup() {
