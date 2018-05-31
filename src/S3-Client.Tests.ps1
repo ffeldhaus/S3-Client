@@ -447,7 +447,7 @@ Describe "S3BucketCorsConfiguration" {
         It "Given -BucketName $BucketName -Id $BucketName -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins -AllowedHeaders $AllowedHeaders -MaxAgeSeconds $MaxAgeSeconds -ExposeHeaders $ExposeHeaders a CORS Configuration rule is added" {
             $Id = "BucketName"
             Add-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins -AllowedHeaders $AllowedHeaders -MaxAgeSeconds $MaxAgeSeconds -ExposeHeaders $ExposeHeaders
-            sleep 1
+            sleep 5
             $CorsConfiguration = Get-S3BucketCorsConfiguration -ProfileName $ProfileName -BucketName $BucketName
             $CorsConfiguration.Id | Should -Be $Id
             $CorsConfiguration.AllowedMethod | Should -Be $AllowedMethods
@@ -460,7 +460,7 @@ Describe "S3BucketCorsConfiguration" {
         It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins a CORS configuration rule is added" {
             $Id = "UnicodeBucketName"
             Add-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins
-            sleep 3
+            sleep 5
             $CorsConfiguration = Get-S3BucketCorsConfiguration -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $CorsConfiguration.Id | Should -Be $Id
             $CorsConfiguration.AllowedMethod | Should -Be $AllowedMethods
@@ -470,11 +470,11 @@ Describe "S3BucketCorsConfiguration" {
         It "Given -BucketName $BucketName -Id `"remove`" a CORS configuration rule is removed" {
             $Id = "Remove"
             Add-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins
-            sleep 3
+            sleep 5
             $CorsConfigurationRule = Get-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id
             $CorsConfigurationRule.Id | Should -Be $Id
             $CorsConfigurationRule | Remove-S3BucketCorsConfigurationRule -ProfileName $ProfileName
-            sleep 3
+            sleep 5
             $CorsConfigurationRule = Get-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id
             $CorsConfigurationRule | Should -BeNullOrEmpty
         }
@@ -482,11 +482,11 @@ Describe "S3BucketCorsConfiguration" {
         It "Given -BucketName $BucketName all CORS configuration is removed" {
             $Id = "RemoveAll"
             Add-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins
-            sleep 3
+            sleep 5
             $CorsConfigurationRule = Get-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id
             $CorsConfigurationRule.Id | Should -Be $Id
             Remove-S3BucketCorsConfiguration -ProfileName $ProfileName -BucketName $BucketName
-            sleep 3
+            sleep 5
             $CorsConfiguration = Get-S3BucketCorsConfiguration -ProfileName $ProfileName -BucketName $BucketName
             $CorsConfiguration | Should -BeNullOrEmpty
         }
