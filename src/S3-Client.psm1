@@ -6870,9 +6870,9 @@ function Global:Write-S3Object {
         $Headers = @{}
         if ($Metadata) {
             foreach ($MetadataKey in $Metadata.Keys) {
-                $MetadataKey = $MetadataKey -replace "^x-amz-meta-",""
-                $MetadataKey = $MetadataKey.toLower()
-                $Headers["x-amz-meta-$MetadataKey"] = $Metadata[$MetadataKey]
+                $Key = $MetadataKey -replace "^x-amz-meta-",""
+                $Key = $MetadataKey.toLower()
+                $Headers["x-amz-meta-$Key"] = $Metadata[$MetadataKey]
                 # TODO: check that metadata is valid HTTP Header
             }
         }
@@ -8596,6 +8596,15 @@ function Global:Copy-S3Object {
         }
         if ($ServerSideEncryption) {
             $Headers["x-amz-server-side​-encryption"] = $ServerSideEncryption
+        }
+
+        if ($Metadata) {
+            foreach ($MetadataKey in $Metadata.Keys) {
+                $Key = $MetadataKey -replace "^x-amz-meta-",""
+                $Key = $MetadataKey.toLower()
+                $Headers["x-amz-meta-$Key"] = $Metadata[$MetadataKey]
+                # TODO: check that metadata is valid HTTP Header
+            }
         }
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Headers $Headers -Region $Region

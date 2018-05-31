@@ -67,6 +67,18 @@ function Setup() {
     }
     Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
     Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
+    foreach ($i in 1..60) {
+        sleep 1
+        if (Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key) {
+            break
+        }
+    }
+    foreach ($i in 1..60) {
+        sleep 1
+        if (Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key) {
+            break
+        }
+    }
 }
 
 function Cleanup() {
@@ -326,12 +338,12 @@ Describe "Copy-S3Object" {
 
     Context "Copy object" {
         It "Given -SourceBucket $BucketName and -SourceKey $Key and -BucketName $BucketName and -Key $Key it is copied to itself" {
-            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content -Metadata $CustomMetadata
-            sleep 5
             $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty CustomMetadata
+            $CustomMetadata["copytest"]="test"
             Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $CustomMetadata
-            sleep 5
-            Get-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+            sleep 1
+            $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty CustomMetadata
+            $CustomMetadata["copytest"] | Should -Be "test"
         }
     }
 
