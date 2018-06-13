@@ -121,7 +121,7 @@ function ConvertFrom-AwsConfigFile {
         $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*\z",'"$1":{ },'
 
         # replace key value pairs with quoted key value pairs and replace = with :
-        $Content = $Content -replace "\n\s*([^=^\s^`"]+)\s*=\s*([^\s^\n^}]*)","`n`"`$1`":`"`$2`","
+        $Content = $Content -replace "\n\s*([^=^\s^`"]+)\s*=\s*([^\s^\n]*)","`n`"`$1`":`"`$2`","
 
         # make sure that Profile is a Key Value inside the JSON Object
         $Content = $Content -replace "\[([^\]]+)\]([^\[]+)","{`"ProfileName`":`"`$1`",`$2},`n"
