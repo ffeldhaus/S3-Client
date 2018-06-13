@@ -4,6 +4,9 @@ PARAM(
 
 Import-Module "$PSScriptRoot\S3-Client" -Force
 
+# suppress warnings which occur e.g. for uppercase bucketnames
+$WarningPreference="SilentlyContinue"
+
 $BucketName = (Get-Date -Format "yyyy-MM-dd-HHmmss") + "-Bucket"
 $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BucketName"
 $Key = "Key"
@@ -51,43 +54,72 @@ $Stream.Dispose()
 $LargeFileHash = $LargeFile | Get-FileHash
 
 function Setup() {
-    New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
-    New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
+    [CmdletBinding()]
+
+    PARAM (
+        [parameter(
+                Mandatory=$True,
+                Position=0,
+                HelpMessage="Bucket Name")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Enable versioning on Bucket")][Switch]$Versioning,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Bucket Region")][String]$Region=$null,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Object Key")][String]$Key,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Bucket Region")][String]$ProfileName=$ProfileName
+    )
+
+    New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region
     foreach ($i in 1..60) {
         sleep 1
-        if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName) {
+        if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region) {
             break
         }
     }
-    foreach ($i in 1..60) {
-        sleep 1
-        if (Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName) {
-            break
-        }
+
+    if ($Versioning.IsPresent) {
+        Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName -Region $Region
     }
-    Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-    Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
+
+    if ($Key) {
+        Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Region $Region
+    }
 }
 
 function Cleanup() {
-    try {
-        Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Force
-        # wait until bucket is really deleted
-        foreach ($i in 1..60) {
-            sleep 1
-            if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName)) {
-                break
-            }
-        }
-    }
-    catch {}
+    [CmdletBinding()]
+
+    PARAM (
+        [parameter(
+                Mandatory=$True,
+                Position=0,
+                HelpMessage="Bucket Name")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Bucket Region")][String]$Region=$null,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Bucket Region")][String]$ProfileName=$ProfileName
+    )
 
     try {
-        Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName -Force
+        Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region -Force
         # wait until bucket is really deleted
         foreach ($i in 1..60) {
             sleep 1
-            if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName)) {
+            if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region)) {
                 break
             }
         }
@@ -141,7 +173,8 @@ Describe "AWS Configuration and Credential Management" {
 }
 
 Describe "Get-S3Buckets" {
-    Setup
+    Setup -BucketName $BucketName
+    Setup -BucketName $UnicodeBucketName
 
     Context "Retrieve buckets with default parameters" {
         It "Retrieving buckets returns a list of all buckets" {
@@ -163,11 +196,13 @@ Describe "Get-S3Buckets" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
 }
 
 Describe "Test-S3Bucket" {
-    Setup
+    Setup -BucketName $BucketName
+    Setup -BucketName $UnicodeBucketName
 
     Context "Test bucket existence with parameter -BucketName" {
         It "Given existing bucket -BucketName $BucketName `$true is returned" {
@@ -185,7 +220,8 @@ Describe "Test-S3Bucket" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
 }
 
 Describe "New-S3Bucket" {
@@ -215,7 +251,8 @@ Describe "New-S3Bucket" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
 
     Context "Create new bucket with parameter -UrlStyle virtual-hosted" {
         if ($ProfileName -eq "Minio") { continue }
@@ -234,11 +271,12 @@ Describe "New-S3Bucket" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
 }
 
 Describe "Remove-S3Bucket" {
-    Setup
+    Setup -BucketName $BucketName
+    Setup -BucketName $UnicodeBucketName
 
     Context "Remove bucket with default parameters" {
         It "Given existing -BucketName $BucketName it is succesfully removed" {
@@ -256,11 +294,13 @@ Describe "Remove-S3Bucket" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
 }
 
 Describe "Write-S3Object" {
-    Setup
+    Setup -BucketName $BucketName
+    Setup -BucketName $UnicodeBucketName
 
     Context "Upload text" {
         It "Given -Content `"$Content`" it is succesfully created" {
@@ -298,11 +338,13 @@ Describe "Write-S3Object" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
 }
 
 Describe "Write-S3MultipartUpload" {
-    Setup
+    Setup -BucketName $BucketName
+    Setup -BucketName $UnicodeBucketName
 
     Context "Upload large file" {
         It "Given file -InFile `"$LargeFile`" it is succesfully uploaded" {
@@ -318,11 +360,12 @@ Describe "Write-S3MultipartUpload" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
 }
 
 Describe "Copy-S3Object" {
-    Setup
+    Setup -BucketName $BucketName -Key $Key
 
     Context "Copy object" {
         It "Given -SourceBucket $BucketName and -SourceKey $Key and -BucketName $BucketName and -Key $Key it is copied to itself" {
@@ -335,14 +378,16 @@ Describe "Copy-S3Object" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
 }
 
 Describe "S3BucketEncryption" {
     if ($ProfileName -eq "webscaledemo") { continue }
     if ($ProfileName -eq "webscaledemonext") { continue }
     if ($ProfileName -eq "Minio") { continue }
-    Setup
+
+    Setup -BucketName $BucketName
+    Setup -BucketName $UnicodeBucketName
 
     Context "Set Bucket encryption" {
         It "Given -BucketName $BucketName and -SSEAlgorithm AWS256 server side encryption is enabled" {
@@ -368,7 +413,8 @@ Describe "S3BucketEncryption" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
 }
 
 Describe "S3 Bucket Tagging" {
@@ -378,27 +424,29 @@ Describe "S3 Bucket Tagging" {
 
     $Tags = @(@{Name="Key1";Value="Value1"},@{Name="Key2";Value="Value2"})
 
-    Setup
+    Setup -BucketName $BucketName
+    Setup -BucketName $UnicodeBucketName
 
     Context "Set Bucket tagging" {
         It "Given -BucketName $BucketName and -Tags $Tags tags should be added to bucket" {
             Set-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName -Tags $Tags
             sleep 3
             $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName
-            $BucketTagging | Sort-Object -Property Name | Select -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $BucketTagging | Sort-Object -Property Name | Select -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
+            $BucketTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $BucketTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
 
         It "Given -BucketName $UnicodeBucketName and -Tags $Tags tags should be added to bucket" {
             Set-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Tags $Tags
             sleep 3
             $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            $BucketTagging | Sort-Object -Property Name | Select -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $BucketTagging | Sort-Object -Property Name | Select -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
+            $BucketTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $BucketTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
 }
 
 Describe "S3 Object Tagging" {
@@ -408,27 +456,29 @@ Describe "S3 Object Tagging" {
 
     $Tags = @(@{Name="Key1";Value="Value1"},@{Name="Key2";Value="Value2"})
 
-    Setup
+    Setup -BucketName $BucketName
+    Setup -BucketName $UnicodeBucketName
 
     Context "Set Object tagging" {
         It "Given -BucketName $BucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Tags $Tags
             sleep 3
             $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-            $ObjectTagging | Sort-Object -Property Name | Select -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $ObjectTagging | Sort-Object -Property Name | Select -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
+            $ObjectTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $ObjectTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
 
         It "Given -BucketName $UnicodeBucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key -Tags $Tags
             sleep 3
             $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
-            $ObjectTagging | Sort-Object -Property Name | Select -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $ObjectTagging | Sort-Object -Property Name | Select -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
+            $ObjectTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $ObjectTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
 }
 
 Describe "S3BucketCorsConfiguration" {
@@ -441,7 +491,8 @@ Describe "S3BucketCorsConfiguration" {
     $MaxAgeSeconds = 3000
     $ExposeHeaders = "x-amz-server-side-encryption"
 
-    Setup
+    Setup -BucketName $BucketName
+    Setup -BucketName $UnicodeBucketName
 
     Context "Set Bucket CORS Configuration" {
         It "Given -BucketName $BucketName -Id $BucketName -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins -AllowedHeaders $AllowedHeaders -MaxAgeSeconds $MaxAgeSeconds -ExposeHeaders $ExposeHeaders a CORS Configuration rule is added" {
@@ -492,7 +543,84 @@ Describe "S3BucketCorsConfiguration" {
         }
     }
 
-    Cleanup
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $UnicodeBucketName
+}
+
+Describe "S3 Bucket Replication Configuration" {
+    $DestinationBucketName = $BucketName + "-dst"
+    $DestinationUnicodeBucketName = $UnicodeBucketName +  "-dst"
+    $DestinationRegion = "us-east-2"
+    $AwsProfile = Get-AwsConfig -ProfileName "AWS"
+    $Role = "arn:aws:iam::953312134057:role/S3-Full-Access"
+
+    # for AWS several steps must be done to prepare the user to be able to use replication
+        # see https://docs.aws.amazon.com/AmazonS3/latest/dev/crr.html
+
+    #if ($ProfileName -eq "Minio") { continue }
+
+
+    Setup -BucketName $BucketName -Versioning
+    Setup -BucketName $DestinationBucketName -Versioning -Region $DestinationRegion -ProfileName AWS
+
+    if ($ProfileName -match "webscaledemo") {
+        $EndpointConfiguration = Add-SgwEndpoint -ProfileName $ProfileName -DisplayName $DestinationBucketName -EndpointUri "https://s3.us-east-2.amazonaws.com" -EndpointUrn "arn:aws:s3:::$DestinationBucketName" -AccessKey $AwsProfile.AccessKey -SecretAccessKey $AwsProfile.SecretKey -ErrorAction Stop
+    }
+
+    Context "Set Bucket Replication Configuration" {
+        It "Given -BucketName $BucketName -Id $BucketName -DestinationBucketUrn arn:aws:s3:::$DestinationBucketName -Role $Role a replication rule should be added" {
+            Add-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $BucketName -DestinationBucketUrn "arn:aws:s3:::$DestinationBucketName" -Role $Role
+            sleep 10
+            $BucketReplication = Get-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $BucketName
+            $BucketReplication.BucketName | Should -Be $BucketName
+            $BucketReplication.Role | Should -Be $Role
+            $BucketReplication.Id | Should -Be $BucketName
+            $BucketReplication.Status | Should -Be "Enabled"
+            $BucketReplication.DestinationBucketName | Should -Be $DestinationBucketName
+            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+            sleep 5
+            $DestinationObjects = Get-S3Objects -ProfileName "AWS" -BucketName $DestinationBucketName -Region $DestinationRegion
+            $DestinationObjects.Key | Should -Be $Key
+        }
+    }
+
+    Cleanup -BucketName $BucketName
+    Cleanup -BucketName $DestinationBucketName -Region $DestinationRegion -ProfileName AWS
+
+    if ($ProfileName -match "webscaledemo") {
+        $EndpointConfiguration | Remove-SgwEndpoint -ProfileName $ProfileName
+    }
+
+    Setup -BucketName $UnicodeBucketName -Versioning
+    Setup -BucketName $DestinationUnicodeBucketName -Versioning -Region $DestinationRegion -ProfileName AWS
+
+    if ($ProfileName -match "webscaledemo") {
+        $UnicodeEndpointConfiguration = Add-SgwEndpoint -ProfileName $ProfileName -DisplayName $DestinationUnicodeBucketName -EndpointUri "https://s3.us-east-2.amazonaws.com" -EndpointUrn "arn:aws:s3:::$DestinationUnicodeBucketName" -AccessKey $AwsProfile.AccessKey -SecretAccessKey $AwsProfile.SecretKey -ErrorAction Stop
+    }
+
+    Context "Set Bucket Replication Configuration for bucket with unicode characters" {
+        It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketName arn:aws:s3:::$DestinationUnicodeBucketName -Role $Role a replication rule should be added" {
+            Add-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketUrn "arn:aws:s3:::$DestinationUnicodeBucketName" -Role $Role
+            sleep 10
+            $BucketReplication = Get-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            $BucketReplication.BucketName | Should -Be $UnicodeBucketName
+            $BucketReplication.Role | Should -Be $Role
+            $BucketReplication.Id | Should -Be $UnicodeBucketName
+            $BucketReplication.Status | Should -Be "Enabled"
+            $BucketReplication.DestinationBucketName | Should -Be $DestinationUnicodeBucketName
+            Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
+            sleep 5
+            $DestinationObjects = Get-S3Objects -ProfileName "AWS" -BucketName $DestinationUnicodeBucketName -Region $DestinationRegion
+            $DestinationObjects.Key | Should -Be $Key
+        }
+    }
+
+    Cleanup -BucketName $UnicodeBucketName
+    Cleanup -BucketName $DestinationUnicodeBucketName -Region $DestinationRegion -ProfileName AWS
+
+    if ($ProfileName -match "webscaledemo") {
+        $UnicodeEndpointConfiguration | Remove-SgwEndpoint
+    }
 }
 
 $SmallFile | Remove-Item
