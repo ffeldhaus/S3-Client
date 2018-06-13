@@ -175,7 +175,7 @@ function ConvertTo-AwsConfigFile {
                 Set-Acl -Path $AwsConfigDirectory -AclObject $Acl
             }
             else {
-                Invoke-Expression "chmod 600 $AwsConfigDirectory"
+                Invoke-Expression "chmod 700 $AwsConfigDirectory"
             }
         }
         catch {
@@ -4438,6 +4438,14 @@ function Global:Add-S3BucketReplicationConfigurationRule {
         if ($DestinationBucketName) {
             # Convert Destination Bucket Name to IDN mapping to support Unicode Names
             $DestinationBucketName = [System.Globalization.IdnMapping]::new().GetAscii($DestinationBucketName).ToLower()
+        }
+
+        if ($DestinationBucketUrn) {
+            $DestinationBucketName = $DestinationBucketUrn -replace ".*:.*:.*:.*:.*:(.*)",'$1'
+            # Convert Destination Bucket Name to IDN mapping to support Unicode Names
+            $DestinationBucketName = [System.Globalization.IdnMapping]::new().GetAscii($DestinationBucketName).ToLower()
+            $DestinationBucketUrnPrefix = $DestinationBucketUrn -replace "(.*:.*:.*:.*:.*:).*",'$1'
+            $DestinationBucketUrn = $DestinationBucketUrnPrefix + $DestinationBucketName
         }
 
         $ReplicationConfigurationRules = @()
