@@ -456,10 +456,8 @@ Describe "S3 Object Tagging" {
 
     $Tags = @(@{Name="Key1";Value="Value1"},@{Name="Key2";Value="Value2"})
 
-    Setup -BucketName $BucketName
-    Setup -BucketName $UnicodeBucketName
-
     Context "Set Object tagging" {
+        Setup -BucketName $BucketName
         It "Given -BucketName $BucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Tags $Tags
             sleep 3
@@ -467,7 +465,9 @@ Describe "S3 Object Tagging" {
             $ObjectTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
             $ObjectTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
+        Cleanup -BucketName $BucketName
 
+        Setup -BucketName $UnicodeBucketName
         It "Given -BucketName $UnicodeBucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key -Tags $Tags
             sleep 3
@@ -475,10 +475,8 @@ Describe "S3 Object Tagging" {
             $ObjectTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
             $ObjectTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
+        Cleanup -BucketName $UnicodeBucketName
     }
-
-    Cleanup -BucketName $BucketName
-    Cleanup -BucketName $UnicodeBucketName
 }
 
 Describe "S3BucketCorsConfiguration" {
