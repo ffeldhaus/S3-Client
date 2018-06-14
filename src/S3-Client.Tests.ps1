@@ -457,7 +457,7 @@ Describe "S3 Object Tagging" {
     $Tags = @(@{Name="Key1";Value="Value1"},@{Name="Key2";Value="Value2"})
 
     Context "Set Object tagging" {
-        Setup -BucketName $BucketName
+        Setup -BucketName $BucketName -Key $Key
         It "Given -BucketName $BucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Tags $Tags
             sleep 3
@@ -467,7 +467,7 @@ Describe "S3 Object Tagging" {
         }
         Cleanup -BucketName $BucketName
 
-        Setup -BucketName $UnicodeBucketName
+        Setup -BucketName $UnicodeBucketName -Key $Key
         It "Given -BucketName $UnicodeBucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key -Tags $Tags
             sleep 3
