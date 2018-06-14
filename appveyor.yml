@@ -22,6 +22,7 @@ version: 0.0.1.{build}
 # Ignore testing a commit if only the README.md file changed
 # Or if various strings are found in the commit message: updated readme, update readme, update docs, update version, update appveyor
 skip_commits:
+  message: /\[notest\]/
   files:
     - README.md
     - S3-Client-Tutorial.md
@@ -52,13 +53,18 @@ environment:
 install:
   - ps: $PSVersionTable
   - ps: Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
+  - ps: Install-Module StorageGRID-Webscale -Scope CurrentUser -Force -SkipPublisherCheck -AllowPrerelease
   - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
   - cmd: mkdir %USERPROFILE%\.aws
-  - cmd: appveyor-tools\secure-file -decrypt etc\config.enc -out %USERPROFILE%\.aws\config -secret %my_secret%
-  - cmd: appveyor-tools\secure-file -decrypt etc\credentials.enc -out %USERPROFILE%\.aws\credentials -secret %my_secret%
+  - cmd: appveyor-tools\secure-file -decrypt etc\.aws\config.enc -out %USERPROFILE%\.aws\config -secret %my_secret%
+  - cmd: appveyor-tools\secure-file -decrypt etc\.aws\credentials.enc -out %USERPROFILE%\.aws\credentials -secret %my_secret%
+  - cmd: appveyor-tools\secure-file -decrypt etc\.sgw\config.enc -out %USERPROFILE%\.sgw\config -secret %my_secret%
+  - cmd: appveyor-tools\secure-file -decrypt etc\.sgw\credentials.enc -out %USERPROFILE%\.sgw\credentials -secret %my_secret%
   - sh: mkdir $HOME/.aws
-  - sh: ./appveyor-tools/secure-file -decrypt etc/config.enc -out $HOME/.aws/config -secret $my_secret
-  - sh: ./appveyor-tools/secure-file -decrypt etc/credentials.enc -out $HOME/.aws/credentials -secret $my_secret
+  - sh: ./appveyor-tools/secure-file -decrypt etc/.aws/config.enc -out $HOME/.aws/config -secret $my_secret
+  - sh: ./appveyor-tools/secure-file -decrypt etc/.aws/credentials.enc -out $HOME/.aws/credentials -secret $my_secret
+  - sh: ./appveyor-tools/secure-file -decrypt etc/.sgw/config.enc -out $HOME/.sgw/config -secret $my_secret
+  - sh: ./appveyor-tools/secure-file -decrypt etc/.sgw/credentials.enc -out $HOME/.sgw/credentials -secret $my_secret
   - sh: if [[ "$Configuration" == "Minio" ]]; then docker pull minio/minio;fi
   - sh: if [[ "$Configuration" == "Minio" ]]; then docker run -d -p 9000:9000 -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data;fi
 
