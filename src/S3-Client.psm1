@@ -4441,11 +4441,11 @@ function Global:Add-S3BucketReplicationConfigurationRule {
         }
 
         if ($DestinationBucketUrn) {
-            $DestinationBucketName = $DestinationBucketUrn -replace ".*:.*:.*:.*:.*:(.*)",'$1'
+            $DestinationBucketName = $DestinationBucketUrn.Uri.ToString() -replace ".*:.*:.*:.*:.*:(.*)",'$1'
             # Convert Destination Bucket Name to IDN mapping to support Unicode Names
             $DestinationBucketName = [System.Globalization.IdnMapping]::new().GetAscii($DestinationBucketName).ToLower()
-            $DestinationBucketUrnPrefix = $DestinationBucketUrn -replace "(.*:.*:.*:.*:.*:).*",'$1'
-            $DestinationBucketUrn = $DestinationBucketUrnPrefix + $DestinationBucketName
+            $DestinationBucketUrnPrefix = $DestinationBucketUrn.Uri.ToString() -replace "(.*:.*:.*:.*:.*:).*",'$1'
+            $DestinationBucketUrn = [System.UriBuilder]"$DestinationBucketUrnPrefix$DestinationBucketName"
         }
 
         $ReplicationConfigurationRules = @()
