@@ -7,7 +7,7 @@ If you are using the Cmdlets together with StorageGRID, proceed with the next se
 
 ## StorageGRID specific simplifications
 
-If a StorageGRID administrator is connected, then the Cmdlets automatically create temporary AWS Access Key and Secret Access Key for all tenants where an operation is performed. If a StorageGRID tenant user is connected, the temporary S3 credentials will be automatically created for the tenant user. All temporary credentials have an expiry time of 60 minutes by default.
+If a StorageGRID administrator is connected using the [StorageGRID-Webscale PowerShell Cmdlets](https://github.com/ffeldhaus/StorageGRID-Webscale), then the Cmdlets automatically create temporary AWS Access Key and Secret Access Key for all tenants where an operation is performed. If a StorageGRID tenant user is connected, the temporary S3 credentials will be automatically created for the tenant user. All temporary credentials have an expiry time of 60 minutes by default.
 
 For grid administrators the Cmdlets automatically query the configured domain endpoints and check if connections via S3 are possible. The endpoints are then stored in the S3EndpointUrl parameter of the server object (e.g. `$CurrentSgwServer.S3EndpointUrl`). As the domain endpoints cannot be queried as tenant user, you must provide the `-S3EndpointUrl` parameter when connecting to the StorageGRID server or you can add the `-EndpointUrl` parameter when executing S3 commands.
 
@@ -50,6 +50,22 @@ To create a new profile, specify at least the `ProfileName`, `AccessKey` and `Se
 ```powershell
 New-AwsProfile -ProfileName "Profile" -AccessKey "ABCDEFGHIJKLMNOPQRST" -SecretKey "abcdefghijklmnopqrst1234567890ABCDEFGHIJ"
 ```
+
+The AccessKey and SecretKey can also be specified via the username and password of a `PSCredential` object using the `-Credential` parameter.
+
+The `New-AwsProfile` also allows to specify the following optional paramaters
+
+- a default Region (`-Region`) if it should be different than `us-east-1`
+- the S3 Endpoint URL (`-EndpointUrl`) for non AWS S3 endpoints
+- the maximum number of concurrent requests e.g. for multipart uploads or downloads (`-MaxConcurrentRequests`)
+- the maximum number of queued commands (`-MaxQueueSize`) - this is not yet implemented in the S3-Client Cmdlets
+- the threshold size when multipart upload will be used instead of single part uploads (`-MultipartThreshold`)
+- the size of a part for multipart uploads (`-MultipartChunksize`)
+- a maximum bandwidth to limit throughput (`-MaxBandwidth`) - this will not yet be honored by the S3-Client Cmdlets
+- enabling of the AWS S3 Accelerate endpoint (`-UseAccelerateEndpoint`) - this only works for AWS S3 and does not work together with the dualstack endpoint
+- enabling the IPv4/IPv6 Dualstack AWS S3 endpoint (`-UseDualstackEndpoint`) - this only works for AWS S3 and does not work together with the accelerate endpoint
+- the default addressing style (`-AddressingStyle`) - the default is auto, which will attempt to use virtual where possible, but will fall back to path style if necessary.
+- if the payload should be signed (`-PayloadSigningEnabled`) - this is only needed for HTTP where the traffic could potentially be manipulated. The S3-Client always checks the MD5 sum returned by an upload versus the locally calculated MD5 sum of the uploaded content.
 
 ### Update an existing Profile
 
@@ -138,6 +154,29 @@ $Account | New-S3Bucket -BucketName "MyBucket"
 ### Bucket Policies
 
 ### Bucket Replication
+
+To replicate a bucket, the bucket needs to have versioning enabled. This is an example to create a bucket for versioning:
+
+```powershell
+$AwsProfileName = "webscaledemo"
+$SgwProfileName = "webscaledemo"
+$Date = Get-Date -Format "yyyy-MM-dd-HHmmss"
+$SourceBucketName = "$Date-source-bucket"
+$DestinationBucketName = "$Date-destination-bucket"
+
+$Region = "us-east-1"
+New-S3Bucket -ProfileName $AwsProfileName -BucketName $BucketName -Region $Region
+Enable-S3BucketVersioning -ProfileName $AwsProfile -BucketName $BucketName -Region $Region
+```
+
+If the source bucket is located on AWS S3, then to use Cross-Region Replication, the steps outlined in [Cross-Region Replication (CRR)](https://docs.aws.amazon.com/AmazonS3/latest/dev/crr.html) need to be implemented before the replication can be set up.
+
+If the source bucket is located on a StorageGRID, then the replication endpoint must be specified before replication can be set up. This is an example how to do this:
+
+```powershell
+$AwsProfile = Get-AwsProfile -ProfileName $AwsProfileName
+Add-SgwEndpoint -ProfileName $SgwProfileName -DisplayName $DestinationBucketName -EndpointUri "https://s3.us-east-2.amazonaws.com" -EndpointUrn "arn:aws:s3:::$DestinationBucketName" -AccessKey $AwsProfile.AccessKey -SecretAccessKey $AwsProfile.SecretKey -ErrorAction Stop
+```
 
 ### Bucket Tagging
 
