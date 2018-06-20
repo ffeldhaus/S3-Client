@@ -614,10 +614,10 @@ Describe "S3 Bucket Replication Configuration" {
     }
 
     Cleanup -BucketName $UnicodeBucketName
-    Cleanup -BucketName $DestinationUnicodeBucketName -Region $DestinationRegion -ProfileName AWS
+    Cleanup -BucketName $DestinationUnicodeBucketName -Region $DestinationRegion -ProfileName "AWS"
 
     if ($ProfileName -match "webscaledemo") {
-        $UnicodeEndpointConfiguration | Remove-SgwEndpoint
+        $UnicodeEndpointConfiguration | Remove-SgwEndpoint -ProfileName $ProfileName
     }
 }
 
