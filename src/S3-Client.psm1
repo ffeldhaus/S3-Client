@@ -4150,7 +4150,7 @@ function Global:Get-S3BucketReplicationConfiguration {
 
                     foreach ($Rule in $Content.ReplicationConfiguration.Rule) {
                         $Output = [PSCustomObject]@{
-                            BucketName              = $BucketName
+                            BucketName              = [System.Globalization.IdnMapping]::new().GetUnicode($BucketName)
                             Role                    = $Content.ReplicationConfiguration.Role
                             Id                      = $Rule.Id
                             Status                  = $Rule.Status
