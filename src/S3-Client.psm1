@@ -4141,12 +4141,7 @@ function Global:Get-S3BucketReplicationConfiguration {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-                    if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-                    }
-                    else {
-                        $Content = [XML]$Result.Content
-                    }
+                    $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
                     foreach ($Rule in $Content.ReplicationConfiguration.Rule) {
                         $Output = [PSCustomObject]@{
