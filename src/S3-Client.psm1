@@ -1604,7 +1604,7 @@ function Global:Get-AwsConfig {
                 }
                 $Config.AccessKey = $Credential.AccessKey
                 $Config.SecretKey = $Credential.SecretAccessKey
-                $Config.EndpointUrl = [System.UriBuilder]::new($EndpointUrl)
+                $Config.EndpointUrl = [System.UriBuilder]::new($EndpointUrl.ToString())
             }
         }
 
