@@ -578,6 +578,7 @@ Describe "S3 Bucket Replication Configuration" {
 
     if ($ProfileName -match "webscaledemo") {
         $EndpointConfiguration = Add-SgwEndpoint -ProfileName $ProfileName -DisplayName $DestinationBucketName -EndpointUri "https://s3.us-east-2.amazonaws.com" -EndpointUrn "arn:aws:s3:::$DestinationBucketName" -AccessKey $AwsProfile.AccessKey -SecretAccessKey $AwsProfile.SecretKey -ErrorAction Stop
+        sleep 5
     }
 
     Context "Set Bucket Replication Configuration" {
@@ -609,6 +610,7 @@ Describe "S3 Bucket Replication Configuration" {
 
     if ($ProfileName -match "webscaledemo") {
         $UnicodeEndpointConfiguration = Add-SgwEndpoint -ProfileName $ProfileName -DisplayName $DestinationUnicodeBucketName -EndpointUri "https://s3.us-east-2.amazonaws.com" -EndpointUrn "arn:aws:s3:::$DestinationUnicodeBucketName" -AccessKey $AwsProfile.AccessKey -SecretAccessKey $AwsProfile.SecretKey -ErrorAction Stop
+        sleep 5
     }
 
     Context "Set Bucket Replication Configuration for bucket with unicode characters" {
