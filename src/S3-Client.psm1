@@ -6896,8 +6896,7 @@ function Global:Get-S3Objects {
     }
 }
 
-Set-Alias -Name Get-S3Version -Value Get-S3ObjectVersions
-Set-Alias -Name Get-S3Versions -Value Get-S3ObjectVersions
+Set-Alias -Name Get-S3BucketVersions -Value Get-S3ObjectVersions
 <#
     .SYNOPSIS
     Get S3 Object Versions
@@ -7075,7 +7074,7 @@ function Global:Get-S3ObjectVersions {
 
             if ($Content.ListVersionsResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
                 Write-Verbose "1000 Versions were returned and max keys was not limited so continuing to get all Versions"
-                Get-S3BucketVersions -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -KeyMarker $Content.ListVersionsResult.NextKeyMarker -VersionIdMarker $Content.ListVersionsResult.NextVersionIdMarker
+                Get-S3ObjectVersions -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -UrlStyle $UrlStyle -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -KeyMarker $Content.ListVersionsResult.NextKeyMarker -VersionIdMarker $Content.ListVersionsResult.NextVersionIdMarker
             }
         }
     }
