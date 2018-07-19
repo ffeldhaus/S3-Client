@@ -568,7 +568,7 @@ Describe "S3 Bucket Replication Configuration" {
     Context "Set Bucket Replication Configuration" {
         It "Given -BucketName $BucketName -Id $BucketName -DestinationBucketUrn arn:aws:s3:::$DestinationBucketName -Role $Role a replication rule should be added" {
             Add-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $BucketName -DestinationBucketUrn "arn:aws:s3:::$DestinationBucketName" -Role $Role
-            sleep 10
+            sleep 15
             $BucketReplication = Get-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $BucketName
             $BucketReplication.BucketName | Should -Be $BucketName
             $BucketReplication.Role | Should -Be $Role
