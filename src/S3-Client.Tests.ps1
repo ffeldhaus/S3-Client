@@ -599,7 +599,7 @@ Describe "S3 Bucket Replication Configuration" {
     Context "Set Bucket Replication Configuration for bucket with unicode characters" {
         It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketName arn:aws:s3:::$DestinationUnicodeBucketName -Role $Role a replication rule should be added" {
             Add-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketUrn "arn:aws:s3:::$DestinationUnicodeBucketName" -Role $Role
-            sleep 10
+            sleep 15
             $BucketReplication = Get-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketReplication.BucketName | Should -Be $UnicodeBucketName
             $BucketReplication.Role | Should -Be $Role
