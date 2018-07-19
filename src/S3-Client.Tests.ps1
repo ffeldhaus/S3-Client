@@ -392,7 +392,7 @@ Describe "S3BucketEncryption" {
     Context "Set Bucket encryption" {
         It "Given -BucketName $BucketName and -SSEAlgorithm AWS256 server side encryption is enabled" {
             Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName -SSEAlgorithm AES256
-            sleep 5
+            sleep 10
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
             $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
@@ -403,7 +403,7 @@ Describe "S3BucketEncryption" {
 
         It "Given -BucketName $UnicodeBucketName and -SSEAlgorithm AWS256 server side encryption is enabled" {
             Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName -SSEAlgorithm AES256
-            sleep 5
+            sleep 10
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
@@ -428,7 +428,7 @@ Describe "S3 Bucket Tagging" {
     Setup -BucketName $UnicodeBucketName
 
     Context "Set Bucket tagging" {
-        It "Given -BucketName $BucketName and -Tags $Tags tags should be added to bucket" {
+        It "Given -BucketName $BucketName and -Tags $(ConvertTo-Json -InputObject $Tags -Compress) tags should be added to bucket" {
             Set-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName -Tags $Tags
             sleep 3
             $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName
@@ -436,7 +436,7 @@ Describe "S3 Bucket Tagging" {
             $BucketTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
 
-        It "Given -BucketName $UnicodeBucketName and -Tags $Tags tags should be added to bucket" {
+        It "Given -BucketName $UnicodeBucketName and -Tags $(ConvertTo-Json -InputObject $Tags -Compress) tags should be added to bucket" {
             Set-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Tags $Tags
             sleep 3
             $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName
