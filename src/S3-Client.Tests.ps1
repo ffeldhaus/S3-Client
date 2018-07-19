@@ -343,11 +343,11 @@ Describe "Write-S3Object" {
 }
 
 Describe "Write-S3MultipartUpload" {
-    Setup -BucketName $BucketName
-    Setup -BucketName $UnicodeBucketName
 
     Context "Upload large file" {
-        It "Given file -InFile `"$LargeFile`" it is succesfully uploaded" {
+        Setup -BucketName $BucketName
+
+        It "Given file -InFile `"$LargeFile`" it is succesfully uploaded to Bucket $BucketName" {
             Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $BucketName -InFile $LargeFile
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
             $LargeFile.Name | Should -BeIn $Objects.Key
@@ -358,10 +358,25 @@ Describe "Write-S3MultipartUpload" {
             $TempFileHash.Hash | Should -Be $LargeFileHash.Hash
             $TempFile | Remove-Item
         }
-    }
 
-    Cleanup -BucketName $BucketName
-    Cleanup -BucketName $UnicodeBucketName
+        Cleanup -BucketName $BucketName
+
+        Setup -BucketName $UnicodeBucketName
+
+        It "Given file -InFile `"$LargeFile`" it is succesfully uploaded to Bucket $UnicodeBucketName" {
+            Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $UnicodeBucketName -InFile $LargeFile
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            $LargeFile.Name | Should -BeIn $Objects.Key
+            $TempFile = New-TemporaryFile
+            sleep 1
+            Read-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $LargeFile.Name -OutFile $TempFile.FullName
+            $TempFileHash = $TempFile | Get-FileHash
+            $TempFileHash.Hash | Should -Be $LargeFileHash.Hash
+            $TempFile | Remove-Item
+        }
+
+        Cleanup -BucketName $UnicodeBucketName
+    }
 }
 
 Describe "Copy-S3Object" {
