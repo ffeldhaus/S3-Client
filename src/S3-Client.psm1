@@ -8007,8 +8007,8 @@ function Global:Write-S3Object {
         $Headers = @{}
         if ($Metadata) {
             foreach ($MetadataKey in $Metadata.Keys) {
-                $Key = $MetadataKey -replace "^x-amz-meta-",""
-                $Key = $MetadataKey.toLower()
+                $MetadataKey = $MetadataKey -replace "^x-amz-meta-",""
+                $MetadataKey = $MetadataKey.toLower()
                 $Headers["x-amz-meta-$Key"] = $Metadata[$MetadataKey]
                 # TODO: check that metadata is valid HTTP Header
             }
