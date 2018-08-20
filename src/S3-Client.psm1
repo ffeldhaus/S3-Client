@@ -1060,7 +1060,7 @@ function Global:Add-AwsConfig {
 
     PARAM (
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=0,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="default",
