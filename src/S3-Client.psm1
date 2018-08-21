@@ -176,6 +176,7 @@ function ConvertTo-AwsConfigFile {
             }
             else {
                 Invoke-Expression "chmod 700 $AwsConfigDirectory"
+                Invoke-Expression "chmod 600 $AwsConfigFile"
             }
         }
         catch {
@@ -1153,6 +1154,9 @@ function Global:Add-AwsConfig {
             $SecretKey = $Credential.GetNetworkCredential().Password
         }
 
+        Clear-Variable Credentials
+        Clear-Variable Configs
+
         if ($AccessKey -and $SecretKey) {
             try {
                 $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
@@ -1173,7 +1177,7 @@ function Global:Add-AwsConfig {
 
             Write-Debug $CredentialEntry
 
-            $Credentials = @($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry
+            $Credentials = (@($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry) | Where-Object { $_.ProfileName}
             ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
         }
 
@@ -1247,7 +1251,7 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name skip_certificate_check -Value $SkipCertificateCheck -Force
         }
 
-        $Configs = @($Configs | Where-Object { $_.ProfileName -ne $ProfileName}) + $Config
+        $Configs = (@($Configs | Where-Object { $_.ProfileName -ne $ProfileName}) + $Config) | Where-Object { $_.ProfileName}
         ConvertTo-AwsConfigFile -Config $Configs -AwsConfigFile $ConfigLocation
     }
 }
