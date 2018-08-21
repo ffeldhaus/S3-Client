@@ -1154,8 +1154,8 @@ function Global:Add-AwsConfig {
             $SecretKey = $Credential.GetNetworkCredential().Password
         }
 
-        Clear-Variable Credentials
-        Clear-Variable Configs
+        $Credentials = @()
+        $Configs = @()
 
         if ($AccessKey -and $SecretKey) {
             try {
