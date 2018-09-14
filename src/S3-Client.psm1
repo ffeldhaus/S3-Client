@@ -7209,6 +7209,8 @@ function Global:Get-S3ObjectVersions {
 
             $Content = [XML]$Result.Content
 
+            Write-Verbose $Result
+
             $Versions = @($Content.ListVersionsResult.Version | Where-Object { $_ })
             $Versions | Add-Member -MemberType NoteProperty -Name Type -Value "Version"
             $DeleteMarkers = $Content.ListVersionsResult.DeleteMarker | Where-Object { $_ }
@@ -7224,7 +7226,7 @@ function Global:Get-S3ObjectVersions {
             $Versions | Add-Member -MemberType NoteProperty -Name BucketName -Value $Content.ListVersionsResult.Name
 
             if ($Key) {
-                $Versions | Where-Object { $_.Key -eq $Key }
+                $Versions = $Versions | Where-Object { $_.Key -eq $Key }
             }
 
             Write-Output $Versions
