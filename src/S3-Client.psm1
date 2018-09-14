@@ -7126,7 +7126,8 @@ function Global:Get-S3ObjectVersions {
         [parameter(
                 Mandatory=$False,
                 Position=12,
-                HelpMessage="Maximum Number of keys to return")][Int][ValidateRange(0,1000)]$MaxKeys=0,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Object Key")][Alias("Object")][String]$Key,
         [parameter(
                 Mandatory=$False,
                 Position=13,
@@ -7134,18 +7135,22 @@ function Global:Get-S3ObjectVersions {
         [parameter(
                 Mandatory=$False,
                 Position=14,
-                HelpMessage="Bucket prefix for filtering")][String][ValidateLength(1,1)]$Delimiter,
+                HelpMessage="Maximum Number of keys to return")][Int][ValidateRange(0,1000)]$MaxKeys=0,
         [parameter(
                 Mandatory=$False,
                 Position=15,
-                HelpMessage="Continuation token for keys.")][String]$KeyMarker,
+                HelpMessage="Bucket prefix for filtering")][String][ValidateLength(1,1)]$Delimiter,
         [parameter(
                 Mandatory=$False,
                 Position=16,
-                HelpMessage="Continuation token for versions.")][String]$VersionIdMarker,
+                HelpMessage="Continuation token for keys.")][String]$KeyMarker,
         [parameter(
                 Mandatory=$False,
                 Position=17,
+                HelpMessage="Continuation token for versions.")][String]$VersionIdMarker,
+        [parameter(
+                Mandatory=$False,
+                Position=18,
                 HelpMessage="Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType="url"
     )
 
@@ -7189,6 +7194,7 @@ function Global:Get-S3ObjectVersions {
         if ($MaxKeys -ge 1) {
             $Query["max-keys"] = $MaxKeys
         }
+        if ($Key) { $Query["prefix"] = $Key }
         if ($Prefix) { $Query["prefix"] = $Prefix }
         if ($KeyMarker) { $Query["key-marker"] = $KeyMarker }
         if ($VersionIdMarker) { $Query["version-id-marker"] = $VersionIdMarker }
@@ -7216,6 +7222,10 @@ function Global:Get-S3ObjectVersions {
                 $Version.PSObject.Members.Remove("Owner")
             }
             $Versions | Add-Member -MemberType NoteProperty -Name BucketName -Value $Content.ListVersionsResult.Name
+
+            if ($Key) {
+                $Versions | Where-Object { $_.Key -eq $Key }
+            }
 
             Write-Output $Versions
 
@@ -9400,6 +9410,7 @@ function Global:Get-S3ObjectParts {
     }
 }
 
+New-Alias -Name Remove-S3ObjectVersion -Value Remove-S3Object
 <#
     .SYNOPSIS
     Remove S3 Object
