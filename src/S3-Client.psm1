@@ -8185,7 +8185,12 @@ function Global:Start-S3MultipartUpload {
                 Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled,
+        [parameter(
+                Mandatory=$False,
+                Position=24,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Specifies the algorithm to use to when encrypting the object.")][ValidateSet("aws:kms","AES256")][String]$ServerSideEncryption
     )
 
     Begin {
@@ -8235,6 +8240,10 @@ function Global:Start-S3MultipartUpload {
             }
         }
         Write-Verbose "Metadata:`n$($Headers | ConvertTo-Json)"
+
+        if ($ServerSideEncryption) {
+            $Headers["x-amz-server-side-encryption"] = $ServerSideEncryption
+        }
 
         $Uri = "/$Key"
 
@@ -9782,7 +9791,7 @@ function Global:Copy-S3Object {
             $Headers["x-amz-tagging-directive"] = $TaggingDirective
         }
         if ($ServerSideEncryption) {
-            $Headers["x-amz-server-side​-encryption"] = $ServerSideEncryption
+            $Headers["x-amz-server-side-encryption"] = $ServerSideEncryption
         }
 
         if ($Metadata) {
