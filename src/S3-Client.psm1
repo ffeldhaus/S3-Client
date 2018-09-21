@@ -172,7 +172,7 @@ function ConvertTo-AwsConfigFile {
                     [System.Security.AccessControl.PropagationFlags]::None,
                     [System.Security.AccessControl.AccessControlType]::Allow)
                 $Acl.AddAccessRule($AcessRule)
-                Set-Acl -Path $AwsConfigDirectory -AclObject $Acl
+                Set-Acl -Path $AwsConfigDirectory -AclObject $Acl -ErrorAction Stop
             }
             else {
                 Invoke-Expression "chmod 700 $AwsConfigDirectory"
