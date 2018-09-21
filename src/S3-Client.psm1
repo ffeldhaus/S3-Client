@@ -215,7 +215,13 @@ function ConvertTo-AwsConfigFile {
             }
         }
         Write-Debug "Output:`n$Output"
-        $Output | Out-File -FilePath $AwsConfigFile -NoNewline | Get-Content -Path $AwsConfigFile | Out-File -FilePath $AwsConfigFile
+
+        if ([environment]::OSVersion.Platform -match "win") {
+            # replace LF with CRLF
+            $Output = $Output -replace "`n","`r`n"
+        }
+
+        $Output | Out-File -FilePath $AwsConfigFile -NoNewline
     }
 }
 
