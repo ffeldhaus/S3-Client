@@ -215,7 +215,7 @@ function ConvertTo-AwsConfigFile {
             }
         }
         Write-Debug "Output:`n$Output"
-        $Output | Out-File -FilePath $AwsConfigFile -NoNewline
+        $Output | Out-File -FilePath $AwsConfigFile
     }
 }
 
