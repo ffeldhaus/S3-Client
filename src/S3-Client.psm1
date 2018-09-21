@@ -180,7 +180,7 @@ function ConvertTo-AwsConfigFile {
             }
         }
         catch {
-            Write-Warning "Couldn't restrict access to directory $AwsConfigDirectory"
+            Write-Verbose "Couldn't restrict access to directory $AwsConfigDirectory"
         }
 
         Write-Verbose "Writing AWS Configuration to $AwsConfigFile"
