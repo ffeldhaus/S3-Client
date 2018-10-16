@@ -9680,12 +9680,12 @@ function Global:Copy-S3Object {
                 Mandatory=$True,
                 Position=12,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket")][String]$SourceBucket,
+                HelpMessage="Source Bucket")][String]$SourceBucket,
         [parameter(
                 Mandatory=$True,
                 Position=13,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Object key")][String]$SourceKey,
+                HelpMessage="Source object key")][String]$SourceKey,
         [parameter(
                 Mandatory=$False,
                 Position=14,
@@ -9796,9 +9796,9 @@ function Global:Copy-S3Object {
         $Uri = "/$Key"
 
         $Headers = @{}
-        $Headers["x-amz-copy-source"] = "/$BucketName/$Key"
-        if ($VersionId) {
-            $Headers["x-amz-copy-source"] += "?versionId=$VersionId"
+        $Headers["x-amz-copy-source"] = "/$SourceBucket/$SourceKey"
+        if ($SourceVersionId) {
+            $Headers["x-amz-copy-source"] += "?versionId=$SourceVersionId"
         }
         $Headers["x-amz-metadata-directive"] = $MetadataDirective
         if ($Etag) {
