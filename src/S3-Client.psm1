@@ -7588,7 +7588,7 @@ function Global:Get-S3ObjectMetadata {
                 VersionId=$Headers["x-amz-version-id"] | Select-Object -First 1;
                 Expires=$null;
                 WebsiteRedirectLocation=$null;
-                ServerSideEncryptionMethod=$Headers["x-amz-server-side​-encryption"] | Select-Object -First 1;
+                ServerSideEncryptionMethod=$Headers["x-amz-server-side-encryption"] | Select-Object -First 1;
                 ServerSideEncryptionCustomerMethod=$Headers["x-amz-server-side​-encryption​-customer-algorithm"] | Select-Object -First 1;
                 ServerSideEncryptionKeyManagementServiceKeyId=$Headers["x-amz-server-side-encryption-aws-kms-key-id"] | Select-Object -First 1;
                 ReplicationStatus=$Headers["x-amz-replication-status"] | Select-Object -First 1;
