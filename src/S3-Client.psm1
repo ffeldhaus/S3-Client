@@ -15,6 +15,9 @@ if ($PSVersionTable.PSVersion.Major -lt 6) {
         }
 "@
 
+    # StorageGRID and AWS S3 support TLS 1.2 and PowerShell does not auto negotiate it, thus enforcing TLS 1.2
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
     # Using .NET JSON Serializer as JSON serialization included in Invoke-WebRequest has a length restriction for JSON content
     Add-Type -AssemblyName System.Web.Extensions
     $global:javaScriptSerializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
