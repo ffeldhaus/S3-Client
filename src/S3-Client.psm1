@@ -1892,10 +1892,30 @@ function Global:New-AwsPolicy {
         [parameter(
                 Mandatory = $False,
                 Position = 6,
-                HelpMessage = "The Condition element is optional. Conditions allow you to build expressions to determine when a policy should be applied.")][String]$Condition
+                HelpMessage = "The Condition element is optional. Conditions allow you to build expressions to determine when a policy should be applied.")][String]$Condition,
+        [parameter(
+                Mandatory = $False,
+                Position = 7,
+                HelpMessage = "Grant full access.")][Switch]$FullAccess,
+        [parameter(
+                Mandatory = $False,
+                Position = 7,
+                HelpMessage = "Grant full access.")][Switch]$ReadOnlyAccess
     )
 
     Process {
+        if ($FullAccess.IsPresent) {
+            $Effect = "Allow"
+            $Resource = "arn:aws:s3:::*"
+            $Action = "s3:*"
+        }
+
+        if ($ReadOnlyAccess.IsPresent) {
+            $Effect = "Allow"
+            $Resource = "arn:aws:s3:::*"
+            $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
+        }
+
         # see https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html for details on Policies
 
         if ($CurrentSgwServer -and ($Resource -match "arn:aws" -or $NotResource  -match "arn:aws")) {
