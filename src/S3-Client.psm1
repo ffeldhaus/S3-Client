@@ -8001,7 +8001,12 @@ function Global:Write-S3Object {
                 Mandatory=$False,
                 Position=16,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled,
+        [parameter(
+                Mandatory=$False,
+                Position=17,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Specifies the algorithm to use to when encrypting the object.")][ValidateSet("aws:kms","AES256")][String]$ServerSideEncryption
     )
 
     Begin {
@@ -8072,6 +8077,9 @@ function Global:Write-S3Object {
                 $Headers["x-amz-meta-$MetadataKey"] = $Metadata[$MetadataKey]
                 # TODO: check that metadata is valid HTTP Header
             }
+        }
+        if ($ServerSideEncryption) {
+            $Headers["x-amz-server-side-encryption"] = $ServerSideEncryption
         }
         Write-Verbose "Metadata:`n$($Headers | ConvertTo-Json)"
 
@@ -8232,7 +8240,7 @@ function Global:Start-S3MultipartUpload {
                 HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled,
         [parameter(
                 Mandatory=$False,
-                Position=24,
+                Position=15,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Specifies the algorithm to use to when encrypting the object.")][ValidateSet("aws:kms","AES256")][String]$ServerSideEncryption
     )
