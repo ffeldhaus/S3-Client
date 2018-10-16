@@ -7963,28 +7963,43 @@ function Global:Write-S3Object {
                 ParameterSetName="AccountAndFile",
                 HelpMessage="Path where object should be stored")][Alias("Path","File")][System.IO.FileInfo]$InFile,
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=13,
+                ParameterSetName="ProfileAndFile",
+                HelpMessage="Content type")]
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                ParameterSetName="KeyAndFile",
+                HelpMessage="Content type")]
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                ParameterSetName="AccountAndFile",
+                HelpMessage="Content type")][String]$ContentType,
+        [parameter(
+                Mandatory=$True,
+                Position=14,
                 ParameterSetName="ProfileAndContent",
                 HelpMessage="Content of object")]
         [parameter(
                 Mandatory=$True,
-                Position=13,
+                Position=14,
                 ParameterSetName="KeyAndContent",
                 HelpMessage="Content of object")]
         [parameter(
                 Mandatory=$True,
-                Position=13,
+                Position=14,
                 ParameterSetName="AccountAndContent",
                 HelpMessage="Content of object")][Alias("InputObject")][String]$Content,
         [parameter(
                 Mandatory=$False,
-                Position=14,
+                Position=15,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Metadata")][Hashtable]$Metadata,
         [parameter(
                 Mandatory=$False,
-                Position=15,
+                Position=16,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
     )
