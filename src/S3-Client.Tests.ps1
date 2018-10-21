@@ -405,24 +405,24 @@ Describe "S3BucketEncryption" {
     Setup -BucketName $UnicodeBucketName
 
     Context "Set Bucket encryption" {
-        It "Given -BucketName $BucketName and -SSEAlgorithm AWS256 server side encryption is enabled" {
+        It "Given -BucketName $BucketName and -SSEAlgorithm AES256 server side encryption is enabled" {
             Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName -SSEAlgorithm AES256
-            sleep 10
+            sleep 15
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
             $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
-            sleep 5
+            sleep 15
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
             $BucketEncryption | Should -BeNullOrEmpty
         }
 
-        It "Given -BucketName $UnicodeBucketName and -SSEAlgorithm AWS256 server side encryption is enabled" {
+        It "Given -BucketName $UnicodeBucketName and -SSEAlgorithm AES256 server side encryption is enabled" {
             Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName -SSEAlgorithm AES256
-            sleep 10
+            sleep 15
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            sleep 5
+            sleep 15
             $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketEncryption | Should -BeNullOrEmpty
         }
