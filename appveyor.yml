@@ -5,7 +5,7 @@ image:
 configuration:
 - AWS
 - WebscaleDemo
-- WebscaleDemoNext
+#- WebscaleDemoNext
 - Minio
 
 matrix:
