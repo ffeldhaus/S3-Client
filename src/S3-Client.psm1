@@ -1030,7 +1030,7 @@ function Global:Invoke-AwsRequest {
 
         Write-Verbose "Response Headers:`n$(ConvertTo-Json -InputObject $Result.Headers)"
 
-        if ($Result.Headers.'Content-Type' -match "text|application/xml" -and $Result.Headers.Length -le 10KB) {
+        if ($Result.Headers.'Content-Type' -match "text|application/xml|application/json" -and $Result.Headers.Length -le 10KB) {
             Write-Verbose "Response Body:`n$($Result.Content)"
         }
 
