@@ -876,8 +876,8 @@ function Global:Get-AwsRequest {
         $EndpointUrl.Path = $Uri
         $EndpointUrl.Query = $CanonicalQueryString
 
-        Write-Verbose "Request URI: $($EndpointUrl.Uri)"
-        Write-Verbose "Request Headers: $($Headers | ConvertTo-Json)"
+        Write-Verbose "Request URI:`n$($EndpointUrl.Uri)"
+        Write-Verbose "Request Headers:`n$($Headers | ConvertTo-Json)"
 
         $Request = [PSCustomObject]@{Method=$Method;Uri=$EndpointUrl.Uri;Headers=$Headers}
 
@@ -1026,6 +1026,12 @@ function Global:Invoke-AwsRequest {
                     $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                 }
             }
+        }
+
+        Write-Verbose "Response Headers:`n$(ConvertTo-Json -InputObject $Result.Headers)"
+
+        if ($Result.Headers.'Content-Type' -match "text|application/xml" -and $Result.Headers.Length -le 10KB) {
+            Write-Verbose "Response Body:`n$($Result.Content)"
         }
 
         Write-Output $Result
@@ -7039,8 +7045,6 @@ function Global:Get-S3Objects {
                 $Content = [XML][System.Net.WebUtility]::UrlDecode($Result.Content)
 
                 $Objects = $Content.ListBucketResult.Contents | Where-Object { $_ }
-
-                Write-Verbose "ListBucketResult Name: $($Content.ListBucketResult.Name)"
 
                 $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode($Content.ListBucketResult.Name)
                 if ($UnicodeBucket -match $BucketName) {
