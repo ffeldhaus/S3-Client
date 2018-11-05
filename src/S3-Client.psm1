@@ -8047,74 +8047,80 @@ function Global:Write-S3Object {
             Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
         # if the file size is larger than 5GB multipart upload must be used as PUT Object is only allowed up to 5GB files
-        if ($InFile.Length -gt 5GB) {
+        elseif ($InFile.Length -gt 5GB) {
             Write-Warning "Using multipart upload as PUT uploads are only allowed for files smaller than 5GB and file is larger than 5GB."
             Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
-
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+        else {
+            # Convert Bucket Name to IDN mapping to support Unicode Names
+            $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
+            # check if BucketName contains uppercase letters
+            if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+                $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
+                if ($BucketNameExists) {
+                    Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+                }
+                else {
+                    $BucketName = $PunycodeBucketName
+                }
             }
             else {
                 $BucketName = $PunycodeBucketName
             }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
 
-        # TODO: Check MIME type of file
-        if (!$InFile -and $Content) {
-            $ContentType = "text/plain"
-        }
-
-        $Headers = @{}
-        if ($Metadata) {
-            foreach ($MetadataKey in $Metadata.Keys) {
-                $MetadataKey = $MetadataKey -replace "^x-amz-meta-",""
-                $MetadataKey = $MetadataKey.toLower()
-                $Headers["x-amz-meta-$MetadataKey"] = $Metadata[$MetadataKey]
-                # TODO: check that metadata is valid HTTP Header
+            # TODO: Check MIME type of file
+            if (!$InFile -and $Content) {
+                $ContentType = "text/plain"
             }
-        }
-        if ($ServerSideEncryption) {
-            $Headers["x-amz-server-side-encryption"] = $ServerSideEncryption
-        }
-        Write-Verbose "Metadata:`n$($Headers | ConvertTo-Json)"
 
-        $Uri = "/$Key"
-
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers -PayloadSigningEnabled:$Config.PayloadSigningEnabled
-
-        if ($DryRun.IsPresent) {
-            Write-Output $AwsRequest
-        }
-        else {
-            try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
+            $Headers = @{}
+            if ($Metadata) {
+                foreach ($MetadataKey in $Metadata.Keys) {
+                    $MetadataKey = $MetadataKey -replace "^x-amz-meta-",""
+                    $MetadataKey = $MetadataKey.toLower()
+                    $Headers["x-amz-meta-$MetadataKey"] = $Metadata[$MetadataKey]
+                    # TODO: check that metadata is valid HTTP Header
+                }
             }
-            catch {
-                $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
-                if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
-                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    if ($InFile) {
-                        Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+            if ($ServerSideEncryption) {
+                $Headers["x-amz-server-side-encryption"] = $ServerSideEncryption
+            }
+            Write-Verbose "Metadata:`n$($Headers | ConvertTo-Json)"
+
+            $Uri = "/$Key"
+
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+
+            if ($DryRun.IsPresent) {
+                Write-Output $AwsRequest
+            }
+            else {
+                try {
+                    $TimestampBegin = Get-Date
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
+                    $TimestampEnd = Get-Date
+                    $Duration = ($TimestampEnd - $TimestampBegin).TotalSeconds
+                    $Throughput = [Math]::Round($InFile.Length / 1MB / $Duration,2)
+                    Write-Host "Uploading file $($InFile.Name) of size $($InFile.Length/1MB)MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+                }
+                catch {
+                    $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                    if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                        if ($InFile) {
+                            Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+                        }
+                        else {
+                            Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Content $Content -Metadata $Metadata
+                        }
                     }
                     else {
-                        Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Content $Content -Metadata $Metadata
+                        Throw
                     }
                 }
-                else {
-                    Throw
-                }
-            }
 
-            Write-Output $Result.Content
+                Write-Output $Result.Content
+            }
         }
     }
 }
@@ -8883,7 +8889,7 @@ function Global:Write-S3MultipartUpload {
 
         Write-Verbose "Multipart Upload ID: $($MultipartUpload.UploadId)"
 
-            try {
+        try {
             Write-Verbose "Initializing Runspace Pool"
             $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
             $CancellationToken = $CancellationTokenSource.Token
@@ -8967,40 +8973,47 @@ function Global:Write-S3MultipartUpload {
 
                     $PutRequest.Headers.Add("Host",$Headers["Host"])
 
+                    $StreamLength = $Stream.Length
                     $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
                     $StreamContent.Headers.ContentLength = $Stream.Length
                     $PutRequest.Content = $StreamContent
 
-                    $Response = $HttpClient.SendAsync($PutRequest, $CancellationToken)
+                    try {
+                        $Response = $HttpClient.SendAsync($PutRequest, $CancellationToken)
 
-                    # TODO: Report progress using stream position
-                    while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
-                        sleep 0.1
-                        $PartUploadProgress.$PartNumber = $Stream.Position
+                        while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
+                            sleep 0.5
+                            $PartUploadProgress.$PartNumber = $Stream.Position
+                        }
+                        $PartUploadProgress.$PartNumber = $StreamLength
+
+                        $Etag = New-Object 'System.Collections.Generic.List[string]'
+                        [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
+                        $Etag = $Etag[0] -replace '"',''
+
+                        $CryptoStream.Dispose()
+                        $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
+
+                        if ($Response.Result.StatusCode -ne "OK") {
+                            Write-Output $Response
+                        }
+                        elseif ($Etag -ne $MD5Sum) {
+                            $Output = [PSCustomObject]@{Etag=$Etag;MD5Sum=$MD5Sum}
+                            Write-Output $Output
+                        }
+                        else {
+                            Write-Output $Etag
+                        }
                     }
-
-                    $Etag = New-Object 'System.Collections.Generic.List[string]'
-                    [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
-                    $Etag = $Etag[0] -replace '"',''
-
-                    $CryptoStream.Dispose()
-                    $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
-
-                    if ($Response.Result.StatusCode -ne "OK") {
-                        Write-Output $Response
+                    catch {
+                        Write-Output $_
                     }
-                    elseif ($Etag -ne $MD5Sum) {
-                        $Output = [PSCustomObject]@{Etag=$Etag;MD5Sum=$MD5Sum}
-                        Write-Output $Output
+                    finally {
+                        $Response.Dispose()
+                        $PutRequest.Dispose()
+                        $StreamContent.Dispose()
+                        $Stream.Dispose()
                     }
-                    else {
-                        Write-Output $Etag
-                    }
-
-                    $Response.Dispose()
-                    $PutRequest.Dispose()
-                    $StreamContent.Dispose()
-                    $Stream.Dispose()
                 })
 
                 if (($PartNumber * $Chunksize) -gt $FileSize) {
@@ -9033,37 +9046,39 @@ function Global:Write-S3MultipartUpload {
 
             $PercentCompleted = 0
 
-            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$PercentCompleted% Complete:" -PercentComplete $PercentCompleted
+            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s" -PercentComplete $PercentCompleted
 
             $StartTime = Get-Date
 
             while ($Jobs.Status -ne $null) {
-                $WrittenBytes = $PartUploadProgress.Clone().Values | Measure-Object -Sum | Select-Object -ExpandProperty Sum
-                $PercentCompleted = [Math]::Floor($WrittenBytes / $InFile.Length * 10000) / 100
-                $Throughput = $WrittenBytes / ((Get-Date) - $StartTime).TotalSeconds / 1MB
-                Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$PercentCompleted% Complete / $Throughput MiB/s" -PercentComplete $PercentCompleted
                 sleep 1
                 $CompletedJobs = $Jobs | Where-Object { $_.Status.IsCompleted -eq $true }
                 foreach ($Job in $CompletedJobs) {
                     $Output = $Job.Pipe.EndInvoke($Job.Status)
-                    Write-Verbose "Output: $Output"
                     if ($Output[0] -isnot [String]) {
                         Write-Verbose (ConvertTo-Json -InputObject $Output)
                         foreach ($Job in $Jobs) {
                             $CancellationToken = $CancellationTokenSource.Cancel()
                             $Job.Pipe.Stop()
                         }
-                        throw "Upload of part $($Job.PartNumber) failed, Multipart Upload aborted"
+                        throw "Upload of part $($Job.PartNumber) failed, Multipart Upload aborted with output`n$(ConvertTo-Json -InputObject $Output)"
                     }
                     $Etags[$Job.PartNumber] = $Output
                     Write-Verbose "Part $($Job.PartNumber) has completed with ETag $Output"
                     $Job.Pipe.Dispose()
                     $Job.Status = $null
                 }
+
+                # report progress
+                $WrittenBytes = $PartUploadProgress.Clone().Values | Measure-Object -Sum | Select-Object -ExpandProperty Sum
+                $PercentCompleted = [Math]::Floor($WrittenBytes / $InFile.Length * 10000) / 100
+                $Duration = ((Get-Date) - $StartTime).TotalSeconds
+                $Throughput = [Math]::Round($WrittenBytes / 1MB / $Duration,2)
+                Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$([Math]::Round($WrittenBytes/1MB,2)) MiB written ($PercentCompleted% Complete) / $Throughput MiB/s" -PercentComplete $PercentCompleted
             }
         }
         catch {
-            Write-Verbose "Something has gone wrong, aborting Multipart Upload"
+            Write-Warning "Something has gone wrong, aborting Multipart Upload"
             $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
             throw
         }
@@ -9078,7 +9093,10 @@ function Global:Write-S3MultipartUpload {
         }
 
         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key completed" -Completed
+        Write-Host "Uploading file $($InFile.Name) of size $($InFile.Length/1MB)MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+        Write-Verbose "Completing multipart upload"
         $MultipartUpload | Complete-S3MultipartUpload  -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -Etags $Etags
+        Write-Verbose "Completed multipart upload"
     }
 }
 
