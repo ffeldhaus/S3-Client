@@ -35,11 +35,6 @@ skip_tags: true
 pull_requests:
   do_not_increment_build_number: true
 
-# enable SSH on Linux build
-on_finish:
-  - sh: export APPVEYOR_SSH_BLOCK=true
-  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
-
 environment:
   my_secret:
     secure: XglRq9/YLH8mWAX9jBnwdyAbu0cVTEWbHR+a8zHd+ddhgFriOQv9C7hubgm+DCp5
@@ -72,6 +67,8 @@ install:
   - sh: ./appveyor-tools/secure-file -decrypt etc/.sgw/credentials.enc -out $HOME/.sgw/credentials -secret $my_secret
   - sh: if [[ "$Configuration" == "Minio" ]]; then docker pull minio/minio;fi
   - sh: if [[ "$Configuration" == "Minio" ]]; then docker run -d -p 9000:9000 -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data;fi
+  - sh: export APPVEYOR_SSH_BLOCK=true
+  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
 
 # Invoke Pester to run all of the unit tests, then save the results into XML in order to populate the AppVeyor tests section
 # If any of the tests fail, consider the pipeline failed
