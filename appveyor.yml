@@ -3,8 +3,8 @@ image:
 - Visual Studio 2017
 
 configuration:
-- AWS
-- WebscaleDemo
+#- AWS
+#- WebscaleDemo
 #- WebscaleDemoNext
 - Minio
 
