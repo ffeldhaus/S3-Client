@@ -8101,109 +8101,117 @@ function Global:Write-S3Object {
             }
             else {
                 try {
-                    $StartTime = Get-Date
-
-                    Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s" -PercentComplete 0
-
-                    Write-Debug "Initializing Memory Mapped File"
-                    $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile, [System.IO.FileMode]::Open)
-
-                    Write-Debug "Creating HTTP Client Handler"
-                    if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
-                        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-                    }
-                    elseif ($SkipCertificateCheck) {
-                        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
-                        $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+                    if ($Content) {
+                        $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
                     }
                     else {
-                        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
-                    }
+                        $StartTime = Get-Date
 
-                    Write-Debug "Creating Streams"
-                    $Stream = $MemoryMappedFile.CreateViewStream()
+                        Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s" -PercentComplete 0
 
-                    # using CryptoSteam to calculate the MD5 sum while uploading the file
-                    # this allows to only read the stream once and increases performance compared with other S3 clients
-                    $Md5 = [System.Security.Cryptography.MD5]::Create()
-                    $CryptoStream = [System.Security.Cryptography.CryptoStream]::new($Stream, $Md5, [System.Security.Cryptography.CryptoStreamMode]::Read)
+                        Write-Debug "Initializing Memory Mapped File"
+                        $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile, [System.IO.FileMode]::Open)
 
-                    Write-Debug "Creating HTTP Client"
-                    $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
-
-                    Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)"
-                    $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Ceiling($Stream.Length / 1KB / 100))
-
-                    Write-Debug "Creating PUT request"
-                    $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$AwsRequest.Uri)
-
-                    Write-Debug "Adding headers"
-                    foreach ($Key in $AwsRequest.Headers.Keys) {
-                        # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
-                        $null = $PutRequest.Headers.TryAddWithoutValidation($Key,$AwsRequest.Headers[$Key])
-                    }
-
-                    $StreamLength = $Stream.Length
-                    $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
-                    $StreamContent.Headers.ContentLength = $Stream.Length
-                    $PutRequest.Content = $StreamContent
-
-                    try {
-                        Write-Debug "Start upload"
-                        $Response = $HttpClient.SendAsync($PutRequest)
-
-                        Write-Debug "Report progress"
-                        while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
-                            sleep 0.5
-                            $WrittenBytes = $Stream.Position
-                            $PercentCompleted = [Math]::Floor($WrittenBytes / $InFile.Length * 10000) / 100
-                            $Duration = ((Get-Date) - $StartTime).TotalSeconds
-                            $Throughput = [Math]::Round($WrittenBytes / 1MB / $Duration,2)
-                            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$([Math]::Round($WrittenBytes/1MB,2)) MiB written ($PercentCompleted% Complete) / $Throughput MiB/s" -PercentComplete $PercentCompleted
+                        Write-Debug "Creating HTTP Client Handler"
+                        if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
+                            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
                         }
-                        $WrittenBytes = $StreamLength
-
-                        $Etag = New-Object 'System.Collections.Generic.List[string]'
-                        [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
-                        $Etag = $Etag[0] -replace '"',''
-
-                        $CryptoStream.Dispose()
-                        $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
-
-                        if ($Response.Result.StatusCode -ne "OK") {
-                            throw $Response
-                        }
-                        elseif ($Etag -ne $MD5Sum) {
-                            throw "Etag $Etag does not match calculated MD5 sum $MD5Sum"
+                        elseif ($SkipCertificateCheck) {
+                            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
+                            $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
                         }
                         else {
-                            Write-Output ([PSCustomObject]@{ETag=$Etag})
+                            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
                         }
-                    }
-                    catch {
-                        throw $_
-                    }
-                    finally {
-                        Write-Verbose "Dispose used resources"
-                        if ($Response) { $Response.Dispose() }
-                        if ($PutRequest) { $PutRequest.Dispose() }
-                        if ($StreamContent) { $StreamContent.Dispose() }
-                        if ($Stream) { $Stream.Dispose() }
-                    }
 
-                    #$Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
+                        Write-Debug "Creating Streams"
+                        $Stream = $MemoryMappedFile.CreateViewStream()
 
-                    Write-Host "Uploading file $($InFile.Name) of size $($InFile.Length/1MB)MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+                        # using CryptoSteam to calculate the MD5 sum while uploading the file
+                        # this allows to only read the stream once and increases performance compared with other S3 clients
+                        $Md5 = [System.Security.Cryptography.MD5]::Create()
+                        $CryptoStream = [System.Security.Cryptography.CryptoStream]::new($Stream, $Md5, [System.Security.Cryptography.CryptoStreamMode]::Read)
+
+                        Write-Debug "Creating HTTP Client"
+                        $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
+
+                        Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)"
+                        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Ceiling($Stream.Length / 1KB / 100))
+
+                        Write-Debug "Creating PUT request"
+                        $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$AwsRequest.Uri)
+
+                        Write-Debug "Adding headers"
+                        foreach ($Key in $AwsRequest.Headers.Keys) {
+                            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+                            $null = $PutRequest.Headers.TryAddWithoutValidation($Key,$AwsRequest.Headers[$Key])
+                        }
+
+                        $StreamLength = $Stream.Length
+                        $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
+                        $StreamContent.Headers.ContentLength = $Stream.Length
+                        $PutRequest.Content = $StreamContent
+
+                        try {
+                            Write-Debug "Start upload"
+                            $Response = $HttpClient.SendAsync($PutRequest)
+
+                            Write-Debug "Report progress"
+                            while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
+                                sleep 0.5
+                                $WrittenBytes = $Stream.Position
+                                $PercentCompleted = [Math]::Floor($WrittenBytes / $InFile.Length * 10000) / 100
+                                $Duration = ((Get-Date) - $StartTime).TotalSeconds
+                                $Throughput = [Math]::Round($WrittenBytes / 1MB / $Duration,2)
+                                Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$([Math]::Round($WrittenBytes/1MB,2)) MiB written ($PercentCompleted% Complete) / $Throughput MiB/s" -PercentComplete $PercentCompleted
+                            }
+                            $WrittenBytes = $StreamLength
+
+                            $Etag = New-Object 'System.Collections.Generic.List[string]'
+                            [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
+                            $Etag = $Etag[0] -replace '"',''
+
+                            $CryptoStream.Dispose()
+                            $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
+
+                            if ($Response.Result.StatusCode -ne "OK") {
+                                throw $Response
+                            }
+                            elseif ($Etag -ne $MD5Sum) {
+                                throw "Etag $Etag does not match calculated MD5 sum $MD5Sum"
+                            }
+                            else {
+                                Write-Output ([PSCustomObject]@{ETag=$Etag})
+                            }
+                        }
+                        catch {
+                            throw $_
+                        }
+                        finally {
+                            Write-Verbose "Dispose used resources"
+                            if ($Response) { $Response.Dispose() }
+                            if ($PutRequest) { $PutRequest.Dispose() }
+                            if ($StreamContent) { $StreamContent.Dispose() }
+                            if ($Stream) { $Stream.Dispose() }
+                        }
+
+                        Write-Host "Uploading file $($InFile.Name) of size $($InFile.Length/1MB)MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+                    }
                 }
                 catch {
-                    $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
-                    if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
-                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                        if ($InFile) {
-                            Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+                    if ($_.Exception.Response) {
+                        $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                        if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                            Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                            if ($InFile) {
+                                Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+                            }
+                            else {
+                                Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Content $Content -Metadata $Metadata
+                            }
                         }
                         else {
-                            Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -Content $Content -Metadata $Metadata
+                            Throw
                         }
                     }
                     else {
