@@ -8101,7 +8101,7 @@ function Global:Write-S3Object {
             }
             else {
                 try {
-                    if ($Content) {
+                    if (!$InFile) {
                         $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
                     }
                     else {
