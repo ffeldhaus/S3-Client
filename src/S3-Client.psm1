@@ -7767,7 +7767,7 @@ function Global:Read-S3Object {
             $TimestampEnd = Get-Date
             $Duration = ($TimestampEnd - $TimestampBegin).TotalSeconds
             $Throughput = [Math]::Round($InFile.Length / 1MB / $Duration,2)
-            Write-Host "Downloading object $BucketName/$Key to file $($OutFile.Name) of size $($OutFile.Length/1MB)MiB completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+            Write-Host "Downloading object $BucketName/$Key to file $($OutFile.Name) of size $([Math]::Round($OutFile.Length/1MB),4)MiB completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
             Write-Output $Result.Content
         }
     }
@@ -8107,7 +8107,7 @@ function Global:Write-S3Object {
                     else {
                         $StartTime = Get-Date
 
-                        Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s" -PercentComplete 0
+                        Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
 
                         Write-Debug "Initializing Memory Mapped File"
                         $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile, [System.IO.FileMode]::Open)
@@ -8154,18 +8154,36 @@ function Global:Write-S3Object {
 
                         try {
                             Write-Debug "Start upload"
-                            $Response = $HttpClient.SendAsync($PutRequest)
+                            $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
+                            $CancellationToken = $CancellationTokenSource.Token
+                            $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
+                            $Response = $HttpClient.SendAsync($PutRequest, $CancellationToken)
 
                             Write-Debug "Report progress"
-                            while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
+                            while ($Stream.Position -ne $Stream.Length -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
                                 sleep 0.5
                                 $WrittenBytes = $Stream.Position
-                                $PercentCompleted = [Math]::Floor($WrittenBytes / $InFile.Length * 10000) / 100
+                                $PercentCompleted = $WrittenBytes / $InFile.Length * 100
                                 $Duration = ((Get-Date) - $StartTime).TotalSeconds
-                                $Throughput = [Math]::Round($WrittenBytes / 1MB / $Duration,2)
-                                Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$([Math]::Round($WrittenBytes/1MB,2)) MiB written ($PercentCompleted% Complete) / $Throughput MiB/s" -PercentComplete $PercentCompleted
+                                $Throughput = $WrittenBytes / 1MB / $Duration
+                                if ($Throughput -gt 0) {
+                                    $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds(($InFile.Length - $WrittenBytes) / 1MB / $Throughput)
+                                }
+                                else {
+                                    $EstimatedTimeToCompletion = 0
+                                }
+                                Write-Host $PercentCompleted
+                                $Activity = "Uploading file $($InFile.Name) to $BucketName/$Key"
+                                Write-Host $Activity
+                                $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes/1MB),$PercentCompleted,$Throughput,$EstimatedTimeToCompletion
+                                Write-Host $Status
+                                Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
                             }
                             $WrittenBytes = $StreamLength
+
+                            if ($Response.Exception) {
+                                throw $Response.Exception
+                            }
 
                             $Etag = New-Object 'System.Collections.Generic.List[string]'
                             [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
@@ -8195,7 +8213,7 @@ function Global:Write-S3Object {
                             if ($Stream) { $Stream.Dispose() }
                         }
 
-                        Write-Host "Uploading file $($InFile.Name) of size $($InFile.Length/1MB)MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+                        Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB),4)MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
                     }
                 }
                 catch {
@@ -9146,7 +9164,7 @@ function Global:Write-S3MultipartUpload {
 
             $PercentCompleted = 0
 
-            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s" -PercentComplete $PercentCompleted
+            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s /  / estimated time to completion: 0" -PercentComplete $PercentCompleted
 
             $StartTime = Get-Date
 
@@ -9171,10 +9189,19 @@ function Global:Write-S3MultipartUpload {
 
                 # report progress
                 $WrittenBytes = $PartUploadProgress.Clone().Values | Measure-Object -Sum | Select-Object -ExpandProperty Sum
-                $PercentCompleted = [Math]::Floor($WrittenBytes / $InFile.Length * 10000) / 100
+                $PercentCompleted = $WrittenBytes / $InFile.Length * 100
                 $Duration = ((Get-Date) - $StartTime).TotalSeconds
-                $Throughput = [Math]::Round($WrittenBytes / 1MB / $Duration,2)
-                Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "$([Math]::Round($WrittenBytes/1MB,2)) MiB written ($PercentCompleted% Complete) / $Throughput MiB/s" -PercentComplete $PercentCompleted
+                $Throughput = $WrittenBytes / 1MB / $Duration
+                if ($Throughput -gt 0) {
+                    $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds(($InFile.Length - $WrittenBytes) / 1MB / $Throughput)
+                }
+                else {
+                    $EstimatedTimeToCompletion = 0
+                }
+
+                $Activity = "Uploading file $($InFile.Name) to $BucketName/$Key"
+                $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes/1MB),$PercentCompleted,$Throughput,$EstimatedTimeToCompletion
+                Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
             }
         }
         catch {
@@ -9193,7 +9220,7 @@ function Global:Write-S3MultipartUpload {
         }
 
         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key completed" -Completed
-        Write-Host "Uploading file $($InFile.Name) of size $($InFile.Length/1MB)MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+        Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4))MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
         Write-Verbose "Completing multipart upload"
         $MultipartUpload | Complete-S3MultipartUpload  -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -Etags $Etags
         Write-Verbose "Completed multipart upload"
