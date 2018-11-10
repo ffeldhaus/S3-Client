@@ -2108,7 +2108,7 @@ function Global:Get-S3Buckets {
                 Write-Output $AwsRequest
             }
             else {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
                 $Content = [XML]$Result.Content
 
@@ -2302,7 +2302,7 @@ function Global:Test-S3Bucket {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                     Write-Output $true
                 }
                 catch {
@@ -2501,7 +2501,7 @@ function Global:New-S3Bucket {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
         }
     }
 }
@@ -2677,7 +2677,7 @@ function Global:Remove-S3Bucket {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -2831,7 +2831,7 @@ function Global:Get-S3BucketEncryption {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
@@ -3038,7 +3038,7 @@ function Global:Set-S3BucketEncryption {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
@@ -3215,7 +3215,7 @@ function Global:Remove-S3BucketEncryption {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -3388,7 +3388,7 @@ function Global:Get-S3BucketCorsConfiguration {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
@@ -3664,7 +3664,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -3996,7 +3996,7 @@ function Global:Remove-S3BucketCorsConfiguration {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -4172,7 +4172,7 @@ function Global:Get-S3BucketReplicationConfiguration {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -4541,7 +4541,7 @@ function Global:Add-S3BucketReplicationConfigurationRule {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -4873,7 +4873,7 @@ function Global:Remove-S3BucketReplicationConfiguration {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -5038,7 +5038,7 @@ function Global:Get-S3BucketPolicy {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             Write-Output $Result.Content
         }
@@ -5208,7 +5208,7 @@ function Global:Set-S3BucketPolicy {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Policy -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Policy -ErrorAction Stop
 
             Write-Output $Result.Content
         }
@@ -5361,7 +5361,7 @@ function Global:Remove-S3BucketPolicy {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Policy -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Policy -ErrorAction Stop
 
             Write-Output $Result.Content
         }
@@ -5517,7 +5517,7 @@ function Global:Get-S3BucketTagging {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
@@ -5714,7 +5714,7 @@ function Global:Set-S3BucketTagging {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
@@ -5894,7 +5894,7 @@ function Global:Remove-S3BucketTagging {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -6061,7 +6061,7 @@ function Global:Get-S3BucketVersioning {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -6243,7 +6243,7 @@ function Global:Enable-S3BucketVersioning {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -6425,7 +6425,7 @@ function Global:Suspend-S3BucketVersioning {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -6593,7 +6593,7 @@ function Global:Get-S3BucketLocation {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
             if (!$Result.Headers.'Content-Type') {
@@ -6812,7 +6812,7 @@ function Global:Get-S3MultipartUploads {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
                 $Content = [XML][System.Net.WebUtility]::UrlDecode($Result.Content)
 
@@ -7040,7 +7040,7 @@ function Global:Get-S3Objects {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
                 $Content = [XML][System.Net.WebUtility]::UrlDecode($Result.Content)
 
@@ -7238,7 +7238,7 @@ function Global:Get-S3ObjectVersions {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Content = [XML]$Result.Content
 
@@ -7560,7 +7560,7 @@ function Global:Get-S3ObjectMetadata {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Headers = $Result.Headers
             $Metadata = @{}
@@ -7741,7 +7741,7 @@ function Global:Read-S3Object {
             $DirectoryPath = [System.IO.DirectoryInfo]$Path
             if ($DirectoryPath.Exists) {
                 $Item = Get-Item $DirectoryPath
-                if ($Item -is [FileInfo]) {
+                if ($Item -is [System.IO.FileInfo]) {
                     $OutFile = $Item
                 }
                 else {
@@ -7759,17 +7759,122 @@ function Global:Read-S3Object {
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
-            Write-Output $AwsRequest
+            return $AwsRequest
+        }
+
+        Write-Verbose "Getting object metadata to determine file size and content type"
+        $ObjectMetadata = Get-S3ObjectMetadata -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -Bucket $BucketName -Key $Key $ -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Presign:$Presign -SignerType $SignerType
+        $Size = $ObjectMetadata.Metadata.'Content-Length'[0]
+        $ContentType = $ObjectMetadata.Metadata.'Content-Type'[0]
+
+        if (!$Path -and $ContentType -match "text|xml|json") {
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+            return $Result.Content
+        }
+        elseif (!$Path) {
+            throw "No path specified and object is not of content-type text XML or JSON"
+        }
+
+        $StartTime = Get-Date
+        Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
+
+        Write-Debug "Create new file of size $Size"
+        $FileStream = [System.IO.FileStream]::new($OutFile,[System.IO.FileMode]::OpenOrCreate,[System.IO.FileAccess]::Write,[System.IO.FileShare]::None)
+        $FileStream.setLength($Size)
+        $FileStream.Close()
+
+        Write-Debug "Initializing Memory Mapped File"
+        $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($OutFile, [System.IO.FileMode]::Open)
+
+        Write-Debug "Creating HTTP Client Handler"
+        if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+        elseif ($SkipCertificateCheck) {
+            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
+            $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
         }
         else {
-            $TimestampBegin = Get-Date
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -OutFile $OutFile -ErrorAction Stop
-            $TimestampEnd = Get-Date
-            $Duration = ($TimestampEnd - $TimestampBegin).TotalSeconds
-            $Throughput = [Math]::Round($InFile.Length / 1MB / $Duration,2)
-            Write-Host "Downloading object $BucketName/$Key to file $($OutFile.Name) of size $([Math]::Round($OutFile.Length/1MB),4)MiB completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
-            Write-Output $Result.Content
+            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
         }
+
+        Write-Debug "Creating HTTP Client"
+        $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
+
+        # if the file size is larger than the multipart threshold, then a multipart download should be done
+        #if ($Config.MultipartThreshold -and $Size -ge $Config.MultipartThreshold) {
+        #    Write-Verbose "Using multipart download as object is larger than multipart threshold of $($Config.MultipartThreshold)"
+        #    # TODO: Multipart Download
+        #}
+        #else {
+            Write-Debug "Creating Stream"
+            $Stream = $MemoryMappedFile.CreateViewStream()
+
+            Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)"
+            $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 1KB / 100,60))
+            Write-Debug "Timeout set to $($HttpClient.Timeout)"
+
+            Write-Debug "Creating GET request"
+            $GetRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get,$AwsRequest.Uri)
+
+            Write-Debug "Adding headers"
+            foreach ($HeaderKey in $AwsRequest.Headers.Keys) {
+                # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+                $null = $GetRequest.Headers.TryAddWithoutValidation($HeaderKey,$AwsRequest.Headers[$HeaderKey])
+            }
+
+            $StreamLength = $Stream.Length
+
+            try {
+                Write-Debug "Start download"
+                $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
+                $CancellationToken = $CancellationTokenSource.Token
+                $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
+                $CompletionOption = [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead
+                $Response = $HttpClient.SendAsync($GetRequest, $CompletionOption,  $CancellationToken)
+                $HttpStream = $Response.Result.Content.ReadAsStreamAsync()
+                $null = $HttpStream.Result.CopyToAsync($Stream)
+
+                Write-Debug "Report progress and check for cancellation requests"
+                while ($Stream.Position -ne $Stream.Length -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$HttpStream.Result.NeedsDrain) {
+                    sleep 0.5
+                    $WrittenBytes = $Stream.Position
+                    $PercentCompleted = $WrittenBytes / $Size * 100
+                    $Duration = ((Get-Date) - $StartTime).TotalSeconds
+                    $Throughput = $WrittenBytes / 1MB / $Duration
+                    if ($Throughput -gt 0) {
+                        $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds([Math]::Round(($Size - $WrittenBytes) / 1MB / $Throughput))
+                    }
+                    else {
+                        $EstimatedTimeToCompletion = 0
+                    }
+                    Write-Host $PercentCompleted
+                    $Activity = "Downloading file $($OutFile.Name) to $BucketName/$Key"
+                    Write-Host $Activity
+                    $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes/1MB),$PercentCompleted,$Throughput,$EstimatedTimeToCompletion
+                    Write-Host $Status
+                    Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
+                }
+                $WrittenBytes = $StreamLength
+
+                if ($Response.Exception) {
+                    throw $Response.Exception
+                }
+            }
+            catch {
+                throw $_
+            }
+            finally {
+                Write-Verbose "Dispose used resources"
+                if ($Response) { $Response.Dispose() }
+                if ($PutRequest) { $PutRequest.Dispose() }
+                if ($StreamContent) { $StreamContent.Dispose() }
+                if ($Stream) { $Stream.Dispose() }
+                if ($MemoryMappedFile) { $MemoryMappedFile.Dispose() }
+            }
+        #}
+
+        Write-Host "Downloading object $BucketName/$Key of size $([Math]::Round($Size/1MB,4))MiB to file $OutFile completed in $([Math]::Round($Duration,2)) seconds with average throughput of $([Math]::Round($Throughput,2)) MiB/s"
     }
 }
 
@@ -8102,7 +8207,7 @@ function Global:Write-S3Object {
             else {
                 try {
                     if (!$InFile) {
-                        $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
+                        $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
                     }
                     else {
                         $StartTime = Get-Date
@@ -8124,7 +8229,7 @@ function Global:Write-S3Object {
                             $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
                         }
 
-                        Write-Debug "Creating Streams"
+                        Write-Debug "Creating Stream"
                         $Stream = $MemoryMappedFile.CreateViewStream()
 
                         # using CryptoSteam to calculate the MD5 sum while uploading the file
@@ -8136,7 +8241,8 @@ function Global:Write-S3Object {
                         $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
                         Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)"
-                        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Ceiling($Stream.Length / 1KB / 100))
+                        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 1KB / 100,60))
+                        Write-Debug "Timeout set to $($HttpClient.Timeout)"
 
                         Write-Debug "Creating PUT request"
                         $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$AwsRequest.Uri)
@@ -8167,16 +8273,13 @@ function Global:Write-S3Object {
                                 $Duration = ((Get-Date) - $StartTime).TotalSeconds
                                 $Throughput = $WrittenBytes / 1MB / $Duration
                                 if ($Throughput -gt 0) {
-                                    $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds(($InFile.Length - $WrittenBytes) / 1MB / $Throughput)
+                                    $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds([Math]::Round(($InFile.Length - $WrittenBytes) / 1MB / $Throughput))
                                 }
                                 else {
                                     $EstimatedTimeToCompletion = 0
                                 }
-                                Write-Host $PercentCompleted
                                 $Activity = "Uploading file $($InFile.Name) to $BucketName/$Key"
-                                Write-Host $Activity
                                 $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes/1MB),$PercentCompleted,$Throughput,$EstimatedTimeToCompletion
-                                Write-Host $Status
                                 Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
                             }
                             $WrittenBytes = $StreamLength
@@ -8435,7 +8538,7 @@ function Global:Start-S3MultipartUpload {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
             $Xml = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             $Content = $Xml.InitiateMultipartUploadResult
             $InitiateMultipartUploadResult = [PSCustomObject]@{Bucket=$Content.Bucket;Key=$Content.Key;UploadId=$Content.UploadId}
@@ -8615,7 +8718,7 @@ function Global:Stop-S3MultipartUpload {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -8803,7 +8906,7 @@ function Global:Complete-S3MultipartUpload {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
 
             $Content = [XML][System.Net.WebUtility]::UrlDecode($Result.Content)
 
@@ -9085,7 +9188,8 @@ function Global:Write-S3MultipartUpload {
                     $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
                     # set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)
-                    $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Ceiling($Stream.Length / 1KB / 100))
+                    $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 1KB / 100,60))
+                    Write-Debug "Timeout set to $($HttpClient.Timeout)"
 
                     $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$Uri)
 
@@ -9193,7 +9297,7 @@ function Global:Write-S3MultipartUpload {
                 $Duration = ((Get-Date) - $StartTime).TotalSeconds
                 $Throughput = $WrittenBytes / 1MB / $Duration
                 if ($Throughput -gt 0) {
-                    $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds(($InFile.Length - $WrittenBytes) / 1MB / $Throughput)
+                    $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds([Math]::Round(($InFile.Length - $WrittenBytes) / 1MB / $Throughput))
                 }
                 else {
                     $EstimatedTimeToCompletion = 0
@@ -9576,7 +9680,7 @@ function Global:Get-S3ObjectParts {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
                 $Content = [XML][System.Net.WebUtility]::UrlDecode($Result.Content)
 
@@ -9763,7 +9867,7 @@ function Global:Remove-S3Object {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -10010,7 +10114,7 @@ function Global:Copy-S3Object {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -10173,7 +10277,7 @@ function Global:Get-S3ObjectTagging {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
                     if (!$Result.Headers.'Content-Type') {
@@ -10379,7 +10483,7 @@ function Global:Set-S3ObjectTagging {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -10553,7 +10657,7 @@ function Global:Remove-S3ObjectTagging {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -10688,7 +10792,7 @@ function Global:Get-S3BucketConsistency {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Content = [XML]$Result.Content
 
@@ -10827,7 +10931,7 @@ function Global:Update-S3BucketConsistency {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -10917,7 +11021,7 @@ function Global:Get-S3StorageUsage {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Content = [XML]$Result.Content
 
@@ -11047,7 +11151,7 @@ function Global:Get-S3BucketLastAccessTime {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Content = [XML]$Result.Content
 
@@ -11182,7 +11286,7 @@ function Global:Enable-S3BucketLastAccessTime {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -11311,7 +11415,7 @@ function Global:Disable-S3BucketLastAccessTime {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
