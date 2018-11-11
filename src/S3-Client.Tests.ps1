@@ -120,6 +120,7 @@ function Cleanup() {
         foreach ($i in 1..60) {
             sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region)) {
+                sleep 1
                 break
             }
         }
