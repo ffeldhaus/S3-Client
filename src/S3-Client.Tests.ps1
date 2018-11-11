@@ -305,7 +305,6 @@ Describe "Write-S3Object" {
     Context "Upload text" {
         It "Given -Content `"$Content`" it is succesfully created" {
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content
-            sleep 10
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
             $Key | Should -BeIn $Objects.Key
             $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
@@ -318,7 +317,6 @@ Describe "Write-S3Object" {
 
         It "Given -Content `"$Content`" it is succesfully created" {
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
-            sleep 10
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
             $UnicodeKey | Should -BeIn $Objects.Key
             $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
@@ -329,7 +327,6 @@ Describe "Write-S3Object" {
     Context "Upload small file" {
         It "Given file -InFile `"$SmallFile`" it is succesfully uploaded" {
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile
-            sleep 10
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
             $SmallFile.Name | Should -BeIn $Objects.Key
             $TempFile = New-TemporaryFile
