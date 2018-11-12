@@ -466,8 +466,6 @@ Describe "S3 Bucket Tagging" {
 }
 
 Describe "S3 Object Tagging" {
-    #if ($ProfileName -eq "webscaledemo") { continue }
-    #if ($ProfileName -eq "webscaledemonext") { continue }
     if ($ProfileName -eq "Minio") { continue }
 
     $Tags = @(@{Name="Key1";Value="Value1"},@{Name="Key2";Value="Value2"})
@@ -496,7 +494,6 @@ Describe "S3 Object Tagging" {
 }
 
 Describe "S3BucketCorsConfiguration" {
-    if ($ProfileName -eq "webscaledemo") { continue }
     if ($ProfileName -eq "Minio") { continue }
 
     $AllowedMethods = "GET","PUT","POST","DELETE"
@@ -563,6 +560,8 @@ Describe "S3BucketCorsConfiguration" {
 }
 
 Describe "S3 Bucket Replication Configuration" {
+    if ($ProfileName -eq "Minio") { continue }
+
     $DestinationBucketName = $BucketName + "-dst"
     $DestinationUnicodeBucketName = $UnicodeBucketName +  "-dst"
     $DestinationRegion = "us-east-2"
