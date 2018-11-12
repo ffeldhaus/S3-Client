@@ -7840,7 +7840,7 @@ function Global:Read-S3Object {
 
                 Write-Debug "Report progress and check for cancellation requests"
                 while ($Stream.Position -ne $Stream.Length -and !$Response.IsCanceled -and !$Response.IsFaulted -and $Duration -lt $HttpClient.Timeout.TotalSeconds ) {
-                    sleep 0.5
+                    Start-Sleep 500
                     $WrittenBytes = $Stream.Position
                     $PercentCompleted = $WrittenBytes / $Size * 100
                     $Duration = ((Get-Date) - $StartTime).TotalSeconds
@@ -8273,7 +8273,7 @@ function Global:Write-S3Object {
 
                             Write-Debug "Report progress"
                             while ($Stream.Position -ne $Stream.Length -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
-                                sleep 0.5
+                                Start-Sleep 500
                                 $WrittenBytes = $Stream.Position
                                 $PercentCompleted = $WrittenBytes / $InFile.Length * 100
                                 $Duration = ((Get-Date) - $StartTime).TotalSeconds
@@ -9210,7 +9210,7 @@ function Global:Write-S3MultipartUpload {
                         $Response = $HttpClient.SendAsync($PutRequest, $CancellationToken)
 
                         while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
-                            sleep 0.5
+                            Start-Sleep 500
                             $PartUploadProgress.$PartNumber = $Stream.Position
                         }
                         $PartUploadProgress.$PartNumber = $StreamLength
@@ -9279,7 +9279,7 @@ function Global:Write-S3MultipartUpload {
             $StartTime = Get-Date
 
             while ($Jobs.Status -ne $null) {
-                sleep 1
+                Start-Sleep 500
                 $CompletedJobs = $Jobs | Where-Object { $_.Status.IsCompleted -eq $true }
                 foreach ($Job in $CompletedJobs) {
                     $Output = $Job.Pipe.EndInvoke($Job.Status)
