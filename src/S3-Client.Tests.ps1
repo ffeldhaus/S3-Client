@@ -507,7 +507,7 @@ Describe "S3BucketCorsConfiguration" {
 
     Setup -BucketName $BucketName
     Setup -BucketName $UnicodeBucketName
-    sleep 5
+    sleep 10
 
     Context "Set Bucket CORS Configuration" {
         It "Given -BucketName $BucketName -Id $BucketName -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins -AllowedHeaders $AllowedHeaders -MaxAgeSeconds $MaxAgeSeconds -ExposeHeaders $ExposeHeaders a CORS Configuration rule is added" {
