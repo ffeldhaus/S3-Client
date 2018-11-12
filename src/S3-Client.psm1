@@ -7838,12 +7838,8 @@ function Global:Read-S3Object {
                 $HttpStream = $Response.Result.Content.ReadAsStreamAsync()
                 $null = $HttpStream.Result.CopyToAsync($Stream)
 
-                Write-Host $(ConvertTo-Json $HttpStream)
-
                 Write-Debug "Report progress and check for cancellation requests"
                 while ($Stream.Position -ne $Stream.Length -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$HttpStream.IsCompleted) {
-                    Write-Host $(ConvertTo-Json $HttpStream)
-                    Write-Host $(ConvertTo-Json $HttpStream.Result)
                     sleep 0.5
                     $WrittenBytes = $Stream.Position
                     $PercentCompleted = $WrittenBytes / $Size * 100
@@ -8263,6 +8259,9 @@ function Global:Write-S3Object {
                         $StreamLength = $Stream.Length
                         $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
                         $StreamContent.Headers.ContentLength = $Stream.Length
+                        if ($ContentType) {
+                            $StreamContent.Headers.ContentType = $ContentType
+                        }
                         $PutRequest.Content = $StreamContent
 
                         try {
@@ -8323,7 +8322,7 @@ function Global:Write-S3Object {
                             if ($Stream) { $Stream.Dispose() }
                         }
 
-                        Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB),4)MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+                        Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4))MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
                     }
                 }
                 catch {
