@@ -586,7 +586,7 @@ Describe "S3 Bucket Replication Configuration" {
     Context "Set Bucket Replication Configuration" {
         It "Given -BucketName $BucketName -Id $BucketName -DestinationBucketUrn arn:aws:s3:::$DestinationBucketName -Role $Role a replication rule should be added" {
             Add-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $BucketName -DestinationBucketUrn "arn:aws:s3:::$DestinationBucketName" -Role $Role
-            sleep 15
+            sleep 30
             $BucketReplication = Get-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $BucketName
             $BucketReplication.BucketName | Should -Be $BucketName
             $BucketReplication.Role | Should -Be $Role
@@ -594,7 +594,7 @@ Describe "S3 Bucket Replication Configuration" {
             $BucketReplication.Status | Should -Be "Enabled"
             $BucketReplication.DestinationBucketName | Should -Be $DestinationBucketName
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-            sleep 5
+            sleep 10
             $DestinationObjects = Get-S3Objects -ProfileName "AWS" -BucketName $DestinationBucketName -Region $DestinationRegion
             $DestinationObjects.Key | Should -Be $Key
         }
@@ -618,7 +618,7 @@ Describe "S3 Bucket Replication Configuration" {
     Context "Set Bucket Replication Configuration for bucket with unicode characters" {
         It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketName arn:aws:s3:::$DestinationUnicodeBucketName -Role $Role a replication rule should be added" {
             Add-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketUrn "arn:aws:s3:::$DestinationUnicodeBucketName" -Role $Role
-            sleep 15
+            sleep 30
             $BucketReplication = Get-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $BucketReplication.BucketName | Should -Be $UnicodeBucketName
             $BucketReplication.Role | Should -Be $Role
@@ -626,7 +626,7 @@ Describe "S3 Bucket Replication Configuration" {
             $BucketReplication.Status | Should -Be "Enabled"
             $BucketReplication.DestinationBucketName | Should -Be $DestinationUnicodeBucketName
             Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
-            sleep 5
+            sleep 10
             $DestinationObjects = Get-S3Objects -ProfileName "AWS" -BucketName $DestinationUnicodeBucketName -Region $DestinationRegion
             $DestinationObjects.Key | Should -Be $Key
         }
