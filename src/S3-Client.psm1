@@ -1216,7 +1216,7 @@ function Global:Add-AwsConfig {
             $Config = [PSCustomObject]@{ ProfileName = $ProfileName;s3 = [PSCustomObject]@{} }
         }
 
-        if ($Region -and $Region -ne "us-east-1") {
+        if ($Region -and ($Config.Region -ne "us-east-1" -or $Region -ne "us-east-1")) {
             $Config | Add-Member -MemberType NoteProperty -Name region -Value $Region -Force
         }
 
@@ -7839,7 +7839,7 @@ function Global:Read-S3Object {
                 $null = $HttpStream.Result.CopyToAsync($Stream)
 
                 Write-Debug "Report progress and check for cancellation requests"
-                while ($Stream.Position -ne $Stream.Length -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$HttpStream.IsCompleted) {
+                while ($Stream.Position -ne $Stream.Length -and !$Response.IsCanceled -and !$Response.IsFaulted -and $Duration -lt $HttpClient.Timeout.TotalSeconds ) {
                     sleep 0.5
                     $WrittenBytes = $Stream.Position
                     $PercentCompleted = $WrittenBytes / $Size * 100
