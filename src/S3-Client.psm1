@@ -2171,12 +2171,12 @@ function Global:Get-S3Buckets {
     S3 Secret Access Key
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
+    .PARAMETER Region
+    Bucket Region
     .PARAMETER UrlStyle
     URL Style (Default: Auto)
     .PARAMETER UseDualstackEndpoint
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
-    .PARAMETER Region
-    Bucket Region
     .PARAMETER BucketName
     Bucket Name
     .PARAMETER CheckAllRegions
@@ -2247,18 +2247,22 @@ function Global:Test-S3Bucket {
                 Position=9,
                 HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=10,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+        [parameter(
+                Mandatory=$True,
+                Position=11,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
                 Mandatory=$False,
-                Position=11,
+                Position=12,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Check all regions - by default only the specified region (or us-east-1 if no region is specified) will be checked.")][Switch]$CheckAllRegions,
         [parameter(
                 Mandatory=$False,
-                Position=12,
+                Position=13,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Force check of specified bucketname and do not convert it to IDN compatible string")][Switch]$Force
     )
@@ -2666,9 +2670,16 @@ function Global:Remove-S3Bucket {
         }
 
         if ($Force -or $DeleteBucketContent) {
-            $BucketVersioningEnabled = Get-S3BucketVersioning -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck
-            if ($BucketVersioningEnabled) {
-                Get-S3ObjectVersions -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck | Remove-S3Object -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck
+            try {
+                $BucketVersioningEnabled = Get-S3BucketVersioning -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck
+                if ($BucketVersioningEnabled) {
+                    Get-S3ObjectVersions -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck | Remove-S3Object -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck
+                }
+            }
+            catch {
+                if ($_.Exception.Response.StatusCode -ne "NotImplemented") {
+                    throw $_
+                }
             }
             Write-Verbose "Force parameter specified, removing all objects in the bucket before removing the bucket"
             Get-S3Objects -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck | Remove-S3Object -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck
