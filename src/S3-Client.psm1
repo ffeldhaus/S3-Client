@@ -15,6 +15,9 @@ if ($PSVersionTable.PSVersion.Major -lt 6) {
         }
 "@
 
+    # ensure that HTTP Assembly is loaded
+    Add-Type -AssemblyName System.Net.Http
+
     # StorageGRID and AWS S3 support TLS 1.2 and PowerShell does not auto negotiate it, thus enforcing TLS 1.2
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
