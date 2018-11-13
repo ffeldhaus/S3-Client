@@ -9,7 +9,7 @@ $WarningPreference="SilentlyContinue"
 
 $BucketName = (Get-Date -Format "yyyy-MM-dd-HHmmss") + "-Bucket"
 $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BucketName"
-$Key = "Key"
+$Key = "Testing «ταБЬℓσ» 1<2  41>3 now 20% off"
 $UnicodeKey = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Key"
 $Content = "Hello World!"
 $CustomMetadata = @{"MetadataKey"="MetadataValue"}
