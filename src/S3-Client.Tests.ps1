@@ -9,8 +9,8 @@ $WarningPreference="SilentlyContinue"
 
 $BucketName = (Get-Date -Format "yyyy-MM-dd-HHmmss") + "-Bucket"
 $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BucketName"
-$Key = "Testing «ταБЬℓσ» 1<2  41>3 now 20% off"
-$UnicodeKey = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$Key"
+$Key = "Key"
+$UnicodeKey = [System.Web.HttpUtility]::UrlDecode("%u842c%u570b%u78bc+Testing+%u00ab%u03c4%u03b1%u0411%u042c%u2113%u03c3%u00bb+1%3c2++41%3e3+now+20%25+off")
 $Content = "Hello World!"
 $CustomMetadata = @{"MetadataKey"="MetadataValue"}
 
