@@ -318,7 +318,7 @@ Describe "Write-S3Object" {
 
         It "Given -Content `"$Content`" it is succesfully created" {
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
             $UnicodeKey | Should -BeIn $Objects.Key
             $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
             $ObjectContent | Should -Be $Content

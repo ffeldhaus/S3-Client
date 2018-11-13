@@ -7871,11 +7871,8 @@ function Global:Read-S3Object {
                     else {
                         $EstimatedTimeToCompletion = 0
                     }
-                    Write-Host $PercentCompleted
                     $Activity = "Downloading file $($OutFile.Name) to $BucketName/$Key"
-                    Write-Host $Activity
                     $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes/1MB),$PercentCompleted,$Throughput,$EstimatedTimeToCompletion
-                    Write-Host $Status
                     Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
                 }
                 $WrittenBytes = $StreamLength
