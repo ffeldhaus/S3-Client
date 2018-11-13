@@ -593,7 +593,7 @@ Describe "S3 Bucket Replication Configuration" {
             $BucketReplication.Status | Should -Be "Enabled"
             $BucketReplication.DestinationBucketName | Should -Be $DestinationBucketName
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-            sleep 10
+            sleep 30
             $DestinationObjects = Get-S3Objects -ProfileName "AWS" -BucketName $DestinationBucketName -Region $DestinationRegion
             $DestinationObjects.Key | Should -Be $Key
         }
