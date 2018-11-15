@@ -1785,82 +1785,82 @@ function Global:New-AwsPolicy {
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "PrincipalResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "PrincipalResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "PrincipalNotResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "PrincipalNotResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]$Principal = "*",
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]$Principal = "*",
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "NotPrincipalResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "NotPrincipalResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "NotPrincipalNotResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "NotPrincipalNotResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject]$NotPrincipal,
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]$NotPrincipal,
         [parameter(
                 Mandatory = $False,
                 Position = 4,
                 ParameterSetName = "PrincipalResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
                 Mandatory = $False,
                 Position = 4,
                 ParameterSetName = "PrincipalResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
                 Mandatory = $False,
                 Position = 4,
                 ParameterSetName = "NotPrincipalResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
                 Mandatory = $False,
                 Position = 4,
                 ParameterSetName = "NotPrincipalResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]$Resource = "arn:aws:s3:::*",
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]$Resource = "arn:aws:s3:::*",
         [parameter(
                 Mandatory = $False,
                 Position = 4,
                 ParameterSetName = "PrincipalNotResourceAction",
-                HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]
+                HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
                 Mandatory = $False,
                 Position = 4,
                 ParameterSetName = "PrincipalNotResourceNotAction",
-                HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]
+                HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
                 Mandatory = $False,
                 Position = 4,
                 ParameterSetName = "NotPrincipalNotResourceAction",
-                HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]
+                HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
                 Mandatory = $False,
                 Position = 4,
                 ParameterSetName = "NotPrincipalNotResourceNotAction",
-                HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder]$NotResource,
+                HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]$NotResource,
         [parameter(
                 Mandatory = $False,
                 Position = 5,
@@ -1916,18 +1916,6 @@ function Global:New-AwsPolicy {
     )
 
     Process {
-        if ($FullAccess.IsPresent) {
-            $Effect = "Allow"
-            $Resource = "arn:aws:s3:::*"
-            $Action = "s3:*"
-        }
-
-        if ($ReadOnlyAccess.IsPresent) {
-            $Effect = "Allow"
-            $Resource = "arn:aws:s3:::*"
-            $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
-        }
-
         # see https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html for details on Policies
 
         if ($CurrentSgwServer -and ($Resource -match "arn:aws" -or $NotResource  -match "arn:aws")) {
@@ -1938,6 +1926,22 @@ function Global:New-AwsPolicy {
             }
             else {
                 Write-Warning ($NotResource.ToString() -replace "arn:aws:","urn:sgws:")
+            }
+        }
+
+        if ($FullAccess.IsPresent) {
+            $Effect = "Allow"
+            $Action = "s3:*"
+        }
+
+        if ($ReadOnlyAccess.IsPresent) {
+            $Effect = "Allow"
+            # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
+            if ($Resource -match "aws") {
+                $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
+            }
+            else {
+                $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketVersioning", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging", "s3:GetReplicationConfiguration")
             }
         }
 
@@ -1954,16 +1958,27 @@ function Global:New-AwsPolicy {
             $Statement | Add-Member -MemberType NoteProperty -Name Sid -Value $Sid
         }
         if ($Principal) {
-            $Statement | Add-Member -MemberType NoteProperty -Name Principal -Value $Principal
+            # if only one principal is specified, an array is not allowed in the policy
+            if ($Principal.Length -eq 1) {
+                $Statement | Add-Member -MemberType NoteProperty -Name Principal -Value $Principal[0]
+            }
+            else {
+                $Statement | Add-Member -MemberType NoteProperty -Name Principal -Value $Principal
+            }
         }
         if ($NotPrincipal) {
-            $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value $NotPrincipal
+            if ($NotPrincipal) {
+                $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value $NotPrincipal[0]
+            }
+            else {
+                $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value $NotPrincipal
+            }
         }
         if ($Resource) {
-            $Statement | Add-Member -MemberType NoteProperty -Name Resource -Value $Resource.Uri.ToString()
+            $Statement | Add-Member -MemberType NoteProperty -Name Resource -Value $Resource.Uri.AbsoluteUri
         }
         if ($NotResource) {
-            $Statement | Add-Member -MemberType NoteProperty -Name NotResource -Value $NotResource.Uri.ToString()
+            $Statement | Add-Member -MemberType NoteProperty -Name NotResource -Value $NotResource.Uri.AbsoluteUri
         }
         if ($Action) {
             $Statement | Add-Member -MemberType NoteProperty -Name Action -Value $Action
@@ -2364,6 +2379,10 @@ function Global:Test-S3Bucket {
     If set, applies an ACL making the bucket public with read-only permissions
     .PARAMETER PublicReadWrite
     If set, applies an ACL making the bucket public with read-write permissions
+    .PARAMETER PublicReadOnlyPolicy
+    If set, applies a Bucket Policy making the bucket public with read-only permissions
+    .PARAMETER PublicReadWritePolicy
+    If set, applies a Bucket Policy making the bucket public with read-write permissions
     .PARAMETER Region
     Bucket Region
     .PARAMETER UseDualstackEndpoint
@@ -2450,18 +2469,26 @@ function Global:New-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=13,
-                HelpMessage="Bucket Region")][Alias("Location","LocationConstraint")][String]$Region,
+                HelpMessage="If set, applies a Bucket Policy making the bucket public with read-only permissions")][Switch]$PublicReadOnlyPolicy,
         [parameter(
                 Mandatory=$False,
                 Position=14,
-                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+                HelpMessage="If set, applies a Bucket Policy making the bucket public with read-write permissions")][Switch]$PublicReadWritePolicy,
         [parameter(
                 Mandatory=$False,
                 Position=15,
-                HelpMessage="Parameter is only used for compatibility with AWS Cmdlets and will be ignored")][Switch]$Force,
+                HelpMessage="Bucket Region")][Alias("Location","LocationConstraint")][String]$Region,
         [parameter(
                 Mandatory=$False,
                 Position=16,
+                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+        [parameter(
+                Mandatory=$False,
+                Position=17,
+                HelpMessage="Parameter is only used for compatibility with AWS Cmdlets and will be ignored")][Switch]$Force,
+        [parameter(
+                Mandatory=$False,
+                Position=18,
                 HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
 
     )
@@ -2487,7 +2514,7 @@ function Global:New-S3Bucket {
             $Region = $Config.Region
         }
 
-        # TODO: Implement CannedAcl, PublicReadOnly and PublicReadWrite
+        # TODO: Implement CannedAcl, PublicReadOnly, PublicReadWrite, PublicReadOnlyPolicy and PublicReadWritePolicy
 
         # AWS does not allow to set LocationConstraint for default region us-east-1
         if ($Region -and $Region -ne "us-east-1") {
@@ -4906,9 +4933,9 @@ function Global:Remove-S3BucketReplicationConfiguration {
 
 <#
     .SYNOPSIS
-    Get S3 Bucket ACL
+    Get S3 Bucket Policy
     .DESCRIPTION
-    Get S3 Bucket ACL
+    Get S3 Bucket Policy
     .PARAMETER Server
     StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
     .PARAMETER SkipCertificateCheck
@@ -5052,9 +5079,36 @@ function Global:Get-S3BucketPolicy {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            try {
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            }
+            catch {
+                if ($PSVersionTable.PSVersion.Major -lt 6) {
+                    if ($_.Exception.Response) {
+                        $Reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+                        $Reader.BaseStream.Position = 0
+                        $Reader.DiscardBufferedData()
+                        $ResponseBody = $Reader.ReadToEnd()
+                        if ($ResponseBody.StartsWith('{')) {
+                            $ResponseBody = $ResponseBody | ConvertFrom-Json | ConvertTo-Json
+                        }
+                    }
+                }
+                else {
+                    $ResponseBody = $_.ErrorDetails.Message
+                }
+                if ($ResponseBody -match "NoSuchBucketPolicy") {
+                    Write-Output ""
+                }
+                else {
+                    throw $_
+                }
+            }
 
-            Write-Output $Result.Content
+            # pretty print JSON
+            $Policy = ConvertFrom-Json -InputObject $Result.Content | ConvertTo-Json -Depth 10
+
+            Write-Output $Policy
         }
     }
 }
@@ -5063,9 +5117,9 @@ Set-Alias -Name Add-S3BucketPolicy -Value Set-S3BucketPolicy
 Set-Alias -Name Write-S3BucketPolicy -Value Set-S3BucketPolicy
 <#
     .SYNOPSIS
-    Replace S3 Bucket ACL
+    Replace S3 Bucket Policy
     .DESCRIPTION
-    Replace S3 Bucket ACL
+    Replace S3 Bucket Policy
     .PARAMETER SkipCertificateCheck
     Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
     .PARAMETER Presign
@@ -5096,6 +5150,10 @@ Set-Alias -Name Write-S3BucketPolicy -Value Set-S3BucketPolicy
     Bucket Name
     .PARAMETER Policy
     The bucket policy as a JSON document
+    .PARAMETER PublicReadOnlyPolicy
+    If set, applies a Bucket Policy making the bucket public with read-only permissions
+    .PARAMETER PublicReadWritePolicy
+    If set, applies a Bucket Policy making the bucket public with read-write permissions
 #>
 function Global:Set-S3BucketPolicy {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -5167,15 +5225,23 @@ function Global:Set-S3BucketPolicy {
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The bucket policy as a JSON document")][String]$Policy,
+                HelpMessage="The bucket policy as a JSON document")][String]$Policy="",
         [parameter(
                 Mandatory=$False,
                 Position=12,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled,
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                HelpMessage="If set, applies an ACL making the bucket public with read-only permissions")][Switch]$PublicReadOnlyPolicy,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                HelpMessage="If set, applies an ACL making the bucket public with read-write permissions")][Switch]$PublicReadWritePolicy
     )
 
     Begin {
@@ -5213,6 +5279,22 @@ function Global:Set-S3BucketPolicy {
 
         $Query = @{policy=""}
 
+        if ($Config.EndpointUrl -match "amazonaws.com" -or !$Config.EndpointUrl) {
+            $Resource = @("arn:aws:s3:::$BucketName","arn:aws:s3:::$BucketName/*")
+        }
+        else {
+            $Resource =@("urn:sgws:s3:::$BucketName","urn:sgws:s3:::$BucketName/*")
+        }
+
+        Write-Host $Resource
+
+        if (!$Policy -and $PublicReadOnlyPolicy.IsPresent) {
+            $Policy = New-AwsPolicy -Resource $Resource -ReadOnlyAccess
+        }
+        if (!$Policy -and $PublicReadOnlyPolicy.IsPresent) {
+            $Policy = New-AwsPolicy -Resource $Resource
+        }
+
         # pretty print JSON to simplify debugging
         $Policy = ConvertFrom-Json -InputObject $Policy | ConvertTo-Json -Depth 10
 
@@ -5231,9 +5313,9 @@ function Global:Set-S3BucketPolicy {
 
 <#
     .SYNOPSIS
-    Remove S3 Bucket ACL
+    Remove S3 Bucket Policy
     .DESCRIPTION
-    Remove S3 Bucket ACL
+    Remove S3 Bucket Policy
     .PARAMETER SkipCertificateCheck
     Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
     .PARAMETER Presign
