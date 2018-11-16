@@ -1911,8 +1911,16 @@ function Global:New-AwsPolicy {
                 HelpMessage = "Grant full access.")][Switch]$FullAccess,
         [parameter(
                 Mandatory = $False,
-                Position = 7,
-                HelpMessage = "Grant full access.")][Switch]$ReadOnlyAccess
+                Position = 8,
+                HelpMessage = "Grant full access.")][Switch]$ReadOnlyAccess,
+        [parameter(
+                Mandatory = $False,
+                Position = 9,
+                HelpMessage = "Explicitly deny write operations.")][Switch]$DenyWriteDeleteAndPolicyChanges,
+        [parameter(
+                Mandatory = $False,
+                Position = 10,
+                HelpMessage = "Explicitly deny write operations.")][Alias("WormAccess")][Switch]$WriteOnceReadManyAccess
     )
 
     Process {
@@ -1934,17 +1942,6 @@ function Global:New-AwsPolicy {
             $Action = "s3:*"
         }
 
-        if ($ReadOnlyAccess.IsPresent) {
-            $Effect = "Allow"
-            # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
-            if ($Resource -match "aws") {
-                $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
-            }
-            else {
-                $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketVersioning", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging", "s3:GetReplicationConfiguration")
-            }
-        }
-
         if (!$PolicyString) {
             $Policy = [PSCustomObject]@{ Version = "2012-10-17"; Statement = @() }
         }
@@ -1958,20 +1955,32 @@ function Global:New-AwsPolicy {
             $Statement | Add-Member -MemberType NoteProperty -Name Sid -Value $Sid
         }
         if ($Principal) {
-            # if only one principal is specified, an array is not allowed in the policy
-            if ($Principal.Length -eq 1) {
+            # if everyone should be authorized (*) an array is not allowed in the policy
+            if ($Principal -eq "*") {
                 $Statement | Add-Member -MemberType NoteProperty -Name Principal -Value $Principal[0]
             }
             else {
-                $Statement | Add-Member -MemberType NoteProperty -Name Principal -Value $Principal
+                $Statement | Add-Member -MemberType NoteProperty -Name Principal -Value ([PSCustomObject]@{})
+                if ($Principal -match "aws") {
+                    $Statement.Principal | Add-Member -MemberType NoteProperty -Name AWS -Value $Principal
+                }
+                else {
+                    $Statement.Principal | Add-Member -MemberType NoteProperty -Name SGWS -Value $Principal
+                }
             }
         }
         if ($NotPrincipal) {
-            if ($NotPrincipal) {
+            if ($NotPrincipal -eq "*") {
                 $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value $NotPrincipal[0]
             }
             else {
-                $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value $NotPrincipal
+                $Type = $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value ([PSCustomObject]@{})
+                if ($Principal -match "aws") {
+                    $Statement.NotPrincipal | Add-Member -MemberType NoteProperty -Name AWS -Value $NotPrincipal
+                }
+                else {
+                    $Statement.NotPrincipal | Add-Member -MemberType NoteProperty -Name SGWS -Value $NotPrincipal
+                }
             }
         }
         if ($Resource) {
@@ -1988,6 +1997,42 @@ function Global:New-AwsPolicy {
         }
         if ($Condition) {
             $Statement | Add-Member -MemberType NoteProperty -Name Condition -Value $Condition
+        }
+
+        if ($ReadOnlyAccess.IsPresent) {
+            $Effect = "Allow"
+            # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
+            if ($Resource -match "aws") {
+                $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
+            }
+            else {
+                $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketVersioning", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging", "s3:GetReplicationConfiguration")
+            }
+        }
+
+        if ($DenyWriteDeleteAndPolicyChanges.IsPresent) {
+            $Effect = "Deny"
+            # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
+            if ($Resource -match "aws") {
+                $Action = @("s3:AbortMultipartUpload","s3:DeleteObject","s3:DeleteObjectTagging","s3:DeleteObjectVersion","s3:DeleteObjectVersionTagging","s3:PutObject","s3:PutObjectAcl","s3:PutObjectTagging","s3:PutObjectVersionAcl","s3:PutObjectVersionTagging","s3:RestoreObject","s3:CreateBucket","s3:DeleteBucket","s3:DeleteBucketPolicy","s3:DeleteBucketWebsite","s3:PutAccelerateConfiguration","s3:PutAnalyticsConfiguration","s3:PutBucketAcl","s3:PutBucketCORS","s3:PutBucketLogging","s3:PutBucketNotification","s3:PutBucketPolicy","s3:PutBucketRequestPayment","s3:PutBucketTagging","s3:PutBucketVersioning","s3:PutBucketWebsite","s3:PutEncryptionConfiguration","s3:PutInventoryConfiguration","s3:PutLifecycleConfiguration","s3:PutMetricsConfiguration","s3:PutReplicationConfiguration")
+            }
+            else {
+                $Action = @("s3:AbortMultipartUpload","s3:DeleteObject","s3:DeleteObjectTagging","s3:DeleteObjectVersion","s3:DeleteObjectVersionTagging","s3:PutObject","s3:PutObjectTagging","s3:PutObjectVersionTagging","s3:CreateBucket","s3:DeleteBucket","s3:DeleteBucketPolicy","s3:PutBucketCORS","s3:PutBucketLogging","s3:PutBucketNotification","s3:PutBucketPolicy","s3:PutBucketTagging","s3:PutBucketVersioning","s3:PutReplicationConfiguration")
+            }
+        }
+
+        if ($WriteOnceReadManyAccess) {
+            $Statement.Effect = "Allow"
+            $Statement.Action = "s3:*"
+            $Policy.Statement += $Statement.PSObject.Copy()
+            $Statement.Effect = "Deny"
+            # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
+            if ($Resource -match "aws") {
+                throw "not supported by AWS"
+            }
+            else {
+                $Statement.Action = @("s3:PutOverwriteObject","s3:DeleteObject","s3:DeleteObjectVersion","s3:PutBucketPolicy","s3:DeleteBucketPolicy")
+            }
         }
 
         $Policy.Statement += $Statement
@@ -5106,9 +5151,10 @@ function Global:Get-S3BucketPolicy {
             }
 
             # pretty print JSON
-            $Policy = ConvertFrom-Json -InputObject $Result.Content | ConvertTo-Json -Depth 10
-
-            Write-Output $Policy
+            if ($Result.Content) {
+                $Policy = ConvertFrom-Json -InputObject $Result.Content | ConvertTo-Json -Depth 10
+                Write-Output $Policy
+            }
         }
     }
 }
@@ -5285,8 +5331,6 @@ function Global:Set-S3BucketPolicy {
         else {
             $Resource =@("urn:sgws:s3:::$BucketName","urn:sgws:s3:::$BucketName/*")
         }
-
-        Write-Host $Resource
 
         if (!$Policy -and $PublicReadOnlyPolicy.IsPresent) {
             $Policy = New-AwsPolicy -Resource $Resource -ReadOnlyAccess
