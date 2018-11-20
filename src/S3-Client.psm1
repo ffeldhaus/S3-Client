@@ -7714,13 +7714,12 @@ function Global:Get-S3ObjectMetadata {
             $Headers = $Result.Headers
             $Metadata = @{}
             $CustomMetadata = @{}
-            foreach ($MetadataKey in $Headers.Keys) {
-                $Value = $Headers[$MetadataKey]
-                if ($MetadataKey -match "x-amz-meta-") {
-                    $MetadataKey = $MetadataKey -replace "x-amz-meta-",""
-                    $CustomMetadata[$MetadataKey] = $Value
+            foreach ($HeaderKey in $Headers.Keys) {
+                $Value = $Headers[$HeaderKey]
+                if ($HeaderKey -match "x-amz-meta-") {
+                    $HeaderKey = $HeaderKey -replace "x-amz-meta-",""
+                    $Metadata[$HeaderKey] = $Value -join ","
                 }
-                $Metadata[$MetadataKey] = $Value
             }
 
             # TODO: Implement missing Metadata
@@ -7728,8 +7727,11 @@ function Global:Get-S3ObjectMetadata {
             $PartCount = ($Headers["ETag"] -split "-")[1]
 
             $Output = [PSCustomObject]@{Headers=$Headers;
+                BucketName=$BucketName;
+                Region=$Region;
+                Key=$Key;
                 Metadata=$Metadata;
-                CustomMetadata=$CustomMetadata;
+                Size=$Headers.'Content-Length';
                 DeleteMarker=$null;
                 AcceptRanges=$Headers.'Accept-Ranges' | Select-Object -First 1;
                 Expiration=$Headers["x-amz-expiration"] | Select-Object -First 1;
@@ -10103,15 +10105,15 @@ function Global:Copy-S3Object {
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Object key")][Alias("Object")][String]$Key,
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=12,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Source Bucket")][String]$SourceBucket,
+                HelpMessage="Source Bucket (if not specified will be same as destination)")][Alias("SourceBucket")][String]$SourceBucketName,
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=13,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Source object key")][String]$SourceKey,
+                HelpMessage="Source object key (if not specified will be same as destination)")][String]$SourceKey,
         [parameter(
                 Mandatory=$False,
                 Position=14,
@@ -10201,6 +10203,13 @@ function Global:Copy-S3Object {
         }
         else {
             $BucketName = $PunycodeBucketName
+        }
+
+        if (!$SourceBucket) {
+            $SourceBucket = $BucketName
+        }
+        if (!$SourceKey) {
+            $SourceKey = $Key
         }
 
         # Convert Source Bucket Name to IDN mapping to support Unicode Names
@@ -11567,5 +11576,136 @@ function Global:Disable-S3BucketLastAccessTime {
         else {
             $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
         }
+    }
+}
+
+<#
+    .SYNOPSIS
+    Trigger bucket mirroring
+    .DESCRIPTION
+    Trigger bucket mirroring - requires Bucket replication to already be set up
+#>
+function Global:Invoke-S3BucketMirroring {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$False,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+    }
+
+    Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        }
+
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        # Convert Bucket Name to IDN mapping to support Unicode Names
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
+            if ($BucketNameExists) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+            }
+            else {
+                $BucketName = $PunycodeBucketName
+            }
+        }
+        else {
+            $BucketName = $PunycodeBucketName
+        }
+
+        $BucketReplication = Get-S3BucketReplication -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck -BucketName $BucketName
+
+        if (!$BucketReplication) {
+            Write-Host "No bucket replication configured for bucket $BucketName"
+            $BucketReplicationChoice = $Host.UI.PromptForChoice("Continue without bucket replication",
+                        "Continue even though no bucket replication is configured?",
+                        @("&Yes", "&No"),
+                        1)
+                if ($BucketReplicationChoice -eq 1) {
+                    break
+                }
+        }
+
+        Get-S3Objects -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck -BucketName $BucketName | Get-S3ObjectMetadata -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck | Copy-S3Object -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck -MetadataDirective REPLACE
     }
 }
