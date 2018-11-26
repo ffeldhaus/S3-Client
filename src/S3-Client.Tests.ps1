@@ -12,7 +12,7 @@ $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9c
 $Key = "Key"
 $UnicodeKey = [System.Web.HttpUtility]::UrlDecode("%u842c%u570b%u78bc+Testing+%u00ab%u03c4%u03b1%u0411%u042c%u2113%u03c3%u00bb+1%3c2++41%3e3+now+20%25+off")
 $Content = "Hello World!"
-$CustomMetadata = @{"MetadataKey"="MetadataValue"}
+$Metadata = @{"MetadataKey"="MetadataValue"}
 
 if (!$ProfileName) {
     Write-Warning "No Profilename specified for this test, falling back to default"
@@ -385,12 +385,12 @@ Describe "Copy-S3Object" {
 
     Context "Copy object" {
         It "Given -SourceBucket $BucketName and -SourceKey $Key and -BucketName $BucketName and -Key $Key it is copied to itself" {
-            $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty CustomMetadata
-            $CustomMetadata["copytest"]="test"
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $CustomMetadata
+            $Metadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty Metadata
+            $Metadata["copytest"]="test"
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $Metadata
             sleep 1
-            $CustomMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty CustomMetadata
-            $CustomMetadata["copytest"] | Should -Be "test"
+            $Metadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty Metadata
+            $Metadata["copytest"] | Should -Be "test"
         }
     }
 

@@ -7728,7 +7728,7 @@ function Global:Get-S3ObjectMetadata {
 
             $Headers = $Result.Headers
             $Metadata = @{}
-            $CustomMetadata = @{}
+            $Metadata = @{}
             foreach ($HeaderKey in $Headers.Keys) {
                 $Value = $Headers[$HeaderKey]
                 if ($HeaderKey -match "x-amz-meta-") {
