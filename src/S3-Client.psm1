@@ -8470,7 +8470,7 @@ function Global:Write-S3Object {
 
                             $Etag = New-Object 'System.Collections.Generic.List[string]'
                             [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
-                            $Etag = $Etag[0] -replace '"',''
+                            $Etag = ($Etag | Select -First 1) -replace '"',''
 
                             $CryptoStream.Dispose()
                             $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
@@ -9392,7 +9392,7 @@ function Global:Write-S3MultipartUpload {
 
                         $Etag = New-Object 'System.Collections.Generic.List[string]'
                         [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
-                        $Etag = $Etag[0] -replace '"',''
+                        $Etag = ($Etag | Select -First 1) -replace '"',''
 
                         $CryptoStream.Dispose()
                         $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
