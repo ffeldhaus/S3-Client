@@ -529,6 +529,10 @@ function Global:New-AwsSignatureV4 {
         # this Cmdlet follows the steps outlined in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
 
         # initialization
+        # TODO: Improve unsigned payload handling
+        if ($Headers['x-amz-content-sha256'] -eq "UNSIGNED-PAYLOAD") {
+            $RequestPayloadHash = "UNSIGNED-PAYLOAD"
+        }
         if (!$RequestPayloadHash) {
             $RequestPayloadHash = Get-AwsHash -StringToHash ""
         }
@@ -7333,7 +7337,11 @@ function Global:Get-S3ObjectVersions {
         [parameter(
                 Mandatory=$False,
                 Position=18,
-                HelpMessage="Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType="url"
+                HelpMessage="Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType="url",
+        [parameter(
+                Mandatory=$False,
+                Position=19,
+                HelpMessage="Version types to return")][String][ValidateSet("Version","DeleteMarker")]$Type
     )
 
     Begin {
@@ -7403,12 +7411,19 @@ function Global:Get-S3ObjectVersions {
                 $Version | Add-Member -MemberType NoteProperty -Name OwnerId -Value $Version.Owner.Id
                 $Version | Add-Member -MemberType NoteProperty -Name OwnerDisplayName -Value $Version.Owner.DisplayName
                 $Version | Add-Member -MemberType NoteProperty -Name Region -Value $Region
+                if ($Version.ETag) {
+                    $Version.ETag = $Version.ETag -replace '"',''
+                }
                 $Version.PSObject.Members.Remove("Owner")
             }
             $Versions | Add-Member -MemberType NoteProperty -Name BucketName -Value $Content.ListVersionsResult.Name
 
             if ($Key) {
                 $Versions = $Versions | Where-Object { $_.Key -eq $Key }
+            }
+
+            if ($Type) {
+                $Versions = $Versions | Where-Object { $_.Type -eq $Type }
             }
 
             Write-Output $Versions
@@ -7756,6 +7771,8 @@ function Global:Get-S3ObjectMetadata {
     }
 }
 
+Set-Alias -Name Get-S3ObjectVersion -Value Read-S3Object
+Set-Alias -Name Read-S3ObjectVersion -Value Read-S3Object
 Set-Alias -Name Get-S3Object -Value Read-S3Object
 <#
     .SYNOPSIS
@@ -7840,10 +7857,15 @@ function Global:Read-S3Object {
         [parameter(
                 Mandatory=$False,
                 Position=12,
-                HelpMessage="Byte range to retrieve from object")][String]$Range,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Object version ID")][String]$VersionId,
         [parameter(
                 Mandatory=$False,
                 Position=13,
+                HelpMessage="Byte range to retrieve from object")][String]$Range,
+        [parameter(
+                Mandatory=$False,
+                Position=14,
                 HelpMessage="Path where object should be stored")][Alias("OutFile")][String]$Path
     )
 
@@ -7883,6 +7905,13 @@ function Global:Read-S3Object {
 
         $Uri = "/$Key"
 
+        if ($VersionId) {
+            $Query = @{versionId=$VersionId}
+        }
+        else {
+            $Query = @{}
+        }
+
         $Headers = @{}
         if ($Range) {
             $Headers["Range"] = $Range
@@ -7907,16 +7936,16 @@ function Global:Read-S3Object {
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
 
         if ($DryRun.IsPresent) {
             return $AwsRequest
         }
 
         Write-Verbose "Getting object metadata to determine file size and content type"
-        $ObjectMetadata = Get-S3ObjectMetadata -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -Bucket $BucketName -Key $Key -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Presign:$Presign -SignerType $SignerType -Region $Region
-        $Size = $ObjectMetadata.Metadata.'Content-Length' | Select-Object -First 1
-        $ContentType = $ObjectMetadata.Metadata.'Content-Type' | Select-Object -First 1
+        $ObjectMetadata = Get-S3ObjectMetadata -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -Bucket $BucketName -Key $Key -VersionId $VersionId -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Presign:$Presign -SignerType $SignerType -Region $Region
+        $Size = $ObjectMetadata.Headers.'Content-Length' | Select-Object -First 1
+        $ContentType = $ObjectMetadata.Headers.'Content-Type' | Select-Object -First 1
 
         if (!$Path -and $ContentType -match "text|xml|json") {
             $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
@@ -10118,12 +10147,12 @@ function Global:Copy-S3Object {
                 Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Object version ID")][String]$SourceVersionId,
+                HelpMessage="Object version ID")][Alias("VersionId")][String]$SourceVersionId,
         [parameter(
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Object version ID")][ValidateSet("COPY","REPLACE")][String]$MetadataDirective="COPY",
+                HelpMessage="Object version ID")][ValidateSet("COPY","REPLACE")][String]$MetadataDirective,
         [parameter(
                 Mandatory=$False,
                 Position=16,
@@ -10158,7 +10187,7 @@ function Global:Copy-S3Object {
                 Mandatory=$False,
                 Position=22,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Specifies whether the object tags are copied from the source object or replaced with tags provided in the request")][ValidateSet("COPY","REPLACE")][String]$TaggingDirective="COPY",
+                HelpMessage="Specifies whether the object tags are copied from the source object or replaced with tags provided in the request")][ValidateSet("COPY","REPLACE")][String]$TaggingDirective,
         [parameter(
                 Mandatory=$False,
                 Position=23,
@@ -10235,7 +10264,9 @@ function Global:Copy-S3Object {
         if ($SourceVersionId) {
             $Headers["x-amz-copy-source"] += "?versionId=$SourceVersionId"
         }
-        $Headers["x-amz-metadata-directive"] = $MetadataDirective
+        if ($MetadataDirective) {
+            $Headers["x-amz-metadata-directive"] = $MetadataDirective
+        }
         if ($Etag) {
             $Headers["x-amz-copy-source-if-match"] = $Etag
         }
@@ -10257,6 +10288,7 @@ function Global:Copy-S3Object {
         if ($ServerSideEncryption) {
             $Headers["x-amz-server-side-encryption"] = $ServerSideEncryption
         }
+        $Headers["x-amz-content-sha256"] = "UNSIGNED-PAYLOAD"
 
         if ($Metadata) {
             foreach ($MetadataKey in $Metadata.Keys) {
