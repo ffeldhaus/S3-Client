@@ -117,7 +117,7 @@ function Cleanup() {
         [parameter(
                 Mandatory=$False,
                 Position=3,
-                HelpMessage="RetryCount")][Int]$RetryCount=1,
+                HelpMessage="RetryCount")][Int]$RetryCount=1
     )
 
     try {
