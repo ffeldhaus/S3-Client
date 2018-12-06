@@ -2923,13 +2923,8 @@ function Global:Get-S3BucketEncryption {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
 
-                    # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-                    if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-                    }
-                    else {
-                        $Content = [XML]$Result.Content
-                    }
+                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+                    $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
                     foreach ($Rule in $Content.ServerSideEncryptionConfiguration.Rule) {
                         $Output = [PSCustomObject]@{SSEAlgorithm=$Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm;
@@ -3130,13 +3125,8 @@ function Global:Set-S3BucketEncryption {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
 
-                    # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-                    if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-                    }
-                    else {
-                        $Content = [XML]$Result.Content
-                    }
+                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+                    $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
                     foreach ($Rule in $Content.ServerSideEncryptionConfiguration.Rule) {
                         $Output = [PSCustomObject]@{SSEAlgorithm=$Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm;
@@ -3480,13 +3470,8 @@ function Global:Get-S3BucketCorsConfiguration {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
 
-                    # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-                    if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-                    }
-                    else {
-                        $Content = [XML]$Result.Content
-                    }
+                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+                    $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
                     foreach ($Rule in $Content.CORSConfiguration.CORSRule) {
                         $Output = [PSCustomObject]@{
@@ -4264,7 +4249,7 @@ function Global:Get-S3BucketReplicationConfiguration {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
 
-                    # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
+                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
                     foreach ($Rule in $Content.ReplicationConfiguration.Rule) {
@@ -5663,13 +5648,8 @@ function Global:Get-S3BucketTagging {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
 
-                    # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-                    if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-                    }
-                    else {
-                        $Content = [XML]$Result.Content
-                    }
+                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+                    $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
                     foreach ($Tag in $Content.Tagging.TagSet.Tag) {
                         $Output = [System.Collections.DictionaryEntry]@{Name=$Tag.Key;Value=$Tag.Value}
@@ -5860,13 +5840,8 @@ function Global:Set-S3BucketTagging {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
 
-                    # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-                    if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-                    }
-                    else {
-                        $Content = [XML]$Result.Content
-                    }
+                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+                    $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
                     foreach ($Rule in $Content.ServerSideEncryptionConfiguration.Rule) {
                         $Output = [PSCustomObject]@{SSEAlgorithm=$Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm;
@@ -6218,13 +6193,8 @@ function Global:Get-S3BucketVersioning {
                 }
             }
 
-            # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-            if (!$Result.Headers.'Content-Type') {
-                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-            }
-            else {
-                $Content = [XML]$Result.Content
-            }
+            # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+            $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
             Write-Output $Content.VersioningConfiguration.Status
         }
@@ -6400,13 +6370,8 @@ function Global:Enable-S3BucketVersioning {
                 }
             }
 
-            # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-            if (!$Result.Headers.'Content-Type') {
-                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-            }
-            else {
-                $Content = [XML]$Result.Content
-            }
+            # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+            $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
             Write-Output $Content.VersioningConfiguration.Status
         }
@@ -6581,13 +6546,9 @@ function Global:Suspend-S3BucketVersioning {
                     throw
                 }
             }
-            # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-            if (!$Result.Headers.'Content-Type') {
-                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-            }
-            else {
-                $Content = [XML]$Result.Content
-            }
+
+            # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+            $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
             Write-Output $Content.VersioningConfiguration.Status
         }
@@ -6739,13 +6700,8 @@ function Global:Get-S3BucketLocation {
         else {
             $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
 
-            # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-            if (!$Result.Headers.'Content-Type') {
-                $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-            }
-            else {
-                $Content = [XML]$Result.Content
-            }
+            # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+            $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
             $Location = $Content.LocationConstraint.InnerText
 
@@ -8719,6 +8675,7 @@ function Global:Start-S3MultipartUpload {
         }
         else {
             $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+            # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
             $Xml = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             $Content = $Xml.InitiateMultipartUploadResult
             $InitiateMultipartUploadResult = [PSCustomObject]@{Bucket=$Content.Bucket;Key=$Content.Key;UploadId=$Content.UploadId}
@@ -10470,13 +10427,8 @@ function Global:Get-S3ObjectTagging {
                 try {
                     $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
 
-                    # it seems AWS is sometimes not sending the Content-Type and then PowerShell does not parse the binary to string
-                    if (!$Result.Headers.'Content-Type') {
-                        $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-                    }
-                    else {
-                        $Content = [XML]$Result.Content
-                    }
+                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+                    $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
                     foreach ($Tag in $Content.Tagging.TagSet.Tag) {
                         $Output = [System.Collections.DictionaryEntry]@{Name=$Tag.Key;Value=$Tag.Value}
@@ -10614,7 +10566,7 @@ function Global:Set-S3ObjectTagging {
                 Mandatory=$True,
                 Position=12,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="List of Name Value pairs e.g. @(@{Name='Key1';Value='Value1'},@{Name='Key1';Value='Value1'})")][System.Collections.DictionaryEntry[]]$Tags,
+                HelpMessage="List of Key Value pairs e.g. @(@{Key='Key1';Value='Value1'},@{Key='Key2';Value='Value2'})")][System.Collections.DictionaryEntry[]]$Tags,
         [parameter(
                 Mandatory=$False,
                 Position=13,
@@ -10662,7 +10614,14 @@ function Global:Set-S3ObjectTagging {
         $Body = "<Tagging>"
         $Body += "<TagSet>"
         foreach ($Tag in $Tags) {
-            $Body += "<Tag><Key>$($Tag.Name)</Key><Value>$($Tag.Value)</Value></Tag>"
+            if ($Tag.Key) {
+                $Key = $Tag.Key
+            }
+            else {
+                $Key = $Tag.Name
+            }
+            $Value = $Tag.Value
+            $Body += "<Tag><Key>$Key</Key><Value>$Value</Value></Tag>"
         }
         $Body += "</TagSet>"
         $Body += "</Tagging>"

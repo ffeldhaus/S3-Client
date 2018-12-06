@@ -449,7 +449,7 @@ Describe "S3 Bucket Tagging" {
     if ($ProfileName -eq "webscaledemonext") { continue }
     if ($ProfileName -eq "Minio") { continue }
 
-    $Tags = @(@{Name="Key1";Value="Value1"},@{Name="Key2";Value="Value2"})
+    $Tags = @(@{Name="keywithunicodevalue";Value="@œæ•±‘¡¶¢[]|{}≠'>ÄÜ*Ä?=9)!62^°"},@{Name="@œæ•±‘¡¶¢[]|{}≠'>ÄÜ*Ä?=9)!62^°";Value="valuewithunicodekey"})
 
     Setup -BucketName $BucketName
     Setup -BucketName $UnicodeBucketName
@@ -479,7 +479,7 @@ Describe "S3 Bucket Tagging" {
 Describe "S3 Object Tagging" {
     if ($ProfileName -eq "Minio") { continue }
 
-    $Tags = @(@{Name="Key1";Value="Value1"},@{Name="Key2";Value="Value2"})
+    $Tags = @(@{Name="keywithunicodevalue";Value="@œæ•±‘¡¶¢[]|{}≠'>ÄÜ*Ä?=9)!62^°"},@{Name="@œæ•±‘¡¶¢[]|{}≠'>ÄÜ*Ä?=9)!62^°";Value="valuewithunicodekey"})
 
     Context "Set Object tagging" {
         Setup -BucketName $BucketName -Key $Key
