@@ -7,6 +7,8 @@ Import-Module "$PSScriptRoot\S3-Client" -Force
 # suppress warnings which occur e.g. for uppercase bucketnames
 $WarningPreference="SilentlyContinue"
 
+$MAX_RETRIES = 3
+
 $BucketName = (Get-Date -Format "yyyy-MM-dd-HHmmss") + "-Bucket"
 $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BucketName"
 $Key = "Key"
@@ -111,7 +113,11 @@ function Cleanup() {
         [parameter(
                 Mandatory=$False,
                 Position=2,
-                HelpMessage="Bucket Region")][String]$ProfileName=$ProfileName
+                HelpMessage="Bucket Region")][String]$ProfileName=$ProfileName,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="RetryCount")][Int]$RetryCount=1,
     )
 
     try {
@@ -125,7 +131,12 @@ function Cleanup() {
             }
         }
     }
-    catch {}
+    catch {
+        if ($RetryCount -lt $MAX_RETRIES) {
+            $RetryCount = $RetryCount + 1
+            Cleanup -BucketName $BucketName -Region $Region -ProfileName $ProfileName -RetryCount $RetryCount
+        }
+    }
 }
 
 Describe "AWS Configuration and Credential Management" {
