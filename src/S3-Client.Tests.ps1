@@ -9,6 +9,9 @@ $WarningPreference="SilentlyContinue"
 
 $MAX_RETRIES = 3
 
+$UnicodeString = [System.Web.HttpUtility]::UrlDecode("%40%c5%93%c3%a6%c3%b6%c3%bc%c3%a4%c3%84%c3%96%c3%9c%2f%3d%c3%a1%c3%aa%3a%2b-_.")
+$Tags = @(@{Key=$UnicodeString;Value="valuewithunicodekey"},@{Key="keywithunicodevalue";Value=$UnicodeString})
+
 $BucketName = (Get-Date -Format "yyyy-MM-dd-HHmmss") + "-Bucket"
 $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BucketName"
 $Key = "Key"
@@ -449,8 +452,6 @@ Describe "S3 Bucket Tagging" {
     if ($ProfileName -eq "webscaledemonext") { continue }
     if ($ProfileName -eq "Minio") { continue }
 
-    $Tags = @(@{Name="keywithunicodevalue";Value="@œæ•±‘¡¶¢[]|{}≠'>ÄÜ*Ä?=9)!62^°"},@{Name="@œæ•±‘¡¶¢[]|{}≠'>ÄÜ*Ä?=9)!62^°";Value="valuewithunicodekey"})
-
     Setup -BucketName $BucketName
     Setup -BucketName $UnicodeBucketName
 
@@ -459,16 +460,16 @@ Describe "S3 Bucket Tagging" {
             Set-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName -Tags $Tags
             sleep 3
             $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $BucketName
-            $BucketTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $BucketTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
+            $BucketTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $BucketTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
 
         It "Given -BucketName $UnicodeBucketName and -Tags $(ConvertTo-Json -InputObject $Tags -Compress) tags should be added to bucket" {
             Set-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Tags $Tags
             sleep 3
             $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            $BucketTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $BucketTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
+            $BucketTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $BucketTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
     }
 
@@ -479,16 +480,14 @@ Describe "S3 Bucket Tagging" {
 Describe "S3 Object Tagging" {
     if ($ProfileName -eq "Minio") { continue }
 
-    $Tags = @(@{Name="keywithunicodevalue";Value="@œæ•±‘¡¶¢[]|{}≠'>ÄÜ*Ä?=9)!62^°"},@{Name="@œæ•±‘¡¶¢[]|{}≠'>ÄÜ*Ä?=9)!62^°";Value="valuewithunicodekey"})
-
     Context "Set Object tagging" {
         Setup -BucketName $BucketName -Key $Key
         It "Given -BucketName $BucketName -Key $Key and -Tags $Tags tags should be added to bucket" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Tags $Tags
             sleep 3
             $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-            $ObjectTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $ObjectTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
+            $ObjectTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $ObjectTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
         Cleanup -BucketName $BucketName
 
@@ -497,8 +496,8 @@ Describe "S3 Object Tagging" {
             Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key -Tags $Tags
             sleep 3
             $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
-            $ObjectTagging | Sort-Object -Property Name | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $ObjectTagging | Sort-Object -Property Name | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
+            $ObjectTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $ObjectTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
         Cleanup -BucketName $UnicodeBucketName
     }
