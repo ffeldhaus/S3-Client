@@ -2166,7 +2166,7 @@ function Global:Get-S3Buckets {
         Write-Verbose "Retrieving all buckets"
 
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         $Uri = "/"
@@ -2279,7 +2279,7 @@ function Global:Test-S3Bucket {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -2289,19 +2289,18 @@ function Global:Test-S3Bucket {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -2344,7 +2343,7 @@ function Global:Test-S3Bucket {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -2472,7 +2471,7 @@ function Global:New-S3Bucket {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -2482,19 +2481,18 @@ function Global:New-S3Bucket {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -2550,12 +2548,12 @@ function Global:New-S3Bucket {
             $Server = $Global:CurrentSgwServer
         }
         $Method = "PUT"
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Config) {
@@ -2662,7 +2660,7 @@ function Global:Remove-S3Bucket {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -2672,19 +2670,18 @@ function Global:Remove-S3Bucket {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -2725,7 +2722,7 @@ function Global:Remove-S3Bucket {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -2841,7 +2838,7 @@ function Global:Get-S3BucketEncryption {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -2851,19 +2848,18 @@ function Global:Get-S3BucketEncryption {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -2892,7 +2888,7 @@ function Global:Get-S3BucketEncryption {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -3017,7 +3013,7 @@ function Global:Set-S3BucketEncryption {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -3027,19 +3023,18 @@ function Global:Set-S3BucketEncryption {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -3077,13 +3072,13 @@ function Global:Set-S3BucketEncryption {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -3215,7 +3210,7 @@ function Global:Remove-S3BucketEncryption {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -3225,19 +3220,18 @@ function Global:Remove-S3BucketEncryption {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -3266,7 +3260,7 @@ function Global:Remove-S3BucketEncryption {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -3383,7 +3377,7 @@ function Global:Get-S3BucketCorsConfiguration {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -3393,19 +3387,18 @@ function Global:Get-S3BucketCorsConfiguration {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -3439,7 +3432,7 @@ function Global:Get-S3BucketCorsConfiguration {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -3587,7 +3580,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -3597,19 +3590,18 @@ function Global:Add-S3BucketCorsConfigurationRule {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -3668,7 +3660,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$true
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -3827,7 +3819,7 @@ function Global:Remove-S3BucketCorsConfigurationRule {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -3837,19 +3829,18 @@ function Global:Remove-S3BucketCorsConfigurationRule {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -3882,7 +3873,7 @@ function Global:Remove-S3BucketCorsConfigurationRule {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -3991,7 +3982,7 @@ function Global:Remove-S3BucketCorsConfiguration {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -4001,19 +3992,18 @@ function Global:Remove-S3BucketCorsConfiguration {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -4042,7 +4032,7 @@ function Global:Remove-S3BucketCorsConfiguration {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -4162,7 +4152,7 @@ function Global:Get-S3BucketReplicationConfiguration {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -4172,19 +4162,18 @@ function Global:Get-S3BucketReplicationConfiguration {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -4218,7 +4207,7 @@ function Global:Get-S3BucketReplicationConfiguration {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -4517,7 +4506,7 @@ function Global:Add-S3BucketReplicationConfigurationRule {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -4704,7 +4693,7 @@ function Global:Remove-S3BucketReplicationConfigurationRule {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -4714,19 +4703,18 @@ function Global:Remove-S3BucketReplicationConfigurationRule {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -4759,7 +4747,7 @@ function Global:Remove-S3BucketReplicationConfigurationRule {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -4868,7 +4856,7 @@ function Global:Remove-S3BucketReplicationConfiguration {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -4878,19 +4866,18 @@ function Global:Remove-S3BucketReplicationConfiguration {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -4919,7 +4906,7 @@ function Global:Remove-S3BucketReplicationConfiguration {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -5034,7 +5021,7 @@ function Global:Get-S3BucketPolicy {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -5044,19 +5031,18 @@ function Global:Get-S3BucketPolicy {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -5085,7 +5071,7 @@ function Global:Get-S3BucketPolicy {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -5223,7 +5209,7 @@ function Global:Set-S3BucketPolicy {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -5233,19 +5219,18 @@ function Global:Set-S3BucketPolicy {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -5286,13 +5271,13 @@ function Global:Set-S3BucketPolicy {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -5411,7 +5396,7 @@ function Global:Remove-S3BucketPolicy {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -5421,19 +5406,18 @@ function Global:Remove-S3BucketPolicy {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -5456,13 +5440,13 @@ function Global:Remove-S3BucketPolicy {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "DELETE"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -5566,7 +5550,7 @@ function Global:Get-S3BucketTagging {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -5576,19 +5560,18 @@ function Global:Get-S3BucketTagging {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -5617,7 +5600,7 @@ function Global:Get-S3BucketTagging {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -5745,7 +5728,7 @@ function Global:Set-S3BucketTagging {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -5755,19 +5738,18 @@ function Global:Set-S3BucketTagging {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -5801,7 +5783,7 @@ function Global:Set-S3BucketTagging {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$true
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -5933,7 +5915,7 @@ function Global:Remove-S3BucketTagging {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -5943,19 +5925,18 @@ function Global:Remove-S3BucketTagging {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -5984,7 +5965,7 @@ function Global:Remove-S3BucketTagging {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -6096,7 +6077,7 @@ function Global:Get-S3BucketVersioning {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -6106,19 +6087,18 @@ function Global:Get-S3BucketVersioning {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -6151,7 +6131,7 @@ function Global:Get-S3BucketVersioning {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -6270,7 +6250,7 @@ function Global:Enable-S3BucketVersioning {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -6280,19 +6260,18 @@ function Global:Enable-S3BucketVersioning {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -6320,13 +6299,13 @@ function Global:Enable-S3BucketVersioning {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -6447,7 +6426,7 @@ function Global:Suspend-S3BucketVersioning {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -6457,19 +6436,18 @@ function Global:Suspend-S3BucketVersioning {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -6497,13 +6475,13 @@ function Global:Suspend-S3BucketVersioning {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -6623,7 +6601,7 @@ function Global:Get-S3BucketLocation {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -6633,19 +6611,18 @@ function Global:Get-S3BucketLocation {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -6669,7 +6646,7 @@ function Global:Get-S3BucketLocation {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         Write-Verbose "Retrieving location for bucket $BucketName"
@@ -6795,7 +6772,7 @@ function Global:Get-S3MultipartUploads {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -6805,19 +6782,18 @@ function Global:Get-S3MultipartUploads {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -6871,7 +6847,7 @@ function Global:Get-S3MultipartUploads {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -6995,7 +6971,7 @@ function Global:Get-S3Objects {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -7005,19 +6981,18 @@ function Global:Get-S3Objects {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -7089,7 +7064,7 @@ function Global:Get-S3Objects {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Config) {
@@ -7225,7 +7200,7 @@ function Global:Get-S3ObjectVersions {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -7235,19 +7210,18 @@ function Global:Get-S3ObjectVersions {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -7313,7 +7287,7 @@ function Global:Get-S3ObjectVersions {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -UseDualstackEndpoint:$UseDualstackEndpoint
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -7501,7 +7475,7 @@ function Global:Get-S3PresignedUrl {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -7583,7 +7557,7 @@ function Global:Get-S3ObjectMetadata {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -7593,19 +7567,18 @@ function Global:Get-S3ObjectMetadata {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -7645,7 +7618,7 @@ function Global:Get-S3ObjectMetadata {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -7769,7 +7742,7 @@ function Global:Read-S3Object {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -7779,19 +7752,18 @@ function Global:Read-S3Object {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -7839,7 +7811,7 @@ function Global:Read-S3Object {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -8263,13 +8235,13 @@ function Global:Write-S3Object {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -8551,7 +8523,7 @@ function Global:Start-S3MultipartUpload {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -8561,19 +8533,18 @@ function Global:Start-S3MultipartUpload {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -8619,13 +8590,13 @@ function Global:Start-S3MultipartUpload {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "POST"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Config) {
@@ -8751,7 +8722,7 @@ function Global:Stop-S3MultipartUpload {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -8761,19 +8732,18 @@ function Global:Stop-S3MultipartUpload {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -8819,10 +8789,10 @@ function Global:Stop-S3MultipartUpload {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
 
         if (!$Config) {
             Throw "No S3 credentials found"
@@ -8927,7 +8897,7 @@ function Global:Complete-S3MultipartUpload {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -8937,19 +8907,18 @@ function Global:Complete-S3MultipartUpload {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -8995,13 +8964,13 @@ function Global:Complete-S3MultipartUpload {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "POST"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Config) {
@@ -9169,7 +9138,7 @@ function Global:Write-S3MultipartUpload {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -MaxConcurrentRequests $MaxConcurrentRequests -MultipartChunksize $Chunksize -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -MaxConcurrentRequests $MaxConcurrentRequests -MultipartChunksize $Chunksize
         }
 
         if (!$Region) {
@@ -9508,7 +9477,7 @@ function Global:Write-S3ObjectPart {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -9518,19 +9487,18 @@ function Global:Write-S3ObjectPart {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -9578,13 +9546,13 @@ function Global:Write-S3ObjectPart {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -9704,7 +9672,7 @@ function Global:Get-S3ObjectParts {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -9714,19 +9682,18 @@ function Global:Get-S3ObjectParts {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -9778,7 +9745,7 @@ function Global:Get-S3ObjectParts {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -9904,7 +9871,7 @@ function Global:Remove-S3Object {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -9914,19 +9881,18 @@ function Global:Remove-S3Object {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -9970,7 +9936,7 @@ function Global:Remove-S3Object {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -10049,7 +10015,7 @@ function Global:Copy-S3Object {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -10059,19 +10025,18 @@ function Global:Copy-S3Object {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -10171,7 +10136,7 @@ function Global:Copy-S3Object {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -10338,7 +10303,7 @@ function Global:Get-S3ObjectTagging {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -10348,19 +10313,18 @@ function Global:Get-S3ObjectTagging {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -10394,7 +10358,7 @@ function Global:Get-S3ObjectTagging {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -10521,7 +10485,7 @@ function Global:Set-S3ObjectTagging {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -10531,19 +10495,18 @@ function Global:Set-S3ObjectTagging {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -10581,13 +10544,13 @@ function Global:Set-S3ObjectTagging {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -10721,7 +10684,7 @@ function Global:Remove-S3ObjectTagging {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -10731,19 +10694,18 @@ function Global:Remove-S3ObjectTagging {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -10777,7 +10739,7 @@ function Global:Remove-S3ObjectTagging {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -10862,7 +10824,7 @@ function Global:Get-S3BucketConsistency {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -10872,19 +10834,18 @@ function Global:Get-S3BucketConsistency {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -10914,7 +10875,7 @@ function Global:Get-S3BucketConsistency {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -10992,7 +10953,7 @@ function Global:Update-S3BucketConsistency {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -11002,19 +10963,18 @@ function Global:Update-S3BucketConsistency {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -11046,14 +11006,14 @@ function Global:Update-S3BucketConsistency {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
 
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -11161,7 +11121,7 @@ function Global:Get-S3StorageUsage {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         $Uri = "/"
@@ -11221,7 +11181,7 @@ function Global:Get-S3BucketLastAccessTime {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -11231,19 +11191,18 @@ function Global:Get-S3BucketLastAccessTime {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -11273,7 +11232,7 @@ function Global:Get-S3BucketLastAccessTime {
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -11351,7 +11310,7 @@ function Global:Enable-S3BucketLastAccessTime {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -11361,19 +11320,18 @@ function Global:Enable-S3BucketLastAccessTime {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -11401,14 +11359,14 @@ function Global:Enable-S3BucketLastAccessTime {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
 
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -11480,7 +11438,7 @@ function Global:Disable-S3BucketLastAccessTime {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -11490,19 +11448,18 @@ function Global:Disable-S3BucketLastAccessTime {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -11530,14 +11487,14 @@ function Global:Disable-S3BucketLastAccessTime {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
 
         $Method = "PUT"
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
@@ -11609,7 +11566,7 @@ function Global:Invoke-S3BucketMirroring {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profile",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -11619,19 +11576,18 @@ function Global:Invoke-S3BucketMirroring {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keys",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="account",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
-                ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
@@ -11659,12 +11615,12 @@ function Global:Invoke-S3BucketMirroring {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
     }
 
     Process {
         if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
         if (!$Region) {
