@@ -1490,7 +1490,7 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=1,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName="default",
+                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName,
         [parameter(
                 Mandatory=$False,
                 Position=2,
@@ -1670,7 +1670,7 @@ function Global:Get-AwsConfig {
             $Config.MultipartChunksize = $MultipartChunksize
         }
         elseif (!$Config.MultipartChunksize) {
-            $MultipartChunksize = "8MB"
+            $Config.MultipartChunksize = "8MB"
         }
 
         if ($MaxBandwidth) {
@@ -1681,38 +1681,38 @@ function Global:Get-AwsConfig {
             $Config.UseAccelerateEndpoint = ([System.Convert]::ToBoolean($UseAccelerateEndpoint))
         }
         elseif ($Config.UseAccelerateEndpoint -eq $null) {
-            $UseAccelerateEndpoint = $false
+            $Config.UseAccelerateEndpoint = $false
         }
 
         if ($UseDualstackEndpoint) {
             $Config.UseDualstackEndpoint = ([System.Convert]::ToBoolean($UseDualstackEndpoint))
         }
         elseif ($Config.UseDualstackEndpoint -eq $null) {
-            $UseDualstackEndpoint = $false
+            $Config.UseDualstackEndpoint = $false
         }
 
         if ($AddressingStyle) {
             $Config.AddressingStyle = $AddressingStyle
         }
         elseif (!$Config.AddressingStyle) {
-            $AddressingStyle = "auto"
+            $Config.AddressingStyle = "auto"
         }
 
         if ($PayloadSigningEnabled) {
             $Config.PayloadSigningEnabled = ([System.Convert]::ToBoolean($PayloadSigningEnabled))
         }
         elseif (!$Config.PayloadSigningEnabled) {
-            $PayloadSigningEnabled = "auto"
+            $Config.PayloadSigningEnabled = "auto"
         }
 
         if ($SkipCertificateCheck) {
             $Config.SkipCertificateCheck = ([System.Convert]::ToBoolean($SkipCertificateCheck))
         }
         elseif ($SkipCertificateCheck -eq $null) {
-            $SkipCertificateCheck = $false
+            $Config.SkipCertificateCheck = $false
         }
 
-        if ($Config.ProfileName) {
+        if ($Config.AccessKey -and $Config.SecretKey) {
             Write-Output $Config
         }
     }
@@ -2201,11 +2201,11 @@ function Global:Get-S3Buckets {
                 }
             }
         }
-        elseif ($CurrentSgwServer.SupportedApiVersions -match "1" -and !$CurrentSgwServer.AccountId -and !$AccountId) {
+        elseif ($CurrentSgwServer.SupportedApiVersions -match "1" -and !$CurrentSgwServer.AccountId -and !$AccountId -and $CurrentSgwServer.S3EndpointUrl) {
             Write-Host "No config provided, but connected to StorageGRID Webscale. Therefore retrieving all buckets of all tenants."
             $Accounts = Get-SgwAccounts -Capabilities "s3"
             foreach ($Account in $Accounts) {
-                Get-S3Buckets -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccountId $Account.Id -UseDualstackEndpoint:$UseDualstackEndpoint
+                Get-S3Buckets -Server $CurrentSgwServer -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $CurrentSgwServer.S3EndpointUrl -AccountId $Account.Id
             }
         }
     }
