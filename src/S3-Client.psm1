@@ -1161,7 +1161,7 @@ function Global:Add-AwsConfig {
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][Boolean]$PayloadSigningEnabled,
+                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][ValidateSet("auto","true","false")][String]$PayloadSigningEnabled,
         [parameter(
                 Mandatory=$False,
                 Position=1,
@@ -1265,7 +1265,7 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
         }
 
-        if ($PayloadSigningEnabled -ne $null) {
+        if ($PayloadSigningEnabled -and $PayloadSigningEnabled -ne "auto") {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigningEnabled -Force
         }
 
@@ -1426,13 +1426,13 @@ function Global:Get-AwsConfigs {
                 $Output | Add-Member -MemberType NoteProperty -Name AddressingStyle -Value "auto"
             }
             if ($Config.S3.payload_signing_enabled) {
-                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value ([System.Convert]::ToBoolean($Config.S3.payload_signing_enabled))
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $Config.S3.payload_signing_enabled
             }
             elseif ($Config.payload_signing_enabled) {
-                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value ([System.Convert]::ToBoolean($Config.payload_signing_enabled))
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $Config.payload_signing_enabled
             }
             else {
-                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $false
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value "auto"
             }
 
             if ($Config.S3.skip_certificate_check) {
@@ -1701,8 +1701,8 @@ function Global:Get-AwsConfig {
         if ($PayloadSigningEnabled) {
             $Config.PayloadSigningEnabled = ([System.Convert]::ToBoolean($PayloadSigningEnabled))
         }
-        elseif ($Config.PayloadSigningEnabled -eq $null) {
-            $PayloadSigningEnabled = $false
+        elseif (!$Config.PayloadSigningEnabled) {
+            $PayloadSigningEnabled = "auto"
         }
 
         if ($SkipCertificateCheck) {
