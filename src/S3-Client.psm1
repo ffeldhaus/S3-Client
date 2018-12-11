@@ -1712,7 +1712,9 @@ function Global:Get-AwsConfig {
             $SkipCertificateCheck = $false
         }
 
-        Write-Output $Config
+        if ($Config.ProfileName) {
+            Write-Output $Config
+        }
     }
 }
 
@@ -2200,6 +2202,7 @@ function Global:Get-S3Buckets {
             }
         }
         elseif ($CurrentSgwServer.SupportedApiVersions -match "1" -and !$CurrentSgwServer.AccountId -and !$AccountId) {
+            Write-Host "No config provided, but connected to StorageGRID Webscale. Therefore retrieving all buckets of all tenants."
             $Accounts = Get-SgwAccounts -Capabilities "s3"
             foreach ($Account in $Accounts) {
                 Get-S3Buckets -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccountId $Account.Id -UseDualstackEndpoint:$UseDualstackEndpoint
