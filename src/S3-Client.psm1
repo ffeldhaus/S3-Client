@@ -7944,12 +7944,12 @@ function Global:Read-S3Object {
                 $CancellationToken = $CancellationTokenSource.Token
                 $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
                 $CompletionOption = [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead
-                $Response = $HttpClient.SendAsync($GetRequest, $CompletionOption,  $CancellationToken)
-                $HttpStream = $Response.Result.Content.ReadAsStreamAsync()
+                $Task = $HttpClient.SendAsync($GetRequest, $CompletionOption,  $CancellationToken)
+                $HttpStream = $Task.Result.Content.ReadAsStreamAsync()
                 $null = $HttpStream.Result.CopyToAsync($Stream)
 
                 Write-Debug "Report progress and check for cancellation requests"
-                while ($Stream.Position -ne $Stream.Length -and !$Response.IsCanceled -and !$Response.IsFaulted -and $Duration -lt $HttpClient.Timeout.TotalSeconds ) {
+                while ($Stream.Position -ne $Stream.Length -and !$Task.IsCanceled -and !$Task.IsFaulted -and $Duration -lt $HttpClient.Timeout.TotalSeconds ) {
                     Start-Sleep -Milliseconds 500
                     $WrittenBytes = $Stream.Position
                     $PercentCompleted = $WrittenBytes / $Size * 100
@@ -7967,8 +7967,8 @@ function Global:Read-S3Object {
                 }
                 $WrittenBytes = $StreamLength
 
-                if ($Response.Exception) {
-                    throw $Response.Exception
+                if ($Task.Exception) {
+                    throw $Task.Exception
                 }
             }
             catch {
@@ -7976,7 +7976,7 @@ function Global:Read-S3Object {
             }
             finally {
                 Write-Verbose "Dispose used resources"
-                if ($Response) { $Response.Dispose() }
+                if ($Task) { $Task.Dispose() }
                 if ($PutRequest) { $PutRequest.Dispose() }
                 if ($StreamContent) { $StreamContent.Dispose() }
                 if ($Stream) { $Stream.Dispose() }
@@ -8380,10 +8380,10 @@ function Global:Write-S3Object {
                             $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
                             $CancellationToken = $CancellationTokenSource.Token
                             $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
-                            $Response = $HttpClient.SendAsync($PutRequest, $CancellationToken)
+                            $Task = $HttpClient.SendAsync($PutRequest, $CancellationToken)
 
                             Write-Debug "Report progress"
-                            while ($Stream.Position -ne $Stream.Length -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
+                            while ($Stream.Position -ne $Stream.Length -and !$Task.IsCanceled -and !$Task.IsFaulted -and !$Task.IsCompleted) {
                                 Start-Sleep -Milliseconds 500
                                 $WrittenBytes = $Stream.Position
                                 $PercentCompleted = $WrittenBytes / $InFile.Length * 100
@@ -8401,19 +8401,23 @@ function Global:Write-S3Object {
                             }
                             $WrittenBytes = $StreamLength
 
-                            if ($Response.Exception) {
-                                throw $Response.Exception
+                            if ($Task.Exception) {
+                                throw $Task.Exception
+                            }
+
+                            if ($Task.IsCanceled) {
+                                Write-Warning "Upload was canceled with result $($Task.Result)"
                             }
 
                             $Etag = New-Object 'System.Collections.Generic.List[string]'
-                            [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
+                            [void]$Task.Result.Headers.TryGetValues("ETag",[ref]$Etag)
                             $Etag = ($Etag | Select -First 1) -replace '"',''
 
                             $CryptoStream.Dispose()
                             $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
 
-                            if ($Response.Result.StatusCode -ne "OK") {
-                                throw $Response
+                            if ($Task.Result.StatusCode -ne "OK") {
+                                throw $Task
                             }
                             elseif ($Etag -ne $MD5Sum) {
                                 throw "Etag $Etag does not match calculated MD5 sum $MD5Sum"
@@ -8427,7 +8431,7 @@ function Global:Write-S3Object {
                         }
                         finally {
                             Write-Verbose "Dispose used resources"
-                            if ($Response) { $Response.Dispose() }
+                            if ($Task) { $Task.Dispose() }
                             if ($PutRequest) { $PutRequest.Dispose() }
                             if ($StreamContent) { $StreamContent.Dispose() }
                             if ($Stream) { $Stream.Dispose() }
@@ -9328,23 +9332,23 @@ function Global:Write-S3MultipartUpload {
                     $PutRequest.Content = $StreamContent
 
                     try {
-                        $Response = $HttpClient.SendAsync($PutRequest, $CancellationToken)
+                        $Task = $HttpClient.SendAsync($PutRequest, $CancellationToken)
 
-                        while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Response.IsCanceled -and !$Response.IsFaulted -and !$Response.IsCompleted) {
+                        while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Task.IsCanceled -and !$Task.IsFaulted -and !$Task.IsCompleted) {
                             Start-Sleep -Milliseconds 500
                             $PartUploadProgress.$PartNumber = $Stream.Position
                         }
                         $PartUploadProgress.$PartNumber = $StreamLength
 
                         $Etag = New-Object 'System.Collections.Generic.List[string]'
-                        [void]$Response.Result.Headers.TryGetValues("ETag",[ref]$Etag)
+                        [void]$Task.Result.Headers.TryGetValues("ETag",[ref]$Etag)
                         $Etag = ($Etag | Select -First 1) -replace '"',''
 
                         $CryptoStream.Dispose()
                         $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
 
-                        if ($Response.Result.StatusCode -ne "OK") {
-                            Write-Output $Response
+                        if ($Task.Result.StatusCode -ne "OK") {
+                            Write-Output $Task
                         }
                         elseif ($Etag -ne $MD5Sum) {
                             $Output = [PSCustomObject]@{Etag=$Etag;MD5Sum=$MD5Sum}
@@ -9358,7 +9362,7 @@ function Global:Write-S3MultipartUpload {
                         Write-Output $_
                     }
                     finally {
-                        $Response.Dispose()
+                        $Task.Dispose()
                         $PutRequest.Dispose()
                         $StreamContent.Dispose()
                         $Stream.Dispose()
@@ -9626,12 +9630,12 @@ function Global:Write-S3ObjectPart {
                 $StreamContent.Headers.ContentLength = $Stream.Length
                 $PutRequest.Content = $StreamContent
 
-                $Response = $HttpClient.SendAsync($PutRequest)
+                $Task = $HttpClient.SendAsync($PutRequest)
 
                 $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
                 Write-Output [PSCustomObject]@{ETag=$Md5Sum}
 
-                #$Response.Dispose()
+                #$Task.Dispose()
                 $PutRequest.Dispose()
                 $StreamContent.Dispose()
                 $CryptoStream.Dispose()
