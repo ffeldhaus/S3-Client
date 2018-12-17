@@ -1334,10 +1334,10 @@ function Global:Get-AwsConfigs {
                 $Configs = @($Configs) + $Config
             }
             if ($Credential.aws_access_key_id) {
-                $Config | Add-Member -MemberType NoteProperty -Name aws_access_key_id -Value $Credential.aws_access_key_id -Force
+                $Config | Add-Member -MemberType NoteProperty -Name aws_access_key_id -Value $Credential.aws_access_key_id -Force
             }
             if ($Credential.aws_secret_access_key) {
-                $Config | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $Credential.aws_secret_access_key -Force
+                $Config | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $Credential.aws_secret_access_key -Force
             }
         }
 
@@ -6883,7 +6883,7 @@ function Global:Get-S3MultipartUploads {
             $Query["key-marker"] = $KeyMarker
         }
         if ($UploadIdMarker) {
-            $Query["upload-id-​marker"] = $UploadIdMarker
+            $Query["upload-id-marker"] = $UploadIdMarker
         }
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
@@ -7979,7 +7979,7 @@ function Global:Read-S3Object {
                 if ($Task) { $Task.Dispose() }
                 if ($PutRequest) { $PutRequest.Dispose() }
                 if ($StreamContent) { $StreamContent.Dispose() }
-                if ($Stream) { $Stream.Dispose() }
+                if ($Stream) { $Stream.Dispose() }
                 if ($MemoryMappedFile) { $MemoryMappedFile.Dispose() }
             }
         #}
@@ -8434,7 +8434,7 @@ function Global:Write-S3Object {
                             if ($Task) { $Task.Dispose() }
                             if ($PutRequest) { $PutRequest.Dispose() }
                             if ($StreamContent) { $StreamContent.Dispose() }
-                            if ($Stream) { $Stream.Dispose() }
+                            if ($Stream) { $Stream.Dispose() }
                         }
 
                         Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4)) MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
