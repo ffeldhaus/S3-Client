@@ -2,7 +2,8 @@ $AWS_PROFILE_PATH = "$HOME/.aws/"
 $AWS_CREDENTIALS_FILE = $AWS_PROFILE_PATH + "credentials"
 
 $MIME_TYPES = @{}
-Import-Csv -Delimiter ',' -Path (Join-Path -Path $PSScriptRoot -ChildPath 'mimetypes.txt') -Header 'Extension','MimeType' | foreach { $MIME_TYPES[$_.Extension] = $_.MimeType }
+Import-Csv -Delimiter ',' -Path (Join-Path -Path $PSScriptRoot -ChildPath 'mimetypes.txt') -Header 'Extension','MimeType' | ForEach-Object { $MIME_TYPES[$_.Extension] = $_.MimeType }
+
 # workarounds for PowerShell issues
 if ($PSVersionTable.PSVersion.Major -lt 6) {
     Add-Type @"
@@ -246,7 +247,7 @@ function ConvertTo-UnixTimestamp {
                 ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Date to be converted.")][DateTime[]]$Date,
-        [parameter(Mandatory=$True,
+        [parameter(Mandatory=$False,
                 Position=1,
                 ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
@@ -278,7 +279,7 @@ function ConvertFrom-UnixTimestamp {
                 ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Timestamp to be converted.")][String]$Timestamp,
-        [parameter(Mandatory=$True,
+        [parameter(Mandatory=$False,
                 Position=0,
                 ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
@@ -1682,14 +1683,14 @@ function Global:Get-AwsConfig {
         if ($UseAccelerateEndpoint) {
             $Config.UseAccelerateEndpoint = ([System.Convert]::ToBoolean($UseAccelerateEndpoint))
         }
-        elseif ($Config.UseAccelerateEndpoint -eq $null) {
+        elseif ($null -eq $Config.UseAccelerateEndpoint) {
             $Config.UseAccelerateEndpoint = $false
         }
 
         if ($UseDualstackEndpoint) {
             $Config.UseDualstackEndpoint = ([System.Convert]::ToBoolean($UseDualstackEndpoint))
         }
-        elseif ($Config.UseDualstackEndpoint -eq $null) {
+        elseif ($null -eq $Config.UseDualstackEndpoint) {
             $Config.UseDualstackEndpoint = $false
         }
 
@@ -1982,7 +1983,7 @@ function Global:New-AwsPolicy {
                 $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value $NotPrincipal[0]
             }
             else {
-                $Type = $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value ([PSCustomObject]@{})
+                $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value ([PSCustomObject]@{})
                 if ($Principal -match "aws") {
                     $Statement.NotPrincipal | Add-Member -MemberType NoteProperty -Name AWS -Value $NotPrincipal
                 }
@@ -7693,7 +7694,7 @@ function Global:Get-S3ObjectMetadata {
                 Expires=$null;
                 WebsiteRedirectLocation=$null;
                 ServerSideEncryptionMethod=$Headers["x-amz-server-side-encryption"] | Select-Object -First 1;
-                ServerSideEncryptionCustomerMethod=$Headers["x-amz-server-side​-encryption​-customer-algorithm"] | Select-Object -First 1;
+                ServerSideEncryptionCustomerMethod=$Headers["x-amz-server-side-encryption-customer-algorithm"] | Select-Object -First 1;
                 ServerSideEncryptionKeyManagementServiceKeyId=$Headers["x-amz-server-side-encryption-aws-kms-key-id"] | Select-Object -First 1;
                 ReplicationStatus=$Headers["x-amz-replication-status"] | Select-Object -First 1;
                 PartsCount=$PartCount;
@@ -8320,7 +8321,7 @@ function Global:Write-S3Object {
                 try {
                     if (!$InFile -or $InFile.Length -eq 0) {
                         $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
-                        $Etag = ($Result.Headers['ETag'] | Select -First 1) -replace '"',''
+                        $Etag = ($Result.Headers['ETag'] | Select-Object -First 1) -replace '"',''
                         Write-Output ([PSCustomObject]@{ETag=$Etag})
                     }
                     else {
@@ -8411,7 +8412,7 @@ function Global:Write-S3Object {
 
                             $Etag = New-Object 'System.Collections.Generic.List[string]'
                             [void]$Task.Result.Headers.TryGetValues("ETag",[ref]$Etag)
-                            $Etag = ($Etag | Select -First 1) -replace '"',''
+                            $Etag = ($Etag | Select-Object -First 1) -replace '"',''
 
                             $CryptoStream.Dispose()
                             $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
@@ -9340,7 +9341,7 @@ function Global:Write-S3MultipartUpload {
 
                         $Etag = New-Object 'System.Collections.Generic.List[string]'
                         [void]$Task.Result.Headers.TryGetValues("ETag",[ref]$Etag)
-                        $Etag = ($Etag | Select -First 1) -replace '"',''
+                        $Etag = ($Etag | Select-Object -First 1) -replace '"',''
 
                         $CryptoStream.Dispose()
                         $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
@@ -9401,7 +9402,7 @@ function Global:Write-S3MultipartUpload {
 
             $StartTime = Get-Date
 
-            while ($Jobs.Status -ne $null) {
+            while ($null -eq $Jobs.Status) {
                 Start-Sleep -Milliseconds 500
                 $CompletedJobs = $Jobs | Where-Object { $_.Status.IsCompleted -eq $true }
                 foreach ($Job in $CompletedJobs) {
@@ -9447,7 +9448,7 @@ function Global:Write-S3MultipartUpload {
             $MemoryMappedFile.Dispose()
             $RunspacePool.Close()
             $RunspacePool.Dispose()
-            if ($Jobs.Status -ne $null) {
+            if ($null -eq $Jobs.Status) {
                 $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
             }
         }
@@ -10618,7 +10619,7 @@ function Global:Set-S3ObjectTagging {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
