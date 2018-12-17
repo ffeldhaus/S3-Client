@@ -9405,7 +9405,7 @@ function Global:Write-S3MultipartUpload {
 
             $StartTime = Get-Date
 
-            while ($null -eq $Jobs.Status) {
+            while ($Jobs) {
                 Start-Sleep -Milliseconds 500
                 $CompletedJobs = $Jobs | Where-Object { $_.Status.IsCompleted -eq $true }
                 foreach ($Job in $CompletedJobs) {
@@ -9421,7 +9421,7 @@ function Global:Write-S3MultipartUpload {
                     $Etags[$Job.PartNumber] = $Output
                     Write-Verbose "Part $($Job.PartNumber) has completed with ETag $Output"
                     $Job.Pipe.Dispose()
-                    $Job.Status = $null
+                    $Jobs.Remove($Job)
                 }
 
                 # report progress
@@ -9444,24 +9444,27 @@ function Global:Write-S3MultipartUpload {
         catch {
             Write-Warning "Something has gone wrong, aborting Multipart Upload"
             $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
-            throw
+            throw $_
         }
         finally {
             Write-Verbose "Cleaning up"
             $MemoryMappedFile.Dispose()
             $RunspacePool.Close()
             $RunspacePool.Dispose()
-            if ($null -eq $Jobs.Status) {
-                $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
-            }
         }
 
+        if ($Jobs) {
+            Write-Warning "Job(s) with partnumber(s) $($Jobs.PartNumber -join ',') did not complete, therfore aborting Multipart Upload"
+                $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
+            }
+        else {
         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key completed" -Completed
         Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4))MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
         Write-Verbose "Completing multipart upload"
         $MultipartUpload | Complete-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -Etags $Etags
         Write-Verbose "Completed multipart upload"
     }
+}
 }
 
 <#
