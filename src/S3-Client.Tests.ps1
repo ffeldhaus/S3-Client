@@ -395,6 +395,8 @@ Describe "Write-S3MultipartUpload" {
 }
 
 Describe "Copy-S3Object" {
+    if ($ProfileName -eq "Minio") { continue }
+
     Setup -BucketName $BucketName -Key $Key
 
     Context "Copy object" {
