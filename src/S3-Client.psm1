@@ -8318,8 +8318,10 @@ function Global:Write-S3Object {
             }
             else {
                 try {
-                    if (!$InFile) {
+                    if (!$InFile -or $InFile.Length -eq 0) {
                         $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
+                        $Etag = ($Result.Headers['ETag'] | Select -First 1) -replace '"',''
+                        Write-Output ([PSCustomObject]@{ETag=$Etag})
                     }
                     else {
                         $StartTime = Get-Date
@@ -8431,7 +8433,7 @@ function Global:Write-S3Object {
                             if ($Stream) { $Stream.Dispose() }
                         }
 
-                        Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4))MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+                        Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4)) MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
                     }
                 }
                 catch {
@@ -9031,7 +9033,7 @@ function Global:Complete-S3MultipartUpload {
             $CompleteMultipartUploadResult = [PSCustomObject]@{ Location=[System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Location);
                                                                 BucketName=[System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Bucket);
                                                                 Key=[System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Key);
-                                                                ETag=[System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.ETag)}
+                                                                ETag=([System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.ETag) -replace '"','')}
 
             Write-Output $CompleteMultipartUploadResult
         }
@@ -9182,6 +9184,12 @@ function Global:Write-S3MultipartUpload {
         $Key = $Key
 
         $FileSize = $InFile.Length
+
+        if ($FileSize -eq 0) {
+            Write-Warning "Empty file cannot be uploaded as multipart upload, therefore transferring as normal upload"
+            Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -BucketName $BucketName -InFile $InFile -Key $Key -Metadata $Metadata -ContentType $ContentType
+            return
+        }
 
         if ($Config.MaxConcurrentRequests) {
             $MaxRunspaces = $Config.MaxConcurrentRequests
