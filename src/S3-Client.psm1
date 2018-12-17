@@ -1,6 +1,8 @@
-﻿$AWS_PROFILE_PATH = "$HOME/.aws/"
+$AWS_PROFILE_PATH = "$HOME/.aws/"
 $AWS_CREDENTIALS_FILE = $AWS_PROFILE_PATH + "credentials"
 
+$MIME_TYPES = @{}
+Import-Csv -Delimiter ',' -Path (Join-Path -Path $PSScriptRoot -ChildPath 'mimetypes.txt') -Header 'Extension','MimeType' | foreach { $MIME_TYPES[$_.Extension] = $_.MimeType }
 # workarounds for PowerShell issues
 if ($PSVersionTable.PSVersion.Major -lt 6) {
     Add-Type @"
@@ -980,7 +982,7 @@ function Global:Invoke-AwsRequest {
                 $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
                 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
             }
-            if ($Body) {
+            if ($Body -ne $Null) {
                 if ($OutFile) {
                     Write-Verbose "Body:`n$Body"
                     Write-Verbose "Saving output in file $OutFile"
@@ -1009,7 +1011,7 @@ function Global:Invoke-AwsRequest {
             }
         }
         else {
-            if ($Body) {
+            if ($Body -ne $null) {
                 if ($OutFile) {
                     Write-Verbose "Body:`n$Body"
                     Write-Verbose "Saving output in file $OutFile"
@@ -8286,9 +8288,11 @@ function Global:Write-S3Object {
                 $BucketName = $PunycodeBucketName
             }
 
-            # TODO: Check MIME type of file
             if (!$InFile -and $Content) {
                 $ContentType = "text/plain"
+            }
+            elseif ($InFile) {
+                $ContentType = $MIME_TYPES[$InFile.Extension]
             }
 
             $Headers = @{}
@@ -8583,7 +8587,12 @@ function Global:Start-S3MultipartUpload {
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Specifies the algorithm to use to when encrypting the object.")][ValidateSet("aws:kms","AES256")][String]$ServerSideEncryption
+                HelpMessage="Specifies the algorithm to use to when encrypting the object.")][ValidateSet("aws:kms","AES256")][String]$ServerSideEncryption,
+        [parameter(
+                Mandatory=$False,
+                Position=16,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Content Type.")][String]$ContentType
     )
 
     Begin {
@@ -8642,13 +8651,13 @@ function Global:Start-S3MultipartUpload {
 
         $Query = @{uploads=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Headers $Headers -Query $Query -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload "" -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Headers $Headers -Query $Query -PayloadSigningEnabled:$Config.PayloadSigningEnabled -ContentType $ContentType
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body "" -ErrorAction Stop
             # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
             $Xml = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             $Content = $Xml.InitiateMultipartUploadResult
@@ -9165,7 +9174,7 @@ function Global:Write-S3MultipartUpload {
             Throw "File $InFile does not exist"
         }
 
-        # TODO: Check MIME type of file
+        $ContentType = $MIME_TYPES[$InFile.Extension]
 
         if (!$Key) {
             $Key = $InFile.Name
@@ -9216,7 +9225,7 @@ function Global:Write-S3MultipartUpload {
         Write-Verbose "File will be uploaded in $PartCount parts"
 
         Write-Verbose "Initiating Multipart Upload"
-        $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -BucketName $BucketName -Key $Key -Metadata $Metadata
+        $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -BucketName $BucketName -Key $Key -Metadata $Metadata -ContentType $ContentType
 
         Write-Verbose "Multipart Upload ID: $($MultipartUpload.UploadId)"
 
@@ -9436,7 +9445,7 @@ function Global:Write-S3MultipartUpload {
         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key completed" -Completed
         Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4))MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
         Write-Verbose "Completing multipart upload"
-        $MultipartUpload | Complete-S3MultipartUpload  -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -Etags $Etags
+        $MultipartUpload | Complete-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -Etags $Etags
         Write-Verbose "Completed multipart upload"
     }
 }
