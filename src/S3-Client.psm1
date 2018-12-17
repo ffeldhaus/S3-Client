@@ -10239,7 +10239,7 @@ function Global:Copy-S3Object {
         if ($Metadata) {
             foreach ($MetadataKey in $Metadata.Keys) {
                 $Key = $MetadataKey -replace "^x-amz-meta-",""
-                $Key = $MetadataKey.toLower()
+                $Key = $Key.toLower()
                 $Headers["x-amz-meta-$Key"] = $Metadata[$MetadataKey]
                 # TODO: check that metadata is valid HTTP Header
             }
