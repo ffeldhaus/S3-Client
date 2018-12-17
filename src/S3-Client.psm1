@@ -986,7 +986,7 @@ function Global:Invoke-AwsRequest {
                 $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
                 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
             }
-            if ($Body -ne $Null) {
+            if ($Body -ne "" -or $Method -eq "POST") {
                 if ($OutFile) {
                     Write-Verbose "Body:`n$Body"
                     Write-Verbose "Saving output in file $OutFile"
