@@ -928,7 +928,7 @@ function Global:Invoke-AwsRequest {
         [parameter(
                 Mandatory=$False,
                 Position=5,
-                HelpMessage="Request payload")][String]$Body="",
+                HelpMessage="Request payload")][String]$Body,
         [parameter(
                 Mandatory=$False,
                 Position=6,
