@@ -8460,8 +8460,6 @@ function Global:Write-S3Object {
                         Throw
                     }
                 }
-
-                Write-Output $Result.Content
             }
         }
     }
