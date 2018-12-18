@@ -7677,14 +7677,15 @@ function Global:Get-S3ObjectMetadata {
 
             # TODO: Implement missing Metadata
 
-            $PartCount = ($Headers["ETag"] -split "-")[1]
+            $ETag = $Headers.ETag -replace '"','' | Select-Object -First 1
+            $PartCount = $Etag -split "-" | Select-Object -Last 1
 
             $Output = [PSCustomObject]@{Headers=$Headers;
                 BucketName=$BucketName;
                 Region=$Region;
                 Key=$Key;
                 Metadata=$Metadata;
-                Size=$Headers.'Content-Length';
+                Size=$Headers.'Content-Length' | Select-Object -First 1;
                 DeleteMarker=$null;
                 AcceptRanges=$Headers.'Accept-Ranges' | Select-Object -First 1;
                 Expiration=$Headers["x-amz-expiration"] | Select-Object -First 1;
@@ -7700,7 +7701,7 @@ function Global:Get-S3ObjectMetadata {
                 ServerSideEncryptionCustomerMethod=$Headers["x-amz-server-side-encryption-customer-algorithm"] | Select-Object -First 1;
                 ServerSideEncryptionKeyManagementServiceKeyId=$Headers["x-amz-server-side-encryption-aws-kms-key-id"] | Select-Object -First 1;
                 ReplicationStatus=$Headers["x-amz-replication-status"] | Select-Object -First 1;
-                PartsCount=$PartCount;
+                PartCount=$PartCount;
                 StorageClass=$Headers["x-amz-storage-class"] | Select-Object -First 1;
             }
 
