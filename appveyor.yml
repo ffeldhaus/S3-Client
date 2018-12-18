@@ -82,9 +82,9 @@ before_test:
 test_script:
 #  - ps: $DebugPreference = "Continue"
   - ps: $VerbosePreference = "Continue"
-  - ps: $res = Invoke-Pester -OutputFormat NUnitXml -OutputFile TestsResults.xml -PassThru -Script @{Path="./src/S3-Client.Tests.ps1";Parameters=@{ProfileName=$($env:CONFIGURATION)}} 4> $($env:CONFIGURATION)-verbose.log
+  - ps: $res = Invoke-Pester -OutputFormat NUnitXml -OutputFile TestsResults.xml -PassThru -Script @{Path="./src/S3-Client.Tests.ps1";Parameters=@{ProfileName=$($env:CONFIGURATION)}} 4>> verbose.log
   - ps: (New-Object System.Net.WebClient).UploadFile("https://ci.appveyor.com/api/testresults/nunit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path .\TestsResults.xml))
   - ps: if ($res.FailedCount -gt 0) { throw "$($res.FailedCount) tests failed."}
 
 artifacts:
-  - path: '*-verbose.log'
+  - path: verbose.log
