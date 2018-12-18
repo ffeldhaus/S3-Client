@@ -6948,7 +6948,7 @@ Set-Alias -Name Get-S3Object -Value Get-S3Objects
     Get S3 Objects in Bucket
 #>
 function Global:Get-S3Objects {
-    [CmdletBinding(DefaultParameterSetName="account")]
+    [CmdletBinding(DefaultParameterSetName="none")]
 
     PARAM (
         [parameter(
