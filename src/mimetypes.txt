@@ -245,6 +245,7 @@
 .map,text/plain
 .master,application/xml
 .mbox,application/mbox
+.md,text/plain
 .mda,application/msaccess
 .mdb,application/x-msaccess
 .mde,application/msaccess
@@ -375,8 +376,10 @@
 .ps,application/postscript
 .psc1,application/PowerShell
 .psd,application/octet-stream
+.psd1,text/plain
 .psess,application/xml
 .psm,application/octet-stream
+.psm1,text/plain
 .psp,application/octet-stream
 .pst,application/vnd.ms-outlook
 .pub,application/x-mspublisher
