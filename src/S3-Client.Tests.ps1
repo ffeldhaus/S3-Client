@@ -353,6 +353,20 @@ Describe "Write-S3Object" {
         }
     }
 
+    Context "Upload small file with custom key $Key" {
+        It "Given file -InFile `"$SmallFile`" and -Key `"$Key`" it is succesfully uploaded" {
+            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile -Key $Key
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+            $SmallFile.Name | Should -BeIn $Objects.Key
+            $TempFile = New-TemporaryFile
+            sleep 1
+            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -OutFile $TempFile.FullName
+            $TempFileHash = $TempFile | Get-FileHash
+            $TempFileHash.Hash | Should -Be $SmallFileHash.Hash
+            $TempFile | Remove-Item
+        }
+    }
+
     Cleanup -BucketName $BucketName
     Cleanup -BucketName $UnicodeBucketName
 }
