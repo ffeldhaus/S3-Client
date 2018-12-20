@@ -1,4 +1,4 @@
-$AWS_PROFILE_PATH = "$HOME/.aws/"
+﻿$AWS_PROFILE_PATH = "$HOME/.aws/"
 $AWS_CREDENTIALS_FILE = $AWS_PROFILE_PATH + "credentials"
 
 $MIME_TYPES = @{}
@@ -7865,6 +7865,10 @@ function Global:Read-S3Object {
                 }
                 else {
                     $OutFile = Join-Path -Path $DirectoryPath -ChildPath $Key
+                    # Key may contain one or multiple slashes, therefore we need to make sure that we create them as directories
+                    if (!(Test-Path $(Split-Path $OutFile))){
+                        New-Item $(Split-Path $OutFile) -ItemType Directory | Out-Null
+                    }
                 }
             }
             elseif ($DirectoryPath.Parent.Exists) {
@@ -7895,11 +7899,7 @@ function Global:Read-S3Object {
         }
 
         $StartTime = Get-Date
-        Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
-
-        if (!(Test-Path $(Split-Path $OutFile))){
-            New-Item $(Split-Path $OutFile) -ItemType Directory | Out-Null
-        }
+        Write-Progress -Activity "Downloading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
 
         Write-Debug "Create new file of size $Size"
         $FileStream = [System.IO.FileStream]::new($OutFile,[System.IO.FileMode]::OpenOrCreate,[System.IO.FileAccess]::Write,[System.IO.FileShare]::None)
