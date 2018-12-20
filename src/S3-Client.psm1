@@ -532,13 +532,6 @@ function Global:New-AwsSignatureV4 {
         # this Cmdlet follows the steps outlined in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
 
         # initialization
-        # TODO: Improve unsigned payload handling
-        if ($Headers['x-amz-content-sha256'] -eq "UNSIGNED-PAYLOAD") {
-            $RequestPayloadHash = "UNSIGNED-PAYLOAD"
-        }
-        if (!$RequestPayloadHash) {
-            $RequestPayloadHash = Get-AwsHash -StringToHash ""
-        }
         if (!$DateTime) {
             $DateTime = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
         }
@@ -729,7 +722,7 @@ function Global:Get-AwsRequest {
         [parameter(
                 Mandatory=$False,
                 Position=19,
-                HelpMessage="Presign URL Expiration Date")][Switch]$PayloadSigningEnabled
+                HelpMessage="Payload signing")][String]$PayloadSigning
     )
 
     Begin {
@@ -777,18 +770,33 @@ function Global:Get-AwsRequest {
         $DateTime = $Date.ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
         $DateString = $Date.ToUniversalTime().ToString('yyyyMMdd')
 
-        if ($InFile) {
-            $RequestPayloadHash=Get-AwsHash -FileToHash $InFile
+        Write-Verbose "PayloadSigning: $PayloadSigning"
+
+        if ($Method -match 'PUT|POST|DELETE' -and $SignerType -eq "AWS4" -and ($PayloadSigning -eq "true" -or ($PayloadSigning -eq "auto" -and $EndpointUrl.Scheme -eq "http"))) {
+            if ($InFile) {
+                $RequestPayloadHash=Get-AwsHash -FileToHash $InFile
+            }
+            else {
+                $RequestPayloadHash=Get-AwsHash -StringToHash $RequestPayload
+            }
         }
         else {
-            $RequestPayloadHash=Get-AwsHash -StringToHash $RequestPayload
+            $RequestPayloadHash = 'UNSIGNED-PAYLOAD'
         }
 
-        if ($RequestPayload -and $PayloadSigningEnabled.IsPresent) {
-            $Md5 = ([System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($RequestPayload)) -replace "-","").ToLower()
+        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $RequestPayload) -and $PayloadSigning -eq "true") {
+            if ($InFile) {
+                $Stream = [System.IO.FileStream]::new($InFile, [System.IO.FileMode]::Open)
+                $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash($Stream)
+                $null = $Stream.Close
+            }
+            else {
+                $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($RequestPayload))
+            }
+            $ContentMd5 = [Convert]::ToBase64String($Md5)
         }
         else {
-            $Md5 = $null
+            $ContentMd5 = $null
         }
 
         if (!$Headers["host"]) { $Headers["host"] = $EndpointUrl.Uri.Authority }
@@ -796,13 +804,13 @@ function Global:Get-AwsRequest {
         if (!$Presign.IsPresent) {
             if ($SignerType -eq "AWS4") {
                 if (!$Headers["x-amz-date"]) { $Headers["x-amz-date"] = $DateTime }
+                if (!$Headers["x-amz-content-sha256"]) { $Headers["x-amz-content-sha256"] = $RequestPayloadHash }
             }
             else {
                 if (!$Headers["date"]) { $Headers["date"] = $DateTime }
             }
-            if (!$Headers["x-amz-content-sha256"] -and $SignerType -eq "AWS4") { $Headers["x-amz-content-sha256"] = $RequestPayloadHash }
             if (!$Headers["content-type"] -and $ContentType) { $Headers["content-type"] = $ContentType }
-            if (!$Headers["content-md5"] -and $Md5) { $Headers["content-md5"] = [Convert]::ToBase64String($Md5) }
+            if (!$Headers["content-md5"] -and $ContentMd5) { $Headers["content-md5"] = $ContentMd5 }
         }
 
         $SortedHeaders = ConvertTo-SortedDictionary $Headers
@@ -892,7 +900,7 @@ function Global:Get-AwsRequest {
         Write-Verbose "Request URI:`n$($EndpointUrl.Uri)"
         Write-Verbose "Request Headers:`n$($Headers | ConvertTo-Json)"
 
-        $Request = [PSCustomObject]@{Method=$Method;Uri=$EndpointUrl.Uri;Headers=$Headers}
+        $Request = [PSCustomObject]@{Method=$Method;Uri=$EndpointUrl.Uri;Headers=$Headers;Md5=$Md5}
 
         Write-Output $Request
     }
@@ -1066,9 +1074,9 @@ Set-Alias -Name New-AwsConfig -Value Add-AwsConfig
 Set-Alias -Name Update-AwsConfig -Value Add-AwsConfig
 <#
     .SYNOPSIS
-    Add AWS Credentials
+    Add AWS Config and Credentials
     .DESCRIPTION
-    Add AWS Credentials
+    Add AWS Config and Credentials
     .PARAMETER ProfileName
     AWS Profile to use which contains AWS sredentials and settings
     .PARAMETER ProfileLocation
@@ -1167,7 +1175,7 @@ function Global:Add-AwsConfig {
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][ValidateSet("auto","true","false")][String]$PayloadSigningEnabled,
+                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][ValidateSet("auto","true","false")][String]$PayloadSigning,
         [parameter(
                 Mandatory=$False,
                 Position=1,
@@ -1271,8 +1279,8 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
         }
 
-        if ($PayloadSigningEnabled -and $PayloadSigningEnabled -ne "auto") {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigningEnabled -Force
+        if ($PayloadSigning -and $PayloadSigning -ne "auto") {
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigning -Force
         }
 
         if ($SkipCertificateCheck -ne $null) {
@@ -1432,13 +1440,13 @@ function Global:Get-AwsConfigs {
                 $Output | Add-Member -MemberType NoteProperty -Name AddressingStyle -Value "auto"
             }
             if ($Config.S3.payload_signing_enabled) {
-                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $Config.S3.payload_signing_enabled
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigning -Value $Config.S3.payload_signing_enabled
             }
             elseif ($Config.payload_signing_enabled) {
-                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value $Config.payload_signing_enabled
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigning -Value $Config.payload_signing_enabled
             }
             else {
-                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigningEnabled -Value "auto"
+                $Output | Add-Member -MemberType NoteProperty -Name PayloadSigning -Value "auto"
             }
 
             if ($Config.S3.skip_certificate_check) {
@@ -1571,7 +1579,7 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=16,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][String]$PayloadSigningEnabled,
+                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][String]$PayloadSigning,
         [parameter(
                 Mandatory=$False,
                 Position=1,
@@ -1598,7 +1606,7 @@ function Global:Get-AwsConfig {
                                     UseAccelerateEndpoint = $UseAccelerateEndpoint;
                                     UseDualstackEndpoint = $UseDualstackEndpoint;
                                     AddressingStyle = $AddressingStyle;
-                                    PayloadSigningEnabled = $PayloadSigningEnabled;
+                                    PayloadSigning = $PayloadSigning;
                                     SkipCertificateCheck = $SkipCertificateCheck}
 
         if (!$ProfileName -and !$AccessKey -and !$Server) {
@@ -1704,11 +1712,11 @@ function Global:Get-AwsConfig {
             $Config.AddressingStyle = "auto"
         }
 
-        if ($PayloadSigningEnabled) {
-            $Config.PayloadSigningEnabled = ([System.Convert]::ToBoolean($PayloadSigningEnabled))
+        if ($PayloadSigning) {
+            $Config.PayloadSigning = ([System.Convert]::ToBoolean($PayloadSigning))
         }
-        elseif (!$Config.PayloadSigningEnabled) {
-            $Config.PayloadSigningEnabled = "auto"
+        elseif (!$Config.PayloadSigning) {
+            $Config.PayloadSigning = "auto"
         }
 
         if ($SkipCertificateCheck) {
@@ -2178,7 +2186,7 @@ function Global:Get-S3Buckets {
         $Uri = "/"
 
         if ($Config) {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -UseDualstackEndpoint:$UseDualstackEndpoint
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -2375,7 +2383,7 @@ function Global:Test-S3Bucket {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -2545,7 +2553,7 @@ function Global:New-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=18,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
 
     )
 
@@ -2554,7 +2562,7 @@ function Global:New-S3Bucket {
             $Server = $Global:CurrentSgwServer
         }
         $Method = "PUT"
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
     }
 
     Process {
@@ -2585,7 +2593,7 @@ function Global:New-S3Bucket {
         }
         $BucketName = $PunycodeBucketName
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2767,7 +2775,7 @@ function Global:Remove-S3Bucket {
             Get-S3Objects -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck | Remove-S3Object -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -2920,7 +2928,7 @@ function Global:Get-S3BucketEncryption {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -3071,14 +3079,14 @@ function Global:Set-S3BucketEncryption {
                 Mandatory=$False,
                 Position=13,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "PUT"
     }
 
@@ -3121,7 +3129,7 @@ function Global:Set-S3BucketEncryption {
         $Body += "</ServerSideEncryptionConfiguration>"
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigning $Config.PayloadSigning
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -3292,7 +3300,7 @@ function Global:Remove-S3BucketEncryption {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -3464,7 +3472,7 @@ function Global:Get-S3BucketCorsConfiguration {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -3660,7 +3668,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$true
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $true
         $Method = "PUT"
     }
 
@@ -3734,7 +3742,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
         Write-Verbose "Body:`n$Body"
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigning $Config.PayloadSigning
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -4064,7 +4072,7 @@ function Global:Remove-S3BucketCorsConfiguration {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -4239,7 +4247,7 @@ function Global:Get-S3BucketReplicationConfiguration {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -4608,7 +4616,7 @@ function Global:Add-S3BucketReplicationConfigurationRule {
         Write-Verbose "Body:`n$Body"
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigningEnabled:$True
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigning $True
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -4938,7 +4946,7 @@ function Global:Remove-S3BucketReplicationConfiguration {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -5102,7 +5110,7 @@ function Global:Get-S3BucketPolicy {
 
         $Query = @{policy=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -5262,7 +5270,7 @@ function Global:Set-S3BucketPolicy {
                 Mandatory=$False,
                 Position=12,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled,
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning,
         [parameter(
                 Mandatory=$False,
                 Position=13,
@@ -5277,7 +5285,7 @@ function Global:Set-S3BucketPolicy {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "PUT"
     }
 
@@ -5325,7 +5333,7 @@ function Global:Set-S3BucketPolicy {
         # pretty print JSON to simplify debugging
         $Policy = ConvertFrom-Json -InputObject $Policy | ConvertTo-Json -Depth 10
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region -RequestPayload $Policy -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region -RequestPayload $Policy -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -5446,7 +5454,7 @@ function Global:Remove-S3BucketPolicy {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "DELETE"
     }
 
@@ -5477,7 +5485,7 @@ function Global:Remove-S3BucketPolicy {
 
         $Query = @{policy=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -5632,7 +5640,7 @@ function Global:Get-S3BucketTagging {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -5783,7 +5791,7 @@ function Global:Set-S3BucketTagging {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$true
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning$true
         $Method = "PUT"
     }
 
@@ -5823,7 +5831,7 @@ function Global:Set-S3BucketTagging {
         $Body += "</Tagging>"
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigning $Config.PayloadSigning
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -5997,7 +6005,7 @@ function Global:Remove-S3BucketTagging {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -6162,7 +6170,7 @@ function Global:Get-S3BucketVersioning {
 
         $Query = @{versioning=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -6298,14 +6306,14 @@ function Global:Enable-S3BucketVersioning {
                 Mandatory=$False,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "PUT"
     }
 
@@ -6338,7 +6346,7 @@ function Global:Enable-S3BucketVersioning {
 
         $RequestPayload = "<VersioningConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><Status>Enabled</Status></VersioningConfiguration>"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -6474,14 +6482,14 @@ function Global:Suspend-S3BucketVersioning {
                 Mandatory=$False,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "PUT"
     }
 
@@ -6514,7 +6522,7 @@ function Global:Suspend-S3BucketVersioning {
 
         $RequestPayload = "<VersioningConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><Status>Suspended</Status></VersioningConfiguration>"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -6678,7 +6686,7 @@ function Global:Get-S3BucketLocation {
         $Query = @{location=""}
 
         # location requests must use path style, as virtual-host style will fail if the bucket is not in the same region as the request
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -UrlStyle "path"
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -UrlStyle "path"
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -6890,7 +6898,7 @@ function Global:Get-S3MultipartUploads {
             $Query["upload-id-marker"] = $UploadIdMarker
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -7117,7 +7125,7 @@ function Global:Get-S3Objects {
             $BucketName = $PunycodeBucketName
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -UseDualstackEndpoint:$UseDualstackEndpoint
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun) {
             Write-Output $AwsRequest
@@ -7328,7 +7336,7 @@ function Global:Get-S3ObjectVersions {
         if ($KeyMarker) { $Query["key-marker"] = $KeyMarker }
         if ($VersionIdMarker) { $Query["version-id-marker"] = $VersionIdMarker }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -UseDualstackEndpoint:$Config.UseDualstackEndpoint
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -UseDualstackEndpoint:$Config.UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -7521,7 +7529,7 @@ function Global:Get-S3PresignedUrl {
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Expires $Expires
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region -Expires $Expires
 
         Write-Output $AwsRequest.Uri.ToString()
     }
@@ -7656,7 +7664,7 @@ function Global:Get-S3ObjectMetadata {
             $Query = @{}
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -7879,7 +7887,7 @@ function Global:Read-S3Object {
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region
 
         if ($DryRun.IsPresent) {
             return $AwsRequest
@@ -8235,7 +8243,7 @@ function Global:Write-S3Object {
                 Mandatory=$False,
                 Position=16,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled,
+                HelpMessage="Enable Payload Signing")][String]$PayloadSigning,
         [parameter(
                 Mandatory=$False,
                 Position=17,
@@ -8247,7 +8255,7 @@ function Global:Write-S3Object {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "PUT"
     }
 
@@ -8298,10 +8306,10 @@ function Global:Write-S3Object {
                 $BucketName = $PunycodeBucketName
             }
 
-            if (!$InFile -and $Content) {
+            if (!$InFile -and $Content -and !$ContentType) {
                 $ContentType = "text/plain"
             }
-            elseif ($InFile) {
+            elseif ($InFile -and !$ContentType) {
                 $ContentType = $MIME_TYPES[$InFile.Extension]
             }
 
@@ -8321,7 +8329,7 @@ function Global:Write-S3Object {
 
             $Uri = "/$Key"
 
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers -PayloadSigning $Config.PayloadSigning
 
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
@@ -8383,7 +8391,12 @@ function Global:Write-S3Object {
                         if ($ContentType) {
                             $StreamContent.Headers.ContentType = $ContentType
                         }
+                        if ($AwsRequest.Headers['Content-MD5']) {
+                            $StreamContent.Headers.ContentMd5 = $AwsRequest.Md5
+                        }
                         $PutRequest.Content = $StreamContent
+
+                        Write-Verbose "PUT $($AwsRequest.Uri) with $($Stream.Length)-byte payload"
 
                         try {
                             Write-Debug "Start upload"
@@ -8426,8 +8439,10 @@ function Global:Write-S3Object {
                             $CryptoStream.Dispose()
                             $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
 
+                            Write-Verbose "Response Headers:`n$(ConvertTo-Json -InputObject $Task.Result.Headers)"
+
                             if ($Task.Result.StatusCode -ne "OK") {
-                                throw $Task
+                                return $Task.Result
                             }
                             elseif ($Etag -ne $MD5Sum) {
                                 throw "Etag $Etag does not match calculated MD5 sum $MD5Sum"
@@ -8445,6 +8460,7 @@ function Global:Write-S3Object {
                             if ($PutRequest) { $PutRequest.Dispose() }
                             if ($StreamContent) { $StreamContent.Dispose() }
                             if ($Stream) { $Stream.Dispose() }
+                            if ($MemoryMappedFile) { $MemoryMappedFile.Dispose }
                         }
 
                         Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4)) MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
@@ -8596,7 +8612,7 @@ function Global:Start-S3MultipartUpload {
                 Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled,
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning,
         [parameter(
                 Mandatory=$False,
                 Position=15,
@@ -8613,7 +8629,7 @@ function Global:Start-S3MultipartUpload {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "POST"
     }
 
@@ -8665,7 +8681,7 @@ function Global:Start-S3MultipartUpload {
 
         $Query = @{uploads=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload "" -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Headers $Headers -Query $Query -PayloadSigningEnabled:$Config.PayloadSigningEnabled -ContentType $ContentType
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload "" -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Headers $Headers -Query $Query -PayloadSigning $Config.PayloadSigning -ContentType $ContentType
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -8800,7 +8816,7 @@ function Global:Stop-S3MultipartUpload {
                 Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
@@ -8815,7 +8831,7 @@ function Global:Stop-S3MultipartUpload {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
 
         if (!$Config) {
             Throw "No S3 credentials found"
@@ -8845,7 +8861,7 @@ function Global:Stop-S3MultipartUpload {
 
         $Query = @{uploadId=$uploadId}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -8980,14 +8996,14 @@ function Global:Complete-S3MultipartUpload {
                 Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "POST"
     }
 
@@ -9032,7 +9048,7 @@ function Global:Complete-S3MultipartUpload {
 
         $ContentType = "application/xml"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -ContentType $ContentType -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -ContentType $ContentType -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -9571,14 +9587,14 @@ function Global:Write-S3ObjectPart {
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "PUT"
     }
 
@@ -9619,7 +9635,7 @@ function Global:Write-S3ObjectPart {
         # again for performance reasons and then compare the calculated MD5 with the returned MD5/Etag
         $Presign = [Switch]::new($true)
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Headers $Headers -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Headers $Headers -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -9813,7 +9829,7 @@ function Global:Get-S3ObjectParts {
             $Query["part-number-marker"] = $PartNumberMarker
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -10000,7 +10016,7 @@ function Global:Remove-S3Object {
             $Query = @{}
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -10256,7 +10272,7 @@ function Global:Copy-S3Object {
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Headers $Headers -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Headers $Headers -Region $Region
 
         if ($DryRun) {
             Write-Output $AwsRequest
@@ -10418,7 +10434,7 @@ function Global:Get-S3ObjectTagging {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -Uri $Uri
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -Uri $Uri
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -10569,14 +10585,14 @@ function Global:Set-S3ObjectTagging {
                 Mandatory=$False,
                 Position=13,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
         $Method = "PUT"
     }
 
@@ -10625,7 +10641,7 @@ function Global:Set-S3ObjectTagging {
         $Body += "</Tagging>"
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -Uri $Uri -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -Uri $Uri -PayloadSigning $Config.PayloadSigning
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -10798,7 +10814,7 @@ function Global:Remove-S3ObjectTagging {
         }
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -Uri $Uri
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -Uri $Uri
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
@@ -10932,7 +10948,7 @@ function Global:Get-S3BucketConsistency {
 
         $Query = @{"x-ntap-sg-consistency"=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -11031,14 +11047,14 @@ function Global:Update-S3BucketConsistency {
                 Mandatory=$False,
                 Position=12,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
 
         $Method = "PUT"
     }
@@ -11070,7 +11086,7 @@ function Global:Update-S3BucketConsistency {
 
         $Query = @{"x-ntap-sg-consistency"=$Consistency}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -11160,7 +11176,7 @@ function Global:Get-S3StorageUsage {
 
         $Query = @{"x-ntap-sg-usage"=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -11289,7 +11305,7 @@ function Global:Get-S3BucketLastAccessTime {
 
         $Query = @{"x-ntap-sg-lastaccesstime"=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -11384,14 +11400,14 @@ function Global:Enable-S3BucketLastAccessTime {
                 Mandatory=$False,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
 
         $Method = "PUT"
     }
@@ -11423,7 +11439,7 @@ function Global:Enable-S3BucketLastAccessTime {
 
         $Query = @{"x-ntap-sg-lastaccesstime"="enabled"}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -11512,14 +11528,14 @@ function Global:Disable-S3BucketLastAccessTime {
                 Mandatory=$False,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
 
         $Method = "PUT"
     }
@@ -11551,7 +11567,7 @@ function Global:Disable-S3BucketLastAccessTime {
 
         $Query = @{"x-ntap-sg-lastaccesstime"="disabled"}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -PayloadSigningEnabled:$Config.PayloadSigningEnabled
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -11640,14 +11656,14 @@ function Global:Invoke-S3BucketMirroring {
                 Mandatory=$False,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigningEnabled
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigningEnabled:$PayloadSigningEnabled
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
     }
 
     Process {
