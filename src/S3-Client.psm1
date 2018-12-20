@@ -1805,42 +1805,42 @@ function Global:New-AwsPolicy {
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "PrincipalResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "PrincipalResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "PrincipalNotResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "PrincipalNotResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]$Principal = "*",
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]$Principal = "*",
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "NotPrincipalResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "NotPrincipalResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "NotPrincipalNotResourceAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
         [parameter(
                 Mandatory = $False,
                 Position = 3,
                 ParameterSetName = "NotPrincipalNotResourceNotAction",
-                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][String[]]$NotPrincipal,
+                HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]$NotPrincipal,
         [parameter(
                 Mandatory = $False,
                 Position = 4,
@@ -1946,14 +1946,18 @@ function Global:New-AwsPolicy {
     Process {
         # see https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html for details on Policies
 
-        if ($CurrentSgwServer -and ($Resource -match "arn:aws" -or $NotResource  -match "arn:aws")) {
+        if ($CurrentSgwServer -and ($Resource -match "arn:aws" -or $NotResource  -match "arn:aws") -or $Principal.Keys -match 'SGWS') {
             Write-Warning "Resource starts with arn:aws:"
             Write-Warning "If the policy is created for an S3 service different than AWS (e.g. StorageGRID),the Resource may need to be specified as:"
             if ($Resource) {
-                Write-Warning ($Resource.ToString() -replace "arn:aws:","urn:sgws:")
+                foreach ($WrongResource in $Resource) {
+                    Write-Warning $($WrongResource.Uri.OriginalString -replace "arn:aws:","urn:sgws:")
+                }
             }
             else {
-                Write-Warning ($NotResource.ToString() -replace "arn:aws:","urn:sgws:")
+                foreach ($WrongNotResource in $NotResource) {
+                    Write-Warning $($WrongNotResource.Uri.OriginalString -replace "arn:aws:","urn:sgws:")
+                }
             }
         }
 
@@ -1980,13 +1984,7 @@ function Global:New-AwsPolicy {
                 $Statement | Add-Member -MemberType NoteProperty -Name Principal -Value $Principal[0]
             }
             else {
-                $Statement | Add-Member -MemberType NoteProperty -Name Principal -Value ([PSCustomObject]@{})
-                if ($Principal -match "aws") {
-                    $Statement.Principal | Add-Member -MemberType NoteProperty -Name AWS -Value $Principal
-                }
-                else {
-                    $Statement.Principal | Add-Member -MemberType NoteProperty -Name SGWS -Value $Principal
-                }
+                $Statement | Add-Member -MemberType NoteProperty -Name Principal -Value $Principal
             }
         }
         if ($NotPrincipal) {
@@ -1994,13 +1992,7 @@ function Global:New-AwsPolicy {
                 $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value $NotPrincipal[0]
             }
             else {
-                $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value ([PSCustomObject]@{})
-                if ($Principal -match "aws") {
-                    $Statement.NotPrincipal | Add-Member -MemberType NoteProperty -Name AWS -Value $NotPrincipal
-                }
-                else {
-                    $Statement.NotPrincipal | Add-Member -MemberType NoteProperty -Name SGWS -Value $NotPrincipal
-                }
+                $Statement | Add-Member -MemberType NoteProperty -Name NotPrincipal -Value Principal
             }
         }
         if ($Resource) {
