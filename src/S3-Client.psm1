@@ -7686,6 +7686,7 @@ function Global:Get-S3ObjectMetadata {
                 Key=$Key;
                 Metadata=$Metadata;
                 Size=$Headers.'Content-Length' | Select-Object -First 1;
+                ContentType=$Headers.'Content-Type' | Select-Object -First 1;
                 DeleteMarker=$null;
                 AcceptRanges=$Headers.'Accept-Ranges' | Select-Object -First 1;
                 Expiration=$Headers["x-amz-expiration"] | Select-Object -First 1;
