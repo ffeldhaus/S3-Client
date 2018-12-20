@@ -7896,9 +7896,9 @@ function Global:Read-S3Object {
         $StartTime = Get-Date
         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
 
-		if(!(Test-Path $(Split-Path $OutFile))){
-			New-Item $(Split-Path $OutFile) -ItemType Directory | Out-Null
-		}
+	if(!(Test-Path $(Split-Path $OutFile))){
+		New-Item $(Split-Path $OutFile) -ItemType Directory | Out-Null
+	}
 
         Write-Debug "Create new file of size $Size"
         $FileStream = [System.IO.FileStream]::new($OutFile,[System.IO.FileMode]::OpenOrCreate,[System.IO.FileAccess]::Write,[System.IO.FileShare]::None)
