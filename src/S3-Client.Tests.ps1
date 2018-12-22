@@ -350,7 +350,7 @@ Describe "Write-S3Object" {
             $TempFileHash = $TempFile | Get-FileHash
             $TempFileHash.Hash | Should -Be $SmallFileHash.Hash
             $TempFile | Remove-Item
-            sleep 1
+            sleep 10
         }
     }
 
