@@ -1,4 +1,4 @@
-﻿$AWS_PROFILE_PATH = "$HOME/.aws/"
+$AWS_PROFILE_PATH = "$HOME/.aws/"
 $AWS_CREDENTIALS_FILE = $AWS_PROFILE_PATH + "credentials"
 
 $MIME_TYPES = @{}
@@ -1135,12 +1135,12 @@ function Global:Add-AwsConfig {
                 Mandatory=$False,
                 Position=7,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of concurrent requests (Default: 10)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
+                HelpMessage="The maximum number of concurrent requests (Default: processor count * 2)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
         [parameter(
                 Mandatory=$False,
                 Position=8,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of tasks in the task queue")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
+                HelpMessage="The maximum number of tasks in the task queue (Default: 1000)")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
         [parameter(
                 Mandatory=$False,
                 Position=9,
@@ -1150,7 +1150,7 @@ function Global:Add-AwsConfig {
                 Mandatory=$False,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files (Default: 8MB)")][Alias("multipart_chunksize")][String]$MultipartChunksize,
+                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files")][Alias("multipart_chunksize")][String]$MultipartChunksize,
         [parameter(
                 Mandatory=$False,
                 Position=11,
@@ -1243,7 +1243,7 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrlString -Force
         }
 
-        if ($MaxConcurrentRequests -and $MaxConcurrentRequests -ne [Environment]::ProcessorCount) {
+        if ($MaxConcurrentRequests -and $MaxConcurrentRequests -ne ([Environment]::ProcessorCount * 2)) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name max_concurrent_requests -Value $MaxConcurrentRequests -Force
         }
 
@@ -1255,7 +1255,7 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_threshold -Value $MultipartThreshold -Force
         }
 
-        if ($MultipartChunksize -and $MultipartChunksize -ne "8MB") {
+        if ($MultipartChunksize ) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_chunksize -Value $MultipartChunksize -Force
         }
 
@@ -1267,11 +1267,11 @@ function Global:Add-AwsConfig {
             Throw "The parameters use_accelerate_endpoint and use_dualstack_endpoint are mutually exclusive!"
         }
 
-        if ($UseAccelerateEndpoint -ne $null) {
+        if ($UseAccelerateEndpoint) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name use_accelerate_endpoint -Value $UseAccelerateEndpoint -Force
         }
 
-        if ($UseDualstackEndpoint -ne $null) {
+        if ($UseDualstackEndpoint) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name use_dualstack_endpoint -Value $UseDualstackEndpoint -Force
         }
 
@@ -1283,7 +1283,7 @@ function Global:Add-AwsConfig {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigning -Force
         }
 
-        if ($SkipCertificateCheck -ne $null) {
+        if ($SkipCertificateCheck) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name skip_certificate_check -Value $SkipCertificateCheck -Force
         }
 
@@ -1377,7 +1377,7 @@ function Global:Get-AwsConfigs {
                 $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value $Config.max_concurrent_requests
             }
             else {
-                $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value ([Environment]::ProcessorCount)
+                $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value ([Environment]::ProcessorCount * 2)
             }
             if ($Config.S3.max_queue_size) {
                 $Output | Add-Member -MemberType NoteProperty -Name MaxQueueSize -Value $Config.S3.max_queue_size
@@ -1404,7 +1404,7 @@ function Global:Get-AwsConfigs {
                 $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value $Config.multipart_chunksize
             }
             else {
-                $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value "8MB"
+                $Output | Add-Member -MemberType NoteProperty -Name MultipartChunksize -Value $null
             }
             if ($Config.S3.max_bandwidth) {
                 $Output | Add-Member -MemberType NoteProperty -Name MaxBandwidth -Value $Config.S3.max_bandwidth
@@ -1539,12 +1539,12 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=8,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of concurrent requests (Default: 10)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
+                HelpMessage="The maximum number of concurrent requests (Default: processor count * 2)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
         [parameter(
                 Mandatory=$False,
                 Position=9,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of tasks in the task queue")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
+                HelpMessage="The maximum number of tasks in the task queue (Default: 1000)")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
         [parameter(
                 Mandatory=$False,
                 Position=10,
@@ -1554,7 +1554,7 @@ function Global:Get-AwsConfig {
                 Mandatory=$False,
                 Position=11,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files (Default: 8MB)")][Alias("multipart_chunksize")][String]$MultipartChunksize,
+                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files")][Alias("multipart_chunksize")][String]$MultipartChunksize,
         [parameter(
                 Mandatory=$False,
                 Position=12,
@@ -1663,7 +1663,7 @@ function Global:Get-AwsConfig {
             $Config.MaxConcurrentRequests = $MaxConcurrentRequests
         }
         elseif (!$Config.MaxConcurrentRequests) {
-            $Config.MaxConcurrentRequests = ([Environment]::ProcessorCount)
+            $Config.MaxConcurrentRequests = ([Environment]::ProcessorCount * 2)
         }
 
         if ($MaxQueueSize) {
@@ -1682,9 +1682,6 @@ function Global:Get-AwsConfig {
 
         if ($MultipartChunksize) {
             $Config.MultipartChunksize = $MultipartChunksize
-        }
-        elseif (!$Config.MultipartChunksize) {
-            $Config.MultipartChunksize = "8MB"
         }
 
         if ($MaxBandwidth) {
@@ -7924,12 +7921,6 @@ function Global:Read-S3Object {
         Write-Debug "Creating HTTP Client"
         $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
-        # if the file size is larger than the multipart threshold, then a multipart download should be done
-        #if ($Config.MultipartThreshold -and $Size -ge $Config.MultipartThreshold) {
-        #    Write-Verbose "Using multipart download as object is larger than multipart threshold of $($Config.MultipartThreshold)"
-        #    # TODO: Multipart Download
-        #}
-        #else {
             Write-Debug "Creating Stream"
             $Stream = $MemoryMappedFile.CreateViewStream()
 
@@ -7992,7 +7983,6 @@ function Global:Read-S3Object {
                 if ($Stream) { $Stream.Dispose() }
                 if ($MemoryMappedFile) { $MemoryMappedFile.Dispose() }
             }
-        #}
 
         Write-Host "Downloading object $BucketName/$Key of size $([Math]::Round($Size/1MB,4))MiB to file $OutFile completed in $([Math]::Round($Duration,2)) seconds with average throughput of $([Math]::Round($Throughput,2)) MiB/s"
     }
@@ -9215,7 +9205,7 @@ function Global:Write-S3MultipartUpload {
             $MaxRunspaces = $Config.MaxConcurrentRequests
         }
         else {
-            $MaxRunspaces = [Environment]::ProcessorCount
+            $MaxRunspaces = [Environment]::ProcessorCount * 2
         }
         Write-Verbose "Uploading maximum $MaxRunspaces parts in parallel"
 
