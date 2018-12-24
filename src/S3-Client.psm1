@@ -7928,7 +7928,7 @@ function Global:Write-S3Object {
             Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
         else {
-            ConvertTo-Punycode -BucketName $BucketName
+            $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
             if (!$InFile -and $Content -and !$ContentType) {
                 $ContentType = "text/plain"
