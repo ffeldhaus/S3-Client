@@ -8828,6 +8828,9 @@ function Global:Write-S3MultipartUpload {
         Write-Verbose "Initiating Multipart Upload"
         $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -BucketName $BucketName -Key $Key -Metadata $Metadata -ContentType $ContentType
 
+        # give AWS enough time to processs multipart upload start
+        sleep 1
+
         Write-Verbose "Multipart Upload ID: $($MultipartUpload.UploadId)"
 
         try {
@@ -9172,21 +9175,7 @@ function Global:Write-S3ObjectPart {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Uri = "/$Key"
 
