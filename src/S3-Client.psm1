@@ -7970,9 +7970,6 @@ function Global:Write-S3Object {
 
                         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
 
-                        Write-Debug "Initializing Memory Mapped File"
-                        $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($InFile, [System.IO.FileMode]::Open)
-
                         Write-Debug "Creating HTTP Client Handler"
                         if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
                             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
@@ -7986,7 +7983,7 @@ function Global:Write-S3Object {
                         }
 
                         Write-Debug "Creating Stream"
-                        $Stream = $MemoryMappedFile.CreateViewStream()
+                        $Stream = [System.IO.FileStream]::new($InFile,[System.IO.FileMode]::Open,[System.IO.FileAccess]::Read)
 
                         # using CryptoSteam to calculate the MD5 sum while uploading the file
                         # this allows to only read the stream once and increases performance compared with other S3 clients
@@ -8082,9 +8079,9 @@ function Global:Write-S3Object {
                             Write-Verbose "Dispose used resources"
                             if ($Task) { $Task.Dispose() }
                             if ($PutRequest) { $PutRequest.Dispose() }
+                            if ($HttpClient) { $HttpClient.Dispose() }
                             if ($StreamContent) { $StreamContent.Dispose() }
                             if ($Stream) { $Stream.Dispose() }
-                            if ($MemoryMappedFile) { $MemoryMappedFile.Dispose }
                         }
 
                         Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4)) MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
