@@ -150,6 +150,7 @@ Describe "AWS Configuration and Credential Management" {
         $Region = "eu-central-1"
         $EndpointUrl = "https://s3.example.org"
         $MaxConcurrentRequest = 1234
+        $MaxQueueSize = 1234
         $MultipartThreshold = "256MB"
         $MultipartChunksize = "128MB"
         $MaxBandwidth = "10MB/s"
@@ -158,8 +159,8 @@ Describe "AWS Configuration and Credential Management" {
         $AddressingStyle = "path"
         $PayloadSigning= $true
 
-        It "Given -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MultipartThreshold $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning" {
-            New-AwsConfig -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MultipartThreshold $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning
+        It "Given -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MultipartThreshold $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning creates a new profile with these values" {
+            New-AwsConfig -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MaxQueueSize $MaxQueueSize -MultipartThreshold $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning
             $Config = Get-AwsConfig -ProfileName $ProfileName
             $Config.ProfileName | Should -Be $ProfileName
             $Config.AccessKey | Should -Be $AccessKey
@@ -167,6 +168,7 @@ Describe "AWS Configuration and Credential Management" {
             $Config.Region | Should -Be $Region
             $Config.EndpointUrl | Should -Be $EndpointUrl
             $Config.MaxConcurrentRequests | Should -Be $MaxConcurrentRequest
+            $Config.MaxQueueSize |  Should -Be $MaxQueueSize
             $Config.MultipartThreshold  | Should -Be $MultipartThreshold
             $Config.MultipartChunksize  | Should -Be $MultipartChunksize
             $Config.MaxBandwidth  | Should -Be $MaxBandwidth
@@ -176,6 +178,25 @@ Describe "AWS Configuration and Credential Management" {
             $Config.PayloadSigning  | Should -Be $PayloadSigning
         }
 
+        It "Given -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey creates a profile with default values" {
+            New-AwsConfig -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey
+            $Config = Get-AwsConfig -ProfileName $ProfileName
+            $Config.ProfileName | Should -Be $ProfileName
+            $Config.AccessKey | Should -Be $AccessKey
+            $Config.SecretKey | Should -Be $SecretKey
+            $Config.Region | Should -Be "us-east-1"
+            $Config.EndpointUrl | Should -BeNullOrEmpty
+            $Config.MaxConcurrentRequests | Should -Be ([Environment]::ProcessorCount * 2)
+            $Config.MaxQueueSize |  Should -Be 1000
+            $Config.MultipartThreshold | Should -Be "8MB"
+            $Config.MultipartChunksize  | Should -BeNullOrEmpty
+            $Config.MaxBandwidth  | Should -BeNullOrEmpty
+            $Config.UseAccelerateEndpoint | Should -BeFalse
+            $Config.UseDualstackEndpoint | Should -BeFalse
+            $Config.AddressingStyle | Should -Be "auto"
+            $Config.PayloadSigning | Should -Be "auto"
+        }
+
         It "Remove -ProfileName $ProfileName" {
             New-AwsConfig -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey
             $Config = Get-AwsConfig -ProfileName $ProfileName
@@ -183,6 +204,47 @@ Describe "AWS Configuration and Credential Management" {
             Remove-AwsConfig -ProfileName $ProfileName
             $Config = Get-AwsConfig -ProfileName $ProfileName
             $Config | Should -BeNullOrEmpty
+        }
+    }
+
+    Context "Update an existing profile" {
+        It "Given an existing profile $ProfileName and parameters -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MultipartThreshold $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning it updates all values" {
+            New-AwsConfig -ProfileName $ProfileName -AccessKey "existing" -SecretKey "existing"
+            Update-AwsConfig -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MultipartThreshold -MaxQueueSize $MaxQueueSize $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning
+            $Config = Get-AwsConfig -ProfileName $ProfileName
+            $Config.ProfileName | Should -Be $ProfileName
+            $Config.AccessKey | Should -Be $AccessKey
+            $Config.SecretKey | Should -Be $SecretKey
+            $Config.Region | Should -Be $Region
+            $Config.EndpointUrl | Should -Be $EndpointUrl
+            $Config.MaxConcurrentRequests | Should -Be $MaxConcurrentRequest
+            $Config.MaxQueueSize |  Should -Be $MaxQueueSize
+            $Config.MultipartThreshold  | Should -Be $MultipartThreshold
+            $Config.MultipartChunksize  | Should -Be $MultipartChunksize
+            $Config.MaxBandwidth  | Should -Be $MaxBandwidth
+            $Config.UseAccelerateEndpoint  | Should -Be $UseAccelerateEndpoint
+            $Config.UseDualstackEndpoint  | Should -Be $UseDualstackEndpoint
+            $Config.AddressingStyle  | Should -Be $AddressingStyle
+            $Config.PayloadSigning  | Should -Be $PayloadSigning
+        }
+
+        It "Given an existing profile $ProfileName with non default values resetting the values to defaults works" {
+            New-AwsConfig -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MaxQueueSize $MaxQueueSize -MultipartThreshold $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning
+            Update-AwsConfig -ProfileName $ProfileName -Region "us-east-1" -EndpointUrl $null -MaxConcurrentRequests ([Environment]::ProcessorCount * 2) -MultipartThreshold "8MB" -MultipartChunksize 0 -MaxBandwidth 0 -UseAccelerateEndpoint $false -UseDualstackEndpoint $false -AddressingStyle "auto" -PayloadSigning "auto"
+            $Config.ProfileName | Should -Be $ProfileName
+            $Config.AccessKey | Should -Be $AccessKey
+            $Config.SecretKey | Should -Be $SecretKey
+            $Config.Region | Should -Be "us-east-1"
+            $Config.EndpointUrl | Should -BeNullOrEmpty
+            $Config.MaxConcurrentRequests | Should -Be ([Environment]::ProcessorCount * 2)
+            $Config.MaxQueueSize |  Should -Be 1000
+            $Config.MultipartThreshold | Should -Be "8MB"
+            $Config.MultipartChunksize  | Should -BeNullOrEmpty
+            $Config.MaxBandwidth  | Should -BeNullOrEmpty
+            $Config.UseAccelerateEndpoint | Should -BeFalse
+            $Config.UseDualstackEndpoint | Should -BeFalse
+            $Config.AddressingStyle | Should -Be "auto"
+            $Config.PayloadSigning | Should -Be "auto"
         }
     }
 }

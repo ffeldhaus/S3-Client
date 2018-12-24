@@ -1234,8 +1234,11 @@ function Global:Add-AwsConfig {
             $Config = [PSCustomObject]@{ ProfileName = $ProfileName;s3 = [PSCustomObject]@{} }
         }
 
-        if ($Region -and ($Config.Region -ne "us-east-1" -or $Region -ne "us-east-1")) {
+        if ($Region -and $Region -ne "us-east-1") {
             $Config | Add-Member -MemberType NoteProperty -Name region -Value $Region -Force
+        }
+        elseif ($Config.Region -and $Region -eq "us-east-1") {
+            $Config.PSObject.Properties.Remove("Region")
         }
 
         if ($EndpointUrl) {
@@ -1246,21 +1249,36 @@ function Global:Add-AwsConfig {
         if ($MaxConcurrentRequests -and $MaxConcurrentRequests -ne ([Environment]::ProcessorCount * 2)) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name max_concurrent_requests -Value $MaxConcurrentRequests -Force
         }
+        elseif ($Config.S3.max_concurrent_requests -and $MaxConcurrentRequests -eq ([Environment]::ProcessorCount * 2)) {
+            $Config.S3.PSObject.Properties.Remove("max_concurrent_requests")
+        }
 
         if ($MaxQueueSize -and $MaxQueueSize -ne 1000) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name max_queue_size -Value $MaxQueueSize -Force
+        }
+        elseif ($Config.S3.max_queue_size -and $MaxQueueSize -eq 1000) {
+            $Config.S3.PSObject.Properties.Remove("max_queue_size")
         }
 
         if ($MultipartThreshold -and $MultipartThreshold -ne "8MB") {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_threshold -Value $MultipartThreshold -Force
         }
-
-        if ($MultipartChunksize ) {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_chunksize -Value $MultipartChunksize -Force
+        elseif ($Config.S3.multipart_threshold -and $MultipartThreshold -eq "8MB") {
+            $Config.S3.PSObject.Properties.Remove("multipart_threshold")
         }
 
-        if ($MaxBandwidth) {
+        if ($MultipartChunksize -and $MultipartChunksize -ne "0") {
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_chunksize -Value $MultipartChunksize -Force
+        }
+        elseif ($Config.S3.multipart_chunksize -and $MultipartChunksize -eq "0") {
+            $Config.S3.PSObject.Properties.Remove("multipart_chunksize")
+        }
+
+        if ($MaxBandwidth -and $MaxBandwidth -ne "0") {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name max_bandwidth -Value $MaxBandwidth -Force
+        }
+        elseif ($Config.S3.max_bandwidth -and $MaxBandwidth -eq "0") {
+            $Config.S3.PSObject.Properties.Remove("max_bandwidth")
         }
 
         if ($UseAccelerateEndpoint -and $UseDualstackEndpoint) {
