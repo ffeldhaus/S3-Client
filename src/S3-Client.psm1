@@ -303,6 +303,53 @@ function ConvertFrom-UnixTimestamp {
     }
 }
 
+<#
+    .SYNOPSIS
+    Convert bucket name with non DNS conform characters to Punycode
+    .DESCRIPTION
+    Convert bucket name with non DNS conform characters to Punycode
+    .PARAMETER BucketName
+    Bucket name to convert to punycode
+ #>
+function ConvertTo-Punycode {
+    #private
+    [CmdletBinding()]
+
+    PARAM (
+        [parameter(Mandatory=$True,
+                Position=0,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName,
+        [parameter(Mandatory=$False,
+                Position=1,
+                HelpMessage="Skip test if non DNS conform bucket exist")][Switch]$SkipTest
+    )
+
+    PROCESS {
+        # Convert Bucket Name to IDN mapping to support Unicode Names
+        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
+        # check if BucketName contains uppercase letters
+        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+            if ($SkipTest.IsPresent) {
+                Write-Warning "BucketName $BucketName includes uppercase letters which MUST NOT be used. Converting BucketName to lowercase $PunycodeBucketName. AWS S3 and StorageGRID since version 11.1 do not support Buckets with uppercase letters!"
+                Write-Output $PunycodeBucketName
+            }
+            else {
+                $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
+                if ($BucketNameExists) {
+                    Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+                }
+                else {
+                    Write-Output $PunycodeBucketName
+                }
+            }
+        }
+        else {
+            Write-Output $PunycodeBucketName
+        }
+    }
+}
+
 ### AWS Cmdlets ###
 
 <#
@@ -2371,22 +2418,11 @@ function Global:Test-S3Bucket {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # if BucketName contains uppercase letters test if bucket was created correctly without uppercase letters or if it contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName -and -not $Force.IsPresent) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-                Write-Output $BucketNameExists
-                break
-            }
-        }
-        if (-not $Force.IsPresent) {
-            $BucketName = $PunycodeBucketName
-        }
-        if ($Force) {
+        if ($Force.IsPresent) {
             $UrlStyle = "path"
+        }
+        else {
+            $BucketName = ConvertTo-Punycode -BucketName $BucketName
         }
 
         if ($Config)  {
@@ -2592,13 +2628,7 @@ function Global:New-S3Bucket {
             $RequestPayload = "<CreateBucketConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><LocationConstraint>$Region</LocationConstraint></CreateBucketConfiguration>"
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names and convert to lowercase
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            Write-Warning "BucketName $BucketName includes uppercase letters which MUST NOT be used. Converting BucketName to lowercase $PunycodeBucketName. AWS S3 and StorageGRID Webscale 11.1 do not support Buckets with uppercase letters!"
-        }
-        $BucketName = $PunycodeBucketName
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName -SkipTest
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -PayloadSigning $Config.PayloadSigning
 
@@ -2750,21 +2780,7 @@ function Global:Remove-S3Bucket {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Force -or $DeleteBucketContent) {
             try {
@@ -2918,21 +2934,7 @@ function Global:Get-S3BucketEncryption {
 
         $Query = @{encryption=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -3108,21 +3110,7 @@ function Global:Set-S3BucketEncryption {
 
         $Query = @{encryption=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Body = "<ServerSideEncryptionConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`">"
         $Body += "<Rule>"
@@ -3290,21 +3278,7 @@ function Global:Remove-S3BucketEncryption {
 
         $Query = @{encryption=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -3462,21 +3436,7 @@ function Global:Get-S3BucketCorsConfiguration {
 
         $Query = @{cors=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -3690,21 +3650,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
 
         $Query = @{cors=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $CorsConfigurationRules = @()
 
@@ -3901,21 +3847,7 @@ function Global:Remove-S3BucketCorsConfigurationRule {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         # get all rules
         $CorsConfigurationRules = Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
@@ -4062,21 +3994,7 @@ function Global:Remove-S3BucketCorsConfiguration {
 
         $Query = @{cors=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -4237,21 +4155,7 @@ function Global:Get-S3BucketReplicationConfiguration {
 
         $Query = @{replication=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -4536,21 +4440,7 @@ function Global:Add-S3BucketReplicationConfigurationRule {
 
         $Query = @{replication=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($DestinationBucketName) {
             # Convert Destination Bucket Name to IDN mapping to support Unicode Names
@@ -4775,21 +4665,7 @@ function Global:Remove-S3BucketReplicationConfigurationRule {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         # get all rules
         $ReplicationConfigurationRules = Get-S3BucketReplicationConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
@@ -4936,21 +4812,7 @@ function Global:Remove-S3BucketReplicationConfiguration {
 
         $Query = @{replication=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -5099,21 +4961,7 @@ function Global:Get-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{policy=""}
 
@@ -5305,21 +5153,7 @@ function Global:Set-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{policy=""}
 
@@ -5474,21 +5308,7 @@ function Global:Remove-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{policy=""}
 
@@ -5630,21 +5450,7 @@ function Global:Get-S3BucketTagging {
 
         $Query = @{tagging=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -5813,21 +5619,7 @@ function Global:Set-S3BucketTagging {
 
         $Query = @{tagging=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Body = "<Tagging>"
         $Body += "<TagSet>"
@@ -5995,21 +5787,7 @@ function Global:Remove-S3BucketTagging {
 
         $Query = @{tagging=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -6159,21 +5937,7 @@ function Global:Get-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle "path" -Bucket $BucketName -Force -UseDualstackEndpoint:$UseDualstackEndpoint
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{versioning=""}
 
@@ -6333,21 +6097,7 @@ function Global:Enable-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{versioning=""}
 
@@ -6509,21 +6259,7 @@ function Global:Suspend-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{versioning=""}
 
@@ -6672,21 +6408,7 @@ function Global:Get-S3BucketLocation {
 
         Write-Verbose "Retrieving location for bucket $BucketName"
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Uri = "/"
 
@@ -6875,21 +6597,7 @@ function Global:Get-S3MultipartUploads {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{uploads=""}
         if ($EncodingType) {
@@ -7116,21 +6824,7 @@ function Global:Get-S3Objects {
             if ($ContinuationToken) { $Query["continuation-token"] = $ContinuationToken }
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -UseDualstackEndpoint:$UseDualstackEndpoint
 
@@ -7317,21 +7011,7 @@ function Global:Get-S3ObjectVersions {
 
         $Query = @{versions=""}
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Delimiter) { $Query["delimiter"] = $Delimiter }
         if ($EncodingType) { $Query["encoding-type"] = $EncodingType }
@@ -7503,21 +7183,7 @@ function Global:Get-S3PresignedUrl {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Uri = "/$Key"
         $Presign = $true
@@ -7646,21 +7312,7 @@ function Global:Get-S3ObjectMetadata {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -7841,21 +7493,7 @@ function Global:Read-S3Object {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -8290,21 +7928,7 @@ function Global:Write-S3Object {
             Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
         else {
-            # Convert Bucket Name to IDN mapping to support Unicode Names
-            $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-            # check if BucketName contains uppercase letters
-            if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-                $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-                if ($BucketNameExists) {
-                    Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-                }
-                else {
-                    $BucketName = $PunycodeBucketName
-                }
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
+            ConvertTo-Punycode -BucketName $BucketName
 
             if (!$InFile -and $Content -and !$ContentType) {
                 $ContentType = "text/plain"
@@ -8646,21 +8270,7 @@ function Global:Start-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Headers = @{}
         if ($Metadata) {
@@ -8841,21 +8451,7 @@ function Global:Stop-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -9020,21 +8616,7 @@ function Global:Complete-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -9184,21 +8766,7 @@ function Global:Write-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($InFile -and !$InFile.Exists) {
             Throw "File $InFile does not exist"
@@ -9800,21 +9368,7 @@ function Global:Get-S3ObjectParts {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -9991,21 +9545,7 @@ function Global:Remove-S3Object {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -10191,21 +9731,7 @@ function Global:Copy-S3Object {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if (!$SourceBucket) {
             $SourceBucket = $BucketName
@@ -10214,21 +9740,7 @@ function Global:Copy-S3Object {
             $SourceKey = $Key
         }
 
-        # Convert Source Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeSourceBucketName = [System.Globalization.IdnMapping]::new().GetAscii($SourceBucket).ToLower()
-        # check if SourceBucket contains uppercase letters
-        if ($PunycodeSourceBucketName -match $SourceBucket -and $PunycodeSourceBucketName -cnotmatch $SourceBucket) {
-            $SourceBucketExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $SourceBucket -Force
-            if ($SourceBucketExists) {
-                Write-Warning "SourceBucket $SourceBucket includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $SourceBucket = $PunycodeSourceBucketName
-            }
-        }
-        else {
-            $SourceBucket = $PunycodeSourceBucketName
-        }
+        $SourceBucketName = ConvertTo-Punycode -BucketName $SourceBucketName
 
         $Uri = "/$Key"
 
@@ -10417,21 +9929,7 @@ function Global:Get-S3ObjectTagging {
 
         $Uri = "/$Key"
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -Uri $Uri
@@ -10609,21 +10107,7 @@ function Global:Set-S3ObjectTagging {
 
         $Uri = "/$Key"
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Body = "<Tagging>"
         $Body += "<TagSet>"
@@ -10797,21 +10281,7 @@ function Global:Remove-S3ObjectTagging {
         $Query = @{tagging=""}
         $Uri = "/$Key"
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -Uri $Uri
@@ -10930,21 +10400,7 @@ function Global:Get-S3BucketConsistency {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-consistency"=""}
 
@@ -11068,21 +10524,7 @@ function Global:Update-S3BucketConsistency {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-consistency"=$Consistency}
 
@@ -11287,21 +10729,7 @@ function Global:Get-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-lastaccesstime"=""}
 
@@ -11421,21 +10849,7 @@ function Global:Enable-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-lastaccesstime"="enabled"}
 
@@ -11549,21 +10963,7 @@ function Global:Disable-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-lastaccesstime"="disabled"}
 
@@ -11675,21 +11075,7 @@ function Global:Invoke-S3BucketMirroring {
             $Region = $Config.Region
         }
 
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
-            if ($BucketNameExists) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-            }
-            else {
-                $BucketName = $PunycodeBucketName
-            }
-        }
-        else {
-            $BucketName = $PunycodeBucketName
-        }
+        $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
         $BucketReplication = Get-S3BucketReplication -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck -BucketName $BucketName
 
