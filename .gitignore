@@ -7,3 +7,4 @@ secure/
 appveyor-tools/
 .vscode/launch.json
 S3-Client
+TestsResults.xml

@@ -1335,21 +1335,36 @@ function Global:Add-AwsConfig {
         if ($UseAccelerateEndpoint) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name use_accelerate_endpoint -Value $UseAccelerateEndpoint -Force
         }
+        elseif ($Config.S3.use_accelerate_endpoint -and !$UseAccelerateEndpoint) {
+            $Config.S3.PSObject.Properties.Remove("use_accelerate_endpoint")
+        }
 
         if ($UseDualstackEndpoint) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name use_dualstack_endpoint -Value $UseDualstackEndpoint -Force
+        }
+        elseif ($Config.use_dualstack_endpoint -and !$UseDualstackEndpoint) {
+            $Config.S3.PSObject.Properties.Remove("use_dualstack_endpoint")
         }
 
         if ($AddressingStyle -and $AddressingStyle -ne "auto") {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
         }
+        elseif ($Config.S3.addressing_style -and $AddressingStyle -match "auto|false") {
+            $Config.S3.PSObject.Properties.Remove("addressing_style")
+        }
 
         if ($PayloadSigning -and $PayloadSigning -ne "auto") {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigning -Force
         }
+        elseif ($Config.S3.payload_signing_enabled -and $PayloadSigning -match "auto|false") {
+            $Config.S3.PSObject.Properties.Remove("payload_signing_enabled")
+        }
 
         if ($SkipCertificateCheck) {
             $Config.S3 | Add-Member -MemberType NoteProperty -Name skip_certificate_check -Value $SkipCertificateCheck -Force
+        }
+        elseif ($Config.skip_certificate_check -and !$SkipCertificateCheck) {
+            $Config.S3.PSObject.Properties.Remove("skip_certificate_check")
         }
 
         $Configs = (@($Configs | Where-Object { $_.ProfileName -ne $ProfileName}) + $Config) | Where-Object { $_.ProfileName}

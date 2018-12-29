@@ -233,13 +233,12 @@ Describe "AWS Configuration and Credential Management" {
 
         It "Given an existing profile $ProfileName with non default values resetting the values to defaults works" {
             New-AwsConfig -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MaxQueueSize $MaxQueueSize -MultipartThreshold $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning
-            Update-AwsConfig -ProfileName $ProfileName -Region "us-east-1" -EndpointUrl $null -MaxConcurrentRequests ([Environment]::ProcessorCount * 2) -MultipartThreshold "8MB" -MultipartChunksize 0 -MaxBandwidth 0 -UseAccelerateEndpoint $false -UseDualstackEndpoint $false -AddressingStyle "auto" -PayloadSigning "auto"
+            Update-AwsConfig -ProfileName $ProfileName -Region "us-east-1" -MaxConcurrentRequests ([Environment]::ProcessorCount * 2) -MaxQueueSize 1000 -MultipartThreshold "8MB" -MultipartChunksize 0 -MaxBandwidth 0 -UseAccelerateEndpoint $false -UseDualstackEndpoint $false -AddressingStyle "auto" -PayloadSigning "auto"
             $Config = Get-AwsConfig -ProfileName $ProfileName
             $Config.ProfileName | Should -Be $ProfileName
             $Config.AccessKey | Should -Be $AccessKey
             $Config.SecretKey | Should -Be $SecretKey
             $Config.Region | Should -Be "us-east-1"
-            $Config.EndpointUrl | Should -BeNullOrEmpty
             $Config.MaxConcurrentRequests | Should -Be ([Environment]::ProcessorCount * 2)
             $Config.MaxQueueSize |  Should -Be 1000
             $Config.MultipartThreshold | Should -Be "8MB"
