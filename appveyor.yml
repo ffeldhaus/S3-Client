@@ -43,7 +43,6 @@ environment:
     secure: yfhbYXx6lQZfjayZ8RkkvjFvVZUFIhPROuBzkj6HHey2bflN0PeKJgGeIWXFF0p/
   APPVEYOR_SSH_KEY: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDCoyP+9UxLay7fZC94l+LCzGhDOpJx1Chyt4zAVSvTuEYBpowR0x6YFNAEvxSTdVkHP+L0gMQggWdDspuKmJGruomK9kcxV5d/BBru8jcsivCWcHGei+V5wjUciIXp3CYEcM68SgkwlDlJ465owogQfFRbJeskq5TR4pwqBfkQ0suYxKE8zBmBryDbSV5U1Z31W5JGuF3tQsIPINP08aXmHLJ+eEST1tc0MLYFGI0nohk1ZgFlW2uzmWKPVQJRieO0NUTTDwmjdp9lbMqy8iZo/V3jkgh9+hJpftFOBBREWGbfDA+atrbOpTm4RRjrW56Q0GetYyIvha3I6053oU9POOWx12qn92303Rt8QRgMKomlXphmK5F39y2V3gorHuoMLsJM1yW4kVhLGzftA1ocLfRBHElnuRf6gRUFm957njPTzxb1TtmAXsbYaIz0zbX4X/yZIG3LZkMBUHWd01BPKmwSLEa8GOxKB3uvck80KPjB7qHAzGmCwv0NHAk+KsGAAp7+6ZLr7nVdBIYtJIBDMWl3cZk/tCsaqn1IuW2kZqu5nM/19o13dGSo6A2BoCuuQ7iCPktlgvaJBQA1Sc90gmdbM+CxFtSufXaGX3AEEGAp+vMePnSL9t2G+Dy1sg5xEBqET7TL3VqB075ksTyeXJCZPRgQSdiGYyTR9wv/cQ== florian.feldhaus@gmail.com
   APPVEYOR_SSH_BLOCK: true
-  LANG: en-US
 
 # enable docker which is used for Minio
 services:
@@ -74,8 +73,8 @@ before_test:
   - sh: if [[ "$CONFIGURATION" == "Minio" ]]; then docker pull minio/minio;fi
   - sh: if [[ "$CONFIGURATION" == "Minio" ]]; then docker run -d -p 9000:9000 -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data;fi
 # enable SSH
-  - sh: export APPVEYOR_SSH_BLOCK=true
-  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
+#  - sh: export APPVEYOR_SSH_BLOCK=true
+#  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
 
 # Invoke Pester to run all of the unit tests, then save the results into XML in order to populate the AppVeyor tests section
 # If any of the tests fail, consider the pipeline failed
