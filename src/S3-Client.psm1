@@ -8844,7 +8844,7 @@ function Global:Write-S3MultipartUpload {
         $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -BucketName $BucketName -Key $Key -Metadata $Metadata -ContentType $ContentType
 
         # give AWS enough time to processs multipart upload start
-        sleep 1
+        Start-Sleep -Seconds 2
 
         Write-Verbose "Multipart Upload ID: $($MultipartUpload.UploadId)"
 
