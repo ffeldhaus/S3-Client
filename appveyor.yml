@@ -52,7 +52,7 @@ services:
 # Install Pester for testing, setup AWS Profiles and deploy minio via docker
 install:
   - ps: $PSVersionTable
-  - ps: [System.Environment]::GetEnvironmentVariables()
+  - ps: ([System.Environment]::GetEnvironmentVariables())
   - ps: Install-Module -Name PowerShellGet -Scope CurrentUser -Force -AllowClobber
   - ps: Import-Module -Name PowerShellGet -MinimumVersion 1.6 -Force
   - ps: Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
