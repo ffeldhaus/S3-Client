@@ -2799,8 +2799,8 @@ function Global:Remove-S3Bucket {
 
         if ($Force -or $DeleteBucketContent) {
             try {
-                $BucketVersioningEnabled = Get-S3BucketVersioning -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck
-                if ($BucketVersioningEnabled) {
+                $BucketVersioningEnabledOrSuspended = Get-S3BucketVersioning -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck
+                if ($BucketVersioningEnabledOrSuspended) {
                     Get-S3ObjectVersions -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -Bucket $BucketName -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck | Remove-S3Object -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -SkipCertificateCheck:$SkipCertificateCheck
                 }
             }
@@ -6854,14 +6854,9 @@ function Global:Get-S3Objects {
 
                 $Objects = $Content.ListBucketResult.Contents | Where-Object { $_ }
 
-                $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode($Content.ListBucketResult.Name)
-                if ($UnicodeBucket -match $BucketName) {
-                    $UnicodeBucket = $BucketName
-                }
-
                 foreach ($Object in $Objects) {
                     $Object = [PSCustomObject]@{
-                        Bucket=$UnicodeBucket;
+                        BucketName=$BucketName;
                         Region=$Region;
                         Key=[System.Net.WebUtility]::UrlDecode($Object.Key);
                         LastModified=(Get-Date $Object.LastModified);
@@ -7056,16 +7051,7 @@ function Global:Get-S3ObjectVersions {
             $DeleteMarkers | Add-Member -MemberType NoteProperty -Name Type -Value "DeleteMarker"
             $Versions += $DeleteMarkers
 
-            foreach ($Version in $Versions) {
-                $Version | Add-Member -MemberType NoteProperty -Name OwnerId -Value $Version.Owner.Id
-                $Version | Add-Member -MemberType NoteProperty -Name OwnerDisplayName -Value $Version.Owner.DisplayName
-                $Version | Add-Member -MemberType NoteProperty -Name Region -Value $Region
-                if ($Version.ETag) {
-                    $Version.ETag = $Version.ETag -replace '"',''
-                }
-                $Version.PSObject.Members.Remove("Owner")
-            }
-            $Versions | Add-Member -MemberType NoteProperty -Name BucketName -Value $Content.ListVersionsResult.Name
+            $Versions = $Versions | Sort-Object -Property Key
 
             if ($Key) {
                 $Versions = $Versions | Where-Object { $_.Key -eq $Key }
@@ -7075,7 +7061,22 @@ function Global:Get-S3ObjectVersions {
                 $Versions = $Versions | Where-Object { $_.Type -eq $Type }
             }
 
-            Write-Output $Versions
+            foreach ($Version in $Versions) {
+                $Version = [PSCustomObject]@{
+                    BucketName=$BucketName;
+                    Region=$Region;
+                    Key=[System.Net.WebUtility]::UrlDecode($Version.Key);
+                    VersionId=$Version.VersionId;
+                    IsLatest=$Version.IsLatest;
+                    Type=$Version.Type;
+                    LastModified=(Get-Date $Version.LastModified);
+                    ETag=([System.Net.WebUtility]::UrlDecode($Version.ETag) -replace '"','');
+                    Size=[long]$Version.Size;
+                    OwnerId=[System.Net.WebUtility]::UrlDecode($Version.Owner.ID);
+                    OwnerDisplayName=[System.Net.WebUtility]::UrlDecode($Version.Owner.DisplayName);
+                    StorageClass=[System.Net.WebUtility]::UrlDecode($Version.StorageClass)}
+                Write-Output $Version
+            }
 
             if ($Content.ListVersionsResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
                 Write-Verbose "1000 Versions were returned and max keys was not limited so continuing to get all Versions"

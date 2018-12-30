@@ -586,6 +586,132 @@ Describe "S3 Object Tagging" {
     }
 }
 
+Describe "S3 Bucket Versioning" {
+    Context "Enable and Suspend Bucket Versioning" {
+        Setup -BucketName $BucketName -Key $Key
+        It "Given -BucketName $BucketName versioning is enabled and then suspended" {
+            Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
+            sleep 3
+            Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName | Should -Be "Enabled"
+            Suspend-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
+            sleep 3
+            Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName | Should -Be "Suspended"
+        }
+        Cleanup -BucketName $BucketName
+
+        Setup -BucketName $UnicodeBucketName -Key $Key
+        It "Given -BucketName $UnicodeBucketName versioning is enabled and then suspended" {
+            Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            sleep 3
+            Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName | Should -Be "Enabled"
+            Suspend-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            sleep 3
+            Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName | Should -Be "Suspended"
+        }
+        Cleanup -BucketName $UnicodeBucketName
+    }
+
+    Context "Create, list and delete 10 Object Versions and Delete Markers in Versioning enabled Bucket" {
+        Setup -BucketName $BucketName -Key $Key
+        It "Given -BucketName $BucketName and different keys, object versions and delete markers are created, listed and deleted successfully" {
+            Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
+            sleep 3
+            foreach ($Key in 1..10) {
+                # create object version
+                Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+                # create delete marker for previously created object version
+                Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+            }
+            $ObjectVersions = Get-S3ObjectVersions -ProfileName $ProfileName -BucketName $BucketName
+            $Versions = $ObjectVersions | Where-Object { $_.Type -eq "Version" }
+            $Versions.Count | Should -Be 10
+            foreach ($Version in $Versions) {
+                $Version.BucketName | Should -Be $BucketName
+                $Version.Region | Should -Not -BeNullOrEmpty
+                $Version.Key | Should -Not -BeNullOrEmpty
+                $Version.VersionId | Should -Not -BeNullOrEmpty
+                $Version.IsLatest | Should -BeFalse
+                $Version.Type | Should -Be "Version"
+                $Version.LastModified | Should -BeOfType DateTime
+                $Version.ETag | Should -Not -BeNullOrEmpty
+                $Version.Size | Should -BeGreaterOrEqual 0
+                $Version.OwnerId | Should -Not -BeNullOrEmpty
+                # $Version.OwnerDisplayName may be empty as AWS only retuns this for a few regions
+                $Version.StorageClass | Should -Not -BeNullOrEmpty
+            }
+            $DeleteMarkers = $ObjectVersions | Where-Object { $_.Type -eq "DeleteMarker" }
+            $DeleteMarkers.Count | Should -Be 10
+            foreach ($DeleteMarker in $DeleteMarkers) {
+                $DeleteMarker.BucketName | Should -Be $BucketName
+                $DeleteMarker.Region | Should -Not -BeNullOrEmpty
+                $DeleteMarker.Key | Should -Not -BeNullOrEmpty
+                $DeleteMarker.VersionId | Should -Not -BeNullOrEmpty
+                $DeleteMarker.IsLatest | Should -BeTrue
+                $DeleteMarker.Type | Should -Be "DeleteMarker"
+                $DeleteMarker.LastModified | Should -BeOfType DateTime
+                # $DeleteMarker.ETag is usually empty
+                $DeleteMarker.Size | Should -BeGreaterOrEqual 0
+                $DeleteMarker.OwnerId | Should -Not -BeNullOrEmpty
+                # $DeleteMarker.OwnerDisplayName may be empty as AWS only retuns this for a few regions
+                $DeleteMarker.StorageClass | Should -Not -BeNullOrEmpty
+            }
+            $ObjectVersions | Remove-S3ObjectVersion -ProfileName $ProfileName
+            $ObjectVersions = Get-S3ObjectVersions -ProfileName $ProfileName -BucketName $BucketName
+            $ObjectVersions | Should -BeNullOrEmpty
+        }
+        Cleanup -BucketName $BucketName
+
+        Setup -BucketName $UnicodeBucketName -Key $Key
+        It "Given -BucketName $UnicodeBucketName and different keys, object versions and delete markers are created, listed and deleted successfully" {
+            Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            sleep 3
+            foreach ($Key in 1..10) {
+                # create object version
+                Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
+                # create delete marker for previously created object version
+                Remove-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
+            }
+            $ObjectVersions = Get-S3ObjectVersions -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            $Versions = $ObjectVersions | Where-Object { $_.Type -eq "Version" }
+            $Versions.Count | Should -Be 10
+            foreach ($Version in $Versions) {
+                $Version.BucketName | Should -Be $UnicodeBucketName
+                $Version.Region | Should -Not -BeNullOrEmpty
+                $Version.Key | Should -Not -BeNullOrEmpty
+                $Version.VersionId | Should -Not -BeNullOrEmpty
+                $Version.IsLatest | Should -BeFalse
+                $Version.Type | Should -Be "Version"
+                $Version.LastModified | Should -BeOfType DateTime
+                $Version.ETag | Should -Not -BeNullOrEmpty
+                $Version.Size | Should -BeGreaterOrEqual 0
+                $Version.OwnerId | Should -Not -BeNullOrEmpty
+                # $Version.OwnerDisplayName may be empty as AWS only retuns this for a few regions
+                $Version.StorageClass | Should -Not -BeNullOrEmpty
+            }
+            $DeleteMarkers = $ObjectVersions | Where-Object { $_.Type -eq "DeleteMarker" }
+            $DeleteMarkers.Count | Should -Be 10
+            foreach ($DeleteMarker in $DeleteMarkers) {
+                $DeleteMarker.BucketName | Should -Be $UnicodeBucketName
+                $DeleteMarker.Region | Should -Not -BeNullOrEmpty
+                $DeleteMarker.Key | Should -Not -BeNullOrEmpty
+                $DeleteMarker.VersionId | Should -Not -BeNullOrEmpty
+                $DeleteMarker.IsLatest | Should -BeTrue
+                $DeleteMarker.Type | Should -Be "DeleteMarker"
+                $DeleteMarker.LastModified | Should -BeOfType DateTime
+                # $DeleteMarker.ETag is usually empty
+                $DeleteMarker.Size | Should -BeGreaterOrEqual 0
+                $DeleteMarker.OwnerId | Should -Not -BeNullOrEmpty
+                # $DeleteMarker.OwnerDisplayName may be empty as AWS only retuns this for a few regions
+                $DeleteMarker.StorageClass | Should -Not -BeNullOrEmpty
+            }
+            $ObjectVersions | Remove-S3ObjectVersion -ProfileName $ProfileName
+            $ObjectVersions = Get-S3ObjectVersions -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            $ObjectVersions | Should -BeNullOrEmpty
+        }
+        Cleanup -BucketName $UnicodeBucketName
+    }
+}
+
 Describe "S3BucketCorsConfiguration" {
     if ($ProfileName -eq "Minio") { continue }
 
