@@ -702,7 +702,7 @@ Describe "S3 Bucket Versioning" {
                 $DeleteMarker.Size | Should -BeGreaterOrEqual 0
                 $DeleteMarker.OwnerId | Should -Not -BeNullOrEmpty
                 # $DeleteMarker.OwnerDisplayName may be empty as AWS only retuns this for a few regions
-                $DeleteMarker.StorageClass | Should -Not -BeNullOrEmpty
+                # $DeleteMarker.StorageClass is usually empty
             }
             $ObjectVersions | Remove-S3ObjectVersion -ProfileName $ProfileName
             $ObjectVersions = Get-S3ObjectVersions -ProfileName $ProfileName -BucketName $UnicodeBucketName
