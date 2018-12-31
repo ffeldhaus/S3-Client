@@ -350,6 +350,32 @@ function ConvertTo-Punycode {
     }
 }
 
+<#
+    .SYNOPSIS
+    Convert Punycode encoded bucket name to unicode bucket name
+    .DESCRIPTION
+    Convert Punycode encoded bucket name to unicode bucket name
+    .PARAMETER BucketName
+    Bucket name to convert from punycode
+ #>
+ function ConvertFrom-Punycode {
+    #private
+    [CmdletBinding()]
+
+    PARAM (
+        [parameter(Mandatory=$True,
+                Position=0,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName
+    )
+
+    PROCESS {
+        # Convert Bucket Name to IDN mapping to support Unicode Names
+        $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode($BucketName)
+        Write-Output $UnicodeBucketName
+    }
+}
+
 ### AWS Cmdlets ###
 
 <#
@@ -6639,7 +6665,7 @@ function Global:Get-S3MultipartUploads {
 
                 $Content = [XML]$Result.Content
 
-                $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode($Content.ListMultipartUploadsResult.Bucket)
+                $UnicodeBucket = ConvertFrom-Punycode -BucketName $Content.ListMultipartUploadsResult.Bucket
 
                 foreach ($Upload in $Content.ListMultipartUploadsResult.Upload) {
                     $Upload = [PSCustomObject]@{BucketName=$UnicodeBucket;
@@ -6854,9 +6880,11 @@ function Global:Get-S3Objects {
 
                 $Objects = $Content.ListBucketResult.Contents | Where-Object { $_ }
 
+                $UnicodeBucket = ConvertFrom-Punycode -BucketName $Content.ListBucketResult.Name
+
                 foreach ($Object in $Objects) {
                     $Object = [PSCustomObject]@{
-                        BucketName=$BucketName;
+                        BucketName=$UnicodeBucket;
                         Region=$Region;
                         Key=[System.Net.WebUtility]::UrlDecode($Object.Key);
                         LastModified=(Get-Date $Object.LastModified);
@@ -7061,13 +7089,15 @@ function Global:Get-S3ObjectVersions {
                 $Versions = $Versions | Where-Object { $_.Type -eq $Type }
             }
 
+            $UnicodeBucket = ConvertFrom-Punycode -BucketName $Content.ListVersionsResult.Name
+
             foreach ($Version in $Versions) {
                 $Version = [PSCustomObject]@{
-                    BucketName=$BucketName;
+                    BucketName=$UnicodeBucket;
                     Region=$Region;
                     Key=[System.Net.WebUtility]::UrlDecode($Version.Key);
                     VersionId=$Version.VersionId;
-                    IsLatest=$Version.IsLatest;
+                    IsLatest=[System.Convert]::ToBoolean($Version.IsLatest);
                     Type=$Version.Type;
                     LastModified=(Get-Date $Version.LastModified);
                     ETag=([System.Net.WebUtility]::UrlDecode($Version.ETag) -replace '"','');
@@ -7363,8 +7393,10 @@ function Global:Get-S3ObjectMetadata {
             $ETag = $Headers.ETag -replace '"','' | Select-Object -First 1
             $PartCount = $Etag -split "-" | Select-Object -Last 1
 
+            $UnicodeBucketName = ConvertFrom-Punycode -BucketName $BucketName
+
             $Output = [PSCustomObject]@{Headers=$Headers;
-                BucketName=$BucketName;
+                BucketName=$UnicodeBucketName;
                 Region=$Region;
                 Key=$Key;
                 Metadata=$Metadata;
@@ -9395,7 +9427,7 @@ function Global:Get-S3ObjectParts {
 
                 $Parts = $Content.ListPartsResult.Part | Where-Object { $_ }
 
-                $UnicodeBucket = [System.Globalization.IdnMapping]::new().GetUnicode($Content.ListPartsResult.Bucket)
+                $UnicodeBucket = ConvertFrom-Punycode -BucketName $Content.ListPartsResult.Bucket
 
                 foreach ($Part in $Parts) {
                     $Part = [PSCustomObject]@{  Region=$Region;

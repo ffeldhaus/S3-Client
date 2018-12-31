@@ -588,7 +588,7 @@ Describe "S3 Object Tagging" {
 
 Describe "S3 Bucket Versioning" {
     Context "Enable and Suspend Bucket Versioning" {
-        Setup -BucketName $BucketName -Key $Key
+        Setup -BucketName $BucketName
         It "Given -BucketName $BucketName versioning is enabled and then suspended" {
             Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
             sleep 3
@@ -599,7 +599,7 @@ Describe "S3 Bucket Versioning" {
         }
         Cleanup -BucketName $BucketName
 
-        Setup -BucketName $UnicodeBucketName -Key $Key
+        Setup -BucketName $UnicodeBucketName
         It "Given -BucketName $UnicodeBucketName versioning is enabled and then suspended" {
             Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
             sleep 3
@@ -612,7 +612,7 @@ Describe "S3 Bucket Versioning" {
     }
 
     Context "Create, list and delete 10 Object Versions and Delete Markers in Versioning enabled Bucket" {
-        Setup -BucketName $BucketName -Key $Key
+        Setup -BucketName $BucketName
         It "Given -BucketName $BucketName and different keys, object versions and delete markers are created, listed and deleted successfully" {
             Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
             sleep 3
@@ -653,7 +653,7 @@ Describe "S3 Bucket Versioning" {
                 $DeleteMarker.Size | Should -BeGreaterOrEqual 0
                 $DeleteMarker.OwnerId | Should -Not -BeNullOrEmpty
                 # $DeleteMarker.OwnerDisplayName may be empty as AWS only retuns this for a few regions
-                $DeleteMarker.StorageClass | Should -Not -BeNullOrEmpty
+                # $DeleteMarker.StorageClass is usually empty
             }
             $ObjectVersions | Remove-S3ObjectVersion -ProfileName $ProfileName
             $ObjectVersions = Get-S3ObjectVersions -ProfileName $ProfileName -BucketName $BucketName
@@ -661,7 +661,7 @@ Describe "S3 Bucket Versioning" {
         }
         Cleanup -BucketName $BucketName
 
-        Setup -BucketName $UnicodeBucketName -Key $Key
+        Setup -BucketName $UnicodeBucketName
         It "Given -BucketName $UnicodeBucketName and different keys, object versions and delete markers are created, listed and deleted successfully" {
             Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
             sleep 3
