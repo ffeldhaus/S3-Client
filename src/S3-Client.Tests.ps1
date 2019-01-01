@@ -587,6 +587,8 @@ Describe "S3 Object Tagging" {
 }
 
 Describe "S3 Bucket Versioning" {
+    if ($ProfileName -eq "Minio") { continue }
+
     Context "Enable and Suspend Bucket Versioning" {
         Setup -BucketName $BucketName
         It "Given -BucketName $BucketName versioning is enabled and then suspended" {
