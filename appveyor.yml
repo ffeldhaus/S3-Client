@@ -45,7 +45,7 @@ environment:
   APPVEYOR_SSH_BLOCK: true
 
 init:
- - sh: echo LANG= en_US.UTF-8 >/etc/default/locale
+ - sh: sudo echo LANG= en_US.UTF-8 >/etc/default/locale
 
 # enable docker which is used for Minio
 services:
