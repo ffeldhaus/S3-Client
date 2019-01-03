@@ -56,7 +56,9 @@ install:
   - ps: $PSVersionTable
   - ps: Install-Module -Name PowerShellGet -Scope CurrentUser -Force -AllowClobber
   - ps: Import-Module -Name PowerShellGet -MinimumVersion 1.6 -Force
-  - ps: Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck
+  - ps: Remove-Module -Name Pester -ErrorAction SilentlyContinue
+  - ps: Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 4.4.4
+  - ps: Import-Module -Name Pester
   - ps: Install-Module StorageGRID-Webscale -Scope CurrentUser -Force -SkipPublisherCheck -AllowPrerelease
   - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
   - cmd: mkdir %USERPROFILE%\.aws
@@ -76,8 +78,8 @@ before_test:
   - sh: if [[ "$CONFIGURATION" == "Minio" ]]; then docker pull minio/minio;fi
   - sh: if [[ "$CONFIGURATION" == "Minio" ]]; then docker run -d -p 9000:9000 -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data;fi
 # enable SSH
-#  - sh: export APPVEYOR_SSH_BLOCK=true
-#  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
+  - sh: export APPVEYOR_SSH_BLOCK=true
+  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
 
 # Invoke Pester to run all of the unit tests, then save the results into XML in order to populate the AppVeyor tests section
 # If any of the tests fail, consider the pipeline failed
