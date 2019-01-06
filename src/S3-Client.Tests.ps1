@@ -85,11 +85,14 @@ function Setup() {
     )
 
     New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region
-    foreach ($i in 1..60) {
+    foreach ($i in 1..120) {
         sleep 1
         if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region) {
             break
         }
+    }
+    if ($i -lt 120) {
+        Write-Warning "Checked $i times but bucket does not yet exist. Waiting 1 second and then trying again."
     }
 
     if ($Versioning.IsPresent) {
@@ -126,11 +129,14 @@ function Cleanup() {
     try {
         Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region -Force
         # wait until bucket is really deleted
-        foreach ($i in 1..60) {
+        foreach ($i in 1..120) {
             sleep 1
             if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region)) {
                 sleep 1
                 break
+            }
+            if ($i -lt 120) {
+                Write-Warning "Checked $i times but bucket still exists. Waiting 1 second and then trying again."
             }
         }
     }
@@ -714,7 +720,7 @@ Describe "S3 Bucket Versioning" {
     }
 }
 
-Describe "S3BucketCorsConfiguration" {
+Describe "S3 Bucket CORS Configuration" {
     if ($ProfileName -eq "Minio") { continue }
 
     $AllowedMethods = "GET","PUT","POST","DELETE"
