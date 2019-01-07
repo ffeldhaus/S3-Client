@@ -7391,7 +7391,12 @@ function Global:Get-S3ObjectMetadata {
             # TODO: Implement missing Metadata
 
             $ETag = $Headers.ETag -replace '"','' | Select-Object -First 1
+            if ($ETag -match "-") {
             $PartCount = $Etag -split "-" | Select-Object -Last 1
+            }
+            else {
+                $PartCount = $null
+            }
 
             $UnicodeBucketName = ConvertFrom-Punycode -BucketName $BucketName
 
