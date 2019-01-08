@@ -469,7 +469,7 @@ Describe "Upload Object" {
     }
 
     Context "Upload small file with custom key $UnicodeKey" {
-        It "Given file -InFile `"$SmallFile`" and -Key `"$UnicodeKey`" it is succesfully uploaded" {
+        It "Given file -InFile `"$SmallFile`" and -Key `"$UnicodeKey`" it is succesfully uploaded" -Skip:($ProfileName -match "minio") {
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile -Key $UnicodeKey
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
             $UnicodeKey | Should -BeIn $Objects.Key
