@@ -7099,7 +7099,7 @@ function Global:Get-S3ObjectVersions {
                     VersionId=$Version.VersionId;
                     IsLatest=[System.Convert]::ToBoolean($Version.IsLatest);
                     Type=$Version.Type;
-                    LastModified=(Get-Date $Version.LastModified);
+                    LastModified=[DateTime]$Version.LastModified;
                     ETag=([System.Net.WebUtility]::UrlDecode($Version.ETag) -replace '"','');
                     Size=[long]$Version.Size;
                     OwnerId=[System.Net.WebUtility]::UrlDecode($Version.Owner.ID);
@@ -7412,7 +7412,7 @@ function Global:Get-S3ObjectMetadata {
                 Expiration=$Headers["x-amz-expiration"] | Select-Object -First 1;
                 RestoreExpiration=$null;
                 RestoreInProgress=$null;
-                LastModified=$Headers.'Last-Modified' | Select-Object -First 1;
+                LastModified=[DateTime]($Headers.'Last-Modified' | Select-Object -First 1);
                 ETag=$Headers.ETag -replace '"','' | Select-Object -First 1;
                 MissingMeta=[int]$Headers["x-amz-missing-meta"] | Select-Object -First 1;
                 VersionId=$Headers["x-amz-version-id"] | Select-Object -First 1;
@@ -9445,7 +9445,7 @@ function Global:Get-S3ObjectParts {
                                                 OwernDisplayName=[System.Net.WebUtility]::UrlDecode($Content.ListPartsResult.Owner.DisplayName);
                                                 StorageClass=[System.Net.WebUtility]::UrlDecode($Content.ListPartsResult.StorageClass);
                                                 PartNumber=$Part.PartNumber;
-                                                LastModified=$Part.LastModified;
+                                                LastModified=[DateTime]$Part.LastModified;
                                                 ETag=[System.Net.WebUtility]::UrlDecode($Part.ETag);
                                                 Size=$Part.Size}
 
