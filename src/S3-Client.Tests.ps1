@@ -1145,8 +1145,8 @@ Describe "S3 Bucket Replication Configuration" {
         }
     }
 
-    Context "Set Bucket Replication Configuration for bucket with unicode characters"  -Skip:($ProfileName -match "minio") {
-        It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketName arn:aws:s3:::$DestinationUnicodeBucketName -Role $Role a replication rule should be added" {
+    Context "Set Bucket Replication Configuration for bucket with unicode characters"  {
+        It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketName arn:aws:s3:::$DestinationUnicodeBucketName -Role $Role a replication rule should be added" -Skip:($ProfileName -match "minio") {
             Add-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketUrn "arn:aws:s3:::$DestinationUnicodeBucketName" -Role $Role
 
             foreach ($i in 1..120) {
