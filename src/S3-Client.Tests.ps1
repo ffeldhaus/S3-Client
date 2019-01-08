@@ -908,7 +908,7 @@ Describe "S3 Bucket Versioning" {
 
             foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
-                $BucketVersioning = Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $BuckuetName
+                $BucketVersioning = Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
                 if ($BucketVersioning -eq $Enabled) {
                     break
                 }
