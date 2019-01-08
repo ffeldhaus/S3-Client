@@ -9775,12 +9775,30 @@ function Global:Copy-S3Object {
         if (!$SourceKey) {
             $SourceKey = $Key
         }
+        if (!$Metadata -and !$Tags) {
+            $Metadata = Get-S3ObjectMetadata -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key | Select -ExpandProperty Metadata
+        }
 
         $SourceBucketName = ConvertTo-Punycode -BucketName $SourceBucketName
 
         $Uri = "/$Key"
 
         $Headers = @{}
+
+        if ($Metadata) {
+            foreach ($MetadataKey in $Metadata.Keys) {
+                $Key = $MetadataKey -replace "^x-amz-meta-",""
+                $Key = $Key.ToLower()
+                $Headers["x-amz-meta-$Key"] = $Metadata[$MetadataKey]
+                # TODO: check that metadata is valid HTTP Header
+            }
+            $MetadataDirective = "REPLACE"
+        }
+
+        if ($Tags) {
+            $TaggingDirective = "REPLACE"
+        }
+
         $Headers["x-amz-copy-source"] = "/$SourceBucket/$SourceKey"
         if ($SourceVersionId) {
             $Headers["x-amz-copy-source"] += "?versionId=$SourceVersionId"
@@ -9811,16 +9829,7 @@ function Global:Copy-S3Object {
         }
         $Headers["x-amz-content-sha256"] = "UNSIGNED-PAYLOAD"
 
-        if ($Metadata) {
-            foreach ($MetadataKey in $Metadata.Keys) {
-                $Key = $MetadataKey -replace "^x-amz-meta-",""
-                $Key = $Key.ToLower()
-                $Headers["x-amz-meta-$Key"] = $Metadata[$MetadataKey]
-                # TODO: check that metadata is valid HTTP Header
-            }
-        }
-
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Headers $Headers -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Headers $Headers -Region $Region
 
         if ($DryRun) {
             Write-Output $AwsRequest
