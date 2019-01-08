@@ -11138,3 +11138,120 @@ function Global:Invoke-S3BucketMirroring {
         Get-S3Objects -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck -BucketName $BucketName | Get-S3ObjectMetadata -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck | Copy-S3Object -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck -MetadataDirective REPLACE
     }
 }
+
+<#
+    .SYNOPSIS
+    Test if S3 Object exists and if it matches specific criteria.
+    .DESCRIPTION
+    Test if S3 Object exists and if it matches specific criteria.
+#>
+function Global:Test-S3Object {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$True,
+                Position=6,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+        [parameter(
+                Mandatory=$False,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning,
+        [parameter(
+                Mandatory=$True,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$True,
+                Position=12,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Object Key")][Alias("Name","Object")][String]$Key
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning:$PayloadSigning
+    }
+
+    Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $Metadata = $null
+        try {
+            $Metadata = Get-S3ObjectMetadata -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key
+        }
+        catch {}
+
+        if ($Metadata) {
+            Write-Output $true
+        }
+        else {
+            Write-Output $false
+        }
+    }
+}
