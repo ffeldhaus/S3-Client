@@ -9769,8 +9769,8 @@ function Global:Copy-S3Object {
 
         $BucketName = ConvertTo-Punycode -BucketName $BucketName
 
-        if (!$SourceBucket) {
-            $SourceBucket = $BucketName
+        if (!$SourceBucketName) {
+            $SourceBucketName = $BucketName
         }
         if (!$SourceKey) {
             $SourceKey = $Key
