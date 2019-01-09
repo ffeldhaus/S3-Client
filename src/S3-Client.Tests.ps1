@@ -10,8 +10,8 @@ $MAX_WAIT_TIME = 120
 $UnicodeString = [System.Web.HttpUtility]::UrlDecode("%40%c5%93%c3%a6%c3%b6%c3%bc%c3%a4%c3%84%c3%96%c3%9c%2f%3d%c3%a1%c3%aa%3a%2b-_.")
 $Tags = @(@{Key=$UnicodeString;Value="valuewithunicodekey"},@{Key="keywithunicodevalue";Value=$UnicodeString})
 
-$BaseBucketName = (Get-Date -Format "yyyy-MM-dd-HHmmss") + "-Bucket"
-$BaseUnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BaseBucketName"
+$BaseBucketName = (Get-Date -Format "yyyyMMdd") + "Bucket"
+$BaseUnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "$BaseBucketName"
 $Key = "dir/dir/dir/dir/dir/dir/Key"
 $UnicodeKey = [System.Web.HttpUtility]::UrlDecode("%u842c%u570b%u78bc%2BTesting+%u00ab%u03c4%u03b1%u0411%u042c%u2113%u03c3%u00bb+1%3c2%2B%2B41%3e3%2Bnow%2B20%25%2Boff")
 $Content = "Hello World!"
