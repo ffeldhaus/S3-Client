@@ -4,9 +4,6 @@ PARAM(
 
 Import-Module "$PSScriptRoot\S3-Client" -Force
 
-# suppress warnings which occur e.g. for uppercase bucketnames
-$WarningPreference="SilentlyContinue"
-
 $MAX_RETRIES = 3
 $MAX_WAIT_TIME = 120
 
