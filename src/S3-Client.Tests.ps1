@@ -311,7 +311,7 @@ Describe "Test Bucket existence" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-test-bucket"
-        $UnicodeBucketName = $UnicodeBucketName + "-test-bucket"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-test-bucket"
 
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
@@ -343,7 +343,7 @@ Describe "Create Bucket" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-create-bucket"
-        $UnicodeBucketName = $UnicodeBucketName + "-create-bucket"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-create-bucket"
     }
 
     AfterEach {
@@ -411,7 +411,7 @@ Describe "Remove Bucket" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-remove-bucket"
-        $UnicodeBucketName = $UnicodeBucketName + "-remove-bucket"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-remove-bucket"
 
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
@@ -441,7 +441,7 @@ Describe "Upload Object" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-upload"
-        $UnicodeBucketName = $UnicodeBucketName + "-upload"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-upload"
 
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
@@ -515,7 +515,7 @@ Describe "Multipart Upload of Object" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-multipart-upload"
-        $UnicodeBucketName = $UnicodeBucketName + "-multipart-upload"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-multipart-upload"
 
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
@@ -650,7 +650,7 @@ Describe "S3 Bucket Encryption" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-encryption"
-        $UnicodeBucketName = $UnicodeBucketName + "-bucket-encryption"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-encryption"
 
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
@@ -720,7 +720,7 @@ Describe "S3 Bucket Tagging" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-tagging"
-        $UnicodeBucketName = $UnicodeBucketName + "-bucket-tagging"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-tagging"
 
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
@@ -769,7 +769,7 @@ Describe "S3 Object Tagging" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-object-tagging"
-        $UnicodeBucketName = $UnicodeBucketName + "-object-tagging"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-object-tagging"
 
         Setup -BucketName $BucketName -Key $Key
         Setup -BucketName $UnicodeBucketName -Key $UnicodeKey
@@ -817,7 +817,7 @@ Describe "S3 Bucket Versioning" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-versioning"
-        $UnicodeBucketName = $UnicodeBucketName + "-bucket-versioning"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-versioning"
 
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
@@ -1011,7 +1011,7 @@ Describe "S3 Bucket CORS Configuration" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-cors"
-        $UnicodeBucketName = $UnicodeBucketName + "-bucket-cors"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-cors"
 
         $AllowedMethods = "GET","PUT","POST","DELETE"
         $AllowedOrigins = "netapp.com","*.example.org"
@@ -1124,7 +1124,7 @@ Describe "S3 Bucket Replication Configuration" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-replication"
-        $UnicodeBucketName = $UnicodeBucketName + "-bucket-replication"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-replication"
 
         $DestinationBucketName = $BucketName + "-dst"
         $DestinationUnicodeBucketName = $UnicodeBucketName +  "-dst"
