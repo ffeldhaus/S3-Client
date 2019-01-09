@@ -322,7 +322,10 @@ function ConvertTo-Punycode {
                 HelpMessage="Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName,
         [parameter(Mandatory=$False,
                 Position=1,
-                HelpMessage="Skip test if non DNS conform bucket exist")][Switch]$SkipTest
+                HelpMessage="Skip test if non DNS conform bucket exist")][Switch]$SkipTest,
+        [parameter(Mandatory=$False,
+                Position=2,
+                HelpMessage="AWS Config")][PSCustomObject]$Config
     )
 
     PROCESS {
@@ -335,7 +338,7 @@ function ConvertTo-Punycode {
                 Write-Output $PunycodeBucketName
             }
             else {
-                $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
+                $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
                 if ($BucketNameExists) {
                     Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
                 }
@@ -2467,7 +2470,7 @@ function Global:Test-S3Bucket {
             $UrlStyle = "path"
         }
         else {
-            $BucketName = ConvertTo-Punycode -BucketName $BucketName
+            $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
         }
 
         if ($Config)  {
@@ -2673,7 +2676,7 @@ function Global:New-S3Bucket {
             $RequestPayload = "<CreateBucketConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><LocationConstraint>$Region</LocationConstraint></CreateBucketConfiguration>"
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName -SkipTest
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName -SkipTest
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -PayloadSigning $Config.PayloadSigning
 
@@ -2825,7 +2828,7 @@ function Global:Remove-S3Bucket {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Force -or $DeleteBucketContent) {
             try {
@@ -2979,7 +2982,7 @@ function Global:Get-S3BucketEncryption {
 
         $Query = @{encryption=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -3155,7 +3158,7 @@ function Global:Set-S3BucketEncryption {
 
         $Query = @{encryption=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Body = "<ServerSideEncryptionConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`">"
         $Body += "<Rule>"
@@ -3323,7 +3326,7 @@ function Global:Remove-S3BucketEncryption {
 
         $Query = @{encryption=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -3481,7 +3484,7 @@ function Global:Get-S3BucketCorsConfiguration {
 
         $Query = @{cors=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -3695,7 +3698,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
 
         $Query = @{cors=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $CorsConfigurationRules = @()
 
@@ -3892,7 +3895,7 @@ function Global:Remove-S3BucketCorsConfigurationRule {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         # get all rules
         $CorsConfigurationRules = Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
@@ -4039,7 +4042,7 @@ function Global:Remove-S3BucketCorsConfiguration {
 
         $Query = @{cors=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -4200,7 +4203,7 @@ function Global:Get-S3BucketReplicationConfiguration {
 
         $Query = @{replication=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -4485,7 +4488,7 @@ function Global:Add-S3BucketReplicationConfigurationRule {
 
         $Query = @{replication=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($DestinationBucketName) {
             # Convert Destination Bucket Name to IDN mapping to support Unicode Names
@@ -4710,7 +4713,7 @@ function Global:Remove-S3BucketReplicationConfigurationRule {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         # get all rules
         $ReplicationConfigurationRules = Get-S3BucketReplicationConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
@@ -4857,7 +4860,7 @@ function Global:Remove-S3BucketReplicationConfiguration {
 
         $Query = @{replication=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -5006,7 +5009,7 @@ function Global:Get-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{policy=""}
 
@@ -5198,7 +5201,7 @@ function Global:Set-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{policy=""}
 
@@ -5353,7 +5356,7 @@ function Global:Remove-S3BucketPolicy {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{policy=""}
 
@@ -5495,7 +5498,7 @@ function Global:Get-S3BucketTagging {
 
         $Query = @{tagging=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -5664,7 +5667,7 @@ function Global:Set-S3BucketTagging {
 
         $Query = @{tagging=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Body = "<Tagging>"
         $Body += "<TagSet>"
@@ -5832,7 +5835,7 @@ function Global:Remove-S3BucketTagging {
 
         $Query = @{tagging=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
@@ -5982,7 +5985,7 @@ function Global:Get-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{versioning=""}
 
@@ -6142,7 +6145,7 @@ function Global:Enable-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{versioning=""}
 
@@ -6304,7 +6307,7 @@ function Global:Suspend-S3BucketVersioning {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{versioning=""}
 
@@ -6453,7 +6456,7 @@ function Global:Get-S3BucketLocation {
 
         Write-Verbose "Retrieving location for bucket $BucketName"
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Uri = "/"
 
@@ -6642,7 +6645,7 @@ function Global:Get-S3MultipartUploads {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{uploads=""}
         if ($EncodingType) {
@@ -6869,7 +6872,7 @@ function Global:Get-S3Objects {
             if ($ContinuationToken) { $Query["continuation-token"] = $ContinuationToken }
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -UseDualstackEndpoint:$UseDualstackEndpoint
 
@@ -7053,7 +7056,7 @@ function Global:Get-S3ObjectVersions {
 
         $Query = @{versions=""}
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Delimiter) { $Query["delimiter"] = $Delimiter }
         if ($EncodingType) { $Query["encoding-type"] = $EncodingType }
@@ -7233,7 +7236,7 @@ function Global:Get-S3PresignedUrl {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Uri = "/$Key"
         $Presign = $true
@@ -7362,7 +7365,7 @@ function Global:Get-S3ObjectMetadata {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -7550,7 +7553,7 @@ function Global:Read-S3Object {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -7985,7 +7988,7 @@ function Global:Write-S3Object {
             Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
         else {
-            $BucketName = ConvertTo-Punycode -BucketName $BucketName
+            $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
             if (!$InFile -and $Content -and !$ContentType) {
                 $ContentType = "text/plain"
@@ -8324,7 +8327,7 @@ function Global:Start-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Headers = @{}
         if ($Metadata) {
@@ -8505,7 +8508,7 @@ function Global:Stop-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -8670,7 +8673,7 @@ function Global:Complete-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -8820,7 +8823,7 @@ function Global:Write-S3MultipartUpload {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($InFile -and !$InFile.Exists) {
             Throw "File $InFile does not exist"
@@ -9229,7 +9232,7 @@ function Global:Write-S3ObjectPart {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -9408,7 +9411,7 @@ function Global:Get-S3ObjectParts {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -9585,7 +9588,7 @@ function Global:Remove-S3Object {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Uri = "/$Key"
 
@@ -9771,7 +9774,7 @@ function Global:Copy-S3Object {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if (!$SourceBucketName) {
             $SourceBucketName = $BucketName
@@ -9783,7 +9786,7 @@ function Global:Copy-S3Object {
             $Metadata = Get-S3ObjectMetadata -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key | Select -ExpandProperty Metadata
         }
 
-        $SourceBucketName = ConvertTo-Punycode -BucketName $SourceBucketName
+        $SourceBucketName = ConvertTo-Punycode -Config $Config -BucketName $SourceBucketName
 
         $Uri = "/$Key"
 
@@ -9978,7 +9981,7 @@ function Global:Get-S3ObjectTagging {
 
         $Uri = "/$Key"
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -Uri $Uri
@@ -10156,7 +10159,7 @@ function Global:Set-S3ObjectTagging {
 
         $Uri = "/$Key"
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Body = "<Tagging>"
         $Body += "<TagSet>"
@@ -10330,7 +10333,7 @@ function Global:Remove-S3ObjectTagging {
         $Query = @{tagging=""}
         $Uri = "/$Key"
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
             $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -Uri $Uri
@@ -10449,7 +10452,7 @@ function Global:Get-S3BucketConsistency {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-consistency"=""}
 
@@ -10573,7 +10576,7 @@ function Global:Update-S3BucketConsistency {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-consistency"=$Consistency}
 
@@ -10778,7 +10781,7 @@ function Global:Get-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-lastaccesstime"=""}
 
@@ -10898,7 +10901,7 @@ function Global:Enable-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-lastaccesstime"="enabled"}
 
@@ -11012,7 +11015,7 @@ function Global:Disable-S3BucketLastAccessTime {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $Query = @{"x-ntap-sg-lastaccesstime"="disabled"}
 
@@ -11124,7 +11127,7 @@ function Global:Invoke-S3BucketMirroring {
             $Region = $Config.Region
         }
 
-        $BucketName = ConvertTo-Punycode -BucketName $BucketName
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         $BucketReplication = Get-S3BucketReplication -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck -BucketName $BucketName
 
