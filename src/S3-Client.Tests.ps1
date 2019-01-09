@@ -270,7 +270,7 @@ Describe "AWS Configuration and Credential Management" {
     }
 }
 
-Describe "Get-S3Buckets" {
+Describe "List Buckets" {
     BeforeAll {
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
@@ -302,7 +302,7 @@ Describe "Get-S3Buckets" {
     }
 }
 
-Describe "Test-S3Bucket" {
+Describe "Test Bucket existence" {
     BeforeAll {
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
