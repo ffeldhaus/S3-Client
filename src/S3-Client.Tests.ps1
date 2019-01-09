@@ -148,22 +148,20 @@ function Cleanup() {
 
 Describe "AWS Configuration and Credential Management" {
 
-    BeforeAll {
-        $ProfileName = "test"
-        $AccessKey = "ABCDEFGHIJKLMNOPQRST"
-        $SecretKey = "abcdefghijklmnopqrst1234567890ABCDEFGHIJ"
-        $Region = "eu-central-1"
-        $EndpointUrl = "https://s3.example.org"
-        $MaxConcurrentRequest = 1234
-        $MaxQueueSize = 1234
-        $MultipartThreshold = "256MB"
-        $MultipartChunksize = "128MB"
-        $MaxBandwidth = "10MB/s"
-        $UseAccelerateEndpoint = $true
-        $UseDualstackEndpoint = $false
-        $AddressingStyle = "path"
-        $PayloadSigning= $true
-    }
+    $ProfileName = "test"
+    $AccessKey = "ABCDEFGHIJKLMNOPQRST"
+    $SecretKey = "abcdefghijklmnopqrst1234567890ABCDEFGHIJ"
+    $Region = "eu-central-1"
+    $EndpointUrl = "https://s3.example.org"
+    $MaxConcurrentRequest = 1234
+    $MaxQueueSize = 1234
+    $MultipartThreshold = "256MB"
+    $MultipartChunksize = "128MB"
+    $MaxBandwidth = "10MB/s"
+    $UseAccelerateEndpoint = $true
+    $UseDualstackEndpoint = $false
+    $AddressingStyle = "path"
+    $PayloadSigning= $true
 
     Context "Add a new Profile" {
         It "Given -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MultipartThreshold $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning creates a new profile with these values" {
