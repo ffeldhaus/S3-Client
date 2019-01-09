@@ -936,6 +936,9 @@ function Global:Get-AwsRequest {
             }
             $QueryString = $QueryString -replace "&`$",""
             $CanonicalQueryString = $CanonicalQueryString -replace "&`$",""
+            # we need to ensure that + is encoded as it would otherwise be treated as whitespace
+            $QueryString = $QueryString -replace '\+','%2B'
+            $CanonicalQueryString = $CanonicalQueryString -replace '\+','%2B'
         }
         Write-Debug "Query String with selected Query components for S3 Signer: $QueryString"
         Write-Debug "Canonical Query String with all Query components for AWS Signer: $CanonicalQueryString"
