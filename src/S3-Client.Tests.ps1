@@ -1032,7 +1032,7 @@ Describe "S3 Bucket CORS Configuration" {
             foreach ($i in 1..120) {
                 Start-Sleep -Seconds 1
                 $CorsConfigurationRule = Get-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id
-                if ($CorsConfiguration) {
+                if ($CorsConfigurationRule) {
                     break
                 }
                 Write-Warning "Tried $i times but CORS configuration does not exist yet. Retrying in 1 second."
