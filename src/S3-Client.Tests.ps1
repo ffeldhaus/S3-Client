@@ -10,8 +10,8 @@ $MAX_WAIT_TIME = 120
 $UnicodeString = [System.Web.HttpUtility]::UrlDecode("%40%c5%93%c3%a6%c3%b6%c3%bc%c3%a4%c3%84%c3%96%c3%9c%2f%3d%c3%a1%c3%aa%3a%2b-_.")
 $Tags = @(@{Key=$UnicodeString;Value="valuewithunicodekey"},@{Key="keywithunicodevalue";Value=$UnicodeString})
 
-$BucketName = (Get-Date -Format "yyyy-MM-dd-HHmmss") + "-Bucket"
-$UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BucketName"
+$BaseBucketName = (Get-Date -Format "yyyy-MM-dd-HHmmss") + "-Bucket"
+$BaseUnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "-$BaseBucketName"
 $Key = "dir/dir/dir/dir/dir/dir/Key"
 $UnicodeKey = [System.Web.HttpUtility]::UrlDecode("%u842c%u570b%u78bc%2BTesting+%u00ab%u03c4%u03b1%u0411%u042c%u2113%u03c3%u00bb+1%3c2%2B%2B41%3e3%2Bnow%2B20%25%2Boff")
 $Content = "Hello World!"
@@ -274,8 +274,9 @@ Describe "AWS Configuration and Credential Management" {
 Describe "List Buckets" {
 
     BeforeAll {
-        $BucketName += "-list-buckets"
-        $UnicodeBucketName += "-list-buckets"
+        $BucketName = $BaseBucketName + "-list-buckets"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-list-buckets"
+
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -309,8 +310,9 @@ Describe "List Buckets" {
 Describe "Test Bucket existence" {
 
     BeforeAll {
-        $BucketName += "-test-bucket-existence"
-        $UnicodeBucketName += "-test-bucket-existence"
+        $BucketName = $BaseBucketName + "-test-bucket-existence"
+        $UnicodeBucketName = $UnicodeBucketName + "-test-bucket-existence"
+
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -340,8 +342,8 @@ Describe "Test Bucket existence" {
 Describe "Create Bucket" {
 
     BeforeAll {
-        $BucketName += "-create-bucket"
-        $UnicodeBucketName += "-create-bucket"
+        $BucketName = $BaseBucketName + "-create-bucket"
+        $UnicodeBucketName = $UnicodeBucketName + "-create-bucket"
     }
 
     AfterEach {
@@ -408,8 +410,9 @@ Describe "Create Bucket" {
 Describe "Remove Bucket" {
 
     BeforeAll {
-        $BucketName += "-remove-bucket"
-        $UnicodeBucketName += "-remove-bucket"
+        $BucketName = $BaseBucketName + "-remove-bucket"
+        $UnicodeBucketName = $UnicodeBucketName + "-remove-bucket"
+
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -437,8 +440,9 @@ Describe "Remove Bucket" {
 Describe "Upload Object" {
 
     BeforeAll {
-        $BucketName += "-upload-object"
-        $UnicodeBucketName += "-upload-object"
+        $BucketName = $BaseBucketName + "-upload-object"
+        $UnicodeBucketName = $UnicodeBucketName + "-upload-object"
+
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -510,8 +514,9 @@ Describe "Upload Object" {
 Describe "Multipart Upload of Object" {
 
     BeforeAll {
-        $BucketName += "-multipart-upload-object"
-        $UnicodeBucketName += "-multipart-upload-object"
+        $BucketName = $BaseBucketName + "-multipart-upload-object"
+        $UnicodeBucketName = $UnicodeBucketName + "-multipart-upload-object"
+
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -554,7 +559,8 @@ Describe "Multipart Upload of Object" {
 Describe "Copy Object" {
 
     BeforeAll {
-        $BucketName += "-copy-object"
+        $BucketName = $BaseBucketName + "-copy-object"
+
         Setup -BucketName $BucketName -Key $Key
     }
 
@@ -643,8 +649,9 @@ Describe "Copy Object" {
 Describe "S3 Bucket Encryption" {
 
     BeforeAll {
-        $BucketName += "-bucket-encryption"
-        $UnicodeBucketName += "-bucket-encryption"
+        $BucketName = $BaseBucketName + "-bucket-encryption"
+        $UnicodeBucketName = $UnicodeBucketName + "-bucket-encryption"
+
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -712,8 +719,9 @@ Describe "S3 Bucket Encryption" {
 Describe "S3 Bucket Tagging" {
 
     BeforeAll {
-        $BucketName += "-bucket-tagging"
-        $UnicodeBucketName += "-bucket-tagging"
+        $BucketName = $BaseBucketName + "-bucket-tagging"
+        $UnicodeBucketName = $UnicodeBucketName + "-bucket-tagging"
+
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -760,8 +768,9 @@ Describe "S3 Bucket Tagging" {
 Describe "S3 Object Tagging" {
 
     BeforeAll {
-        $BucketName += "-object-tagging"
-        $UnicodeBucketName += "-object-tagging"
+        $BucketName = $BaseBucketName + "-object-tagging"
+        $UnicodeBucketName = $UnicodeBucketName + "-object-tagging"
+
         Setup -BucketName $BucketName -Key $Key
         Setup -BucketName $UnicodeBucketName -Key $UnicodeKey
     }
@@ -807,8 +816,9 @@ Describe "S3 Object Tagging" {
 Describe "S3 Bucket Versioning" {
 
     BeforeAll {
-        $BucketName += "-bucket-versioning"
-        $UnicodeBucketName += "-bucket-versioning"
+        $BucketName = $BaseBucketName + "-bucket-versioning"
+        $UnicodeBucketName = $UnicodeBucketName + "-bucket-versioning"
+
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -1000,8 +1010,8 @@ Describe "S3 Bucket Versioning" {
 Describe "S3 Bucket CORS Configuration" {
 
     BeforeAll {
-        $BucketName += "-bucket-cors"
-        $UnicodeBucketName += "-bucket-cors"
+        $BucketName = $BaseBucketName + "-bucket-cors"
+        $UnicodeBucketName = $UnicodeBucketName + "-bucket-cors"
 
         $AllowedMethods = "GET","PUT","POST","DELETE"
         $AllowedOrigins = "netapp.com","*.example.org"
@@ -1113,8 +1123,9 @@ Describe "S3 Bucket CORS Configuration" {
 Describe "S3 Bucket Replication Configuration" {
 
     BeforeAll {
-        $BucketName += "-bucket-replication"
-        $UnicodeBucketName += "-bucket-replication"
+        $BucketName = $BaseBucketName + "-bucket-replication"
+        $UnicodeBucketName = $UnicodeBucketName + "-bucket-replication"
+
         $DestinationBucketName = $BucketName + "-dst"
         $DestinationUnicodeBucketName = $UnicodeBucketName +  "-dst"
         $DestinationRegion = "us-east-2"
