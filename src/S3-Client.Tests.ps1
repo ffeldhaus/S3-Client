@@ -522,7 +522,7 @@ Describe "Multipart Upload of Object" {
     }
 }
 
-Describe "Copy-S3Object" {
+Describe "Copy Object" {
     BeforeAll {
         Setup -BucketName $BucketName -Key $Key
     }
