@@ -723,7 +723,7 @@ Describe "S3 Bucket Tagging" {
 Describe "S3 Object Tagging" {
     BeforeAll {
         Setup -BucketName $BucketName -Key $Key
-        Setup -BucketName $UnicodeBucketName -Key $Key
+        Setup -BucketName $UnicodeBucketName -Key $UnicodeKey
     }
 
     AfterAll {
