@@ -433,19 +433,27 @@ Describe "Upload Object" {
     Context "Upload text" {
         It "Given -BucketName $BucketName -Key $Key -Content `"$Content`" it is succesfully created" {
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content
+
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
             $Key | Should -BeIn $Objects.Key
+
+            Start-Sleep -Seconds 1
             $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
             $ObjectContent | Should -Be $Content
+
             Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
         }
 
         It "Given -BucketName $BucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio") {
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
+
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
             $UnicodeKey | Should -BeIn $Objects.Key
+
+            Start-Sleep -Seconds 1
             $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
             $ObjectContent | Should -Be $Content
+
             Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
         }
     }
