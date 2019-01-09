@@ -9802,7 +9802,7 @@ function Global:Copy-S3Object {
             $TaggingDirective = "REPLACE"
         }
 
-        $Headers["x-amz-copy-source"] = "/$SourceBucket/$SourceKey"
+        $Headers["x-amz-copy-source"] = "/$SourceBucketName/$SourceKey"
         if ($SourceVersionId) {
             $Headers["x-amz-copy-source"] += "?versionId=$SourceVersionId"
         }
