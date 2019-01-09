@@ -1179,7 +1179,7 @@ Describe "S3 Bucket Replication Configuration" {
                 }
             }
 
-            $DestinationObject.Key | Should -Be $Key
+            $DestinationObject.Key | Should -Be $UnicodeKey
         }
     }
 }
