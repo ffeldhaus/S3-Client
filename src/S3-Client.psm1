@@ -923,7 +923,9 @@ function Global:Get-AwsRequest {
             # and AWS V4 requires these queries to come after all other queries
             $SpecialQueryStrings = "partNumber|uploadId|versioning|location|acl|torrent|lifecycle|versionid|response-content-type|response-content-language|response-expires|response-cache-control|response-content-disposition|response-content-encoding"
             foreach ($Key in ($SortedQuery.Keys | Where-Object { $_ -notmatch $SpecialQueryStrings })) {
-                $CanonicalQueryString += "$([System.Net.WebUtility]::UrlEncode($Key))=$([System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]))&"
+                # AWS expects that spaces be encoded as %20 instead of as + and .NET has a different view on this, therefore we need to do it manually
+                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+','%20'
+                $CanonicalQueryString += "$([System.Net.WebUtility]::UrlEncode($Key))=$($Value)&"
             }
             foreach ($Key in ($SortedQuery.Keys | Where-Object { $_ -match $SpecialQueryStrings })) {
                 if ($SortedQuery[$Key]) {
@@ -932,13 +934,12 @@ function Global:Get-AwsRequest {
                 else {
                     $QueryString += "$Key&"
                 }
-                $CanonicalQueryString += "$([System.Net.WebUtility]::UrlEncode($Key))=$([System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]))&"
+                # AWS expects that spaces be encoded as %20 instead of as + and .NET has a different view on this, therefore we need to do it manually
+                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+','%20'
+                $CanonicalQueryString += "$([System.Net.WebUtility]::UrlEncode($Key))=$($Value)&"
             }
             $QueryString = $QueryString -replace "&`$",""
             $CanonicalQueryString = $CanonicalQueryString -replace "&`$",""
-            # we need to ensure that + is encoded as it would otherwise be treated as whitespace
-            $QueryString = $QueryString -replace '\+','%2B'
-            $CanonicalQueryString = $CanonicalQueryString -replace '\+','%2B'
         }
         Write-Debug "Query String with selected Query components for S3 Signer: $QueryString"
         Write-Debug "Canonical Query String with all Query components for AWS Signer: $CanonicalQueryString"
