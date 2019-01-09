@@ -147,20 +147,23 @@ function Cleanup() {
 }
 
 Describe "AWS Configuration and Credential Management" {
-    $ProfileName = "test"
-    $AccessKey = "ABCDEFGHIJKLMNOPQRST"
-    $SecretKey = "abcdefghijklmnopqrst1234567890ABCDEFGHIJ"
-    $Region = "eu-central-1"
-    $EndpointUrl = "https://s3.example.org"
-    $MaxConcurrentRequest = 1234
-    $MaxQueueSize = 1234
-    $MultipartThreshold = "256MB"
-    $MultipartChunksize = "128MB"
-    $MaxBandwidth = "10MB/s"
-    $UseAccelerateEndpoint = $true
-    $UseDualstackEndpoint = $false
-    $AddressingStyle = "path"
-    $PayloadSigning= $true
+
+    BeforeAll {
+        $ProfileName = "test"
+        $AccessKey = "ABCDEFGHIJKLMNOPQRST"
+        $SecretKey = "abcdefghijklmnopqrst1234567890ABCDEFGHIJ"
+        $Region = "eu-central-1"
+        $EndpointUrl = "https://s3.example.org"
+        $MaxConcurrentRequest = 1234
+        $MaxQueueSize = 1234
+        $MultipartThreshold = "256MB"
+        $MultipartChunksize = "128MB"
+        $MaxBandwidth = "10MB/s"
+        $UseAccelerateEndpoint = $true
+        $UseDualstackEndpoint = $false
+        $AddressingStyle = "path"
+        $PayloadSigning= $true
+    }
 
     Context "Add a new Profile" {
         It "Given -ProfileName $ProfileName -AccessKey $AccessKey -SecretKey $SecretKey -Region $Region -EndpointUrl $EndpointUrl -MaxConcurrentRequests $MaxConcurrentRequest -MultipartThreshold $MultipartThreshold -MultipartChunksize $MultipartChunksize -MaxBandwidth $MaxBandwidth -UseAccelerateEndpoint $UseAccelerateEndpoint -UseDualstackEndpoint $UseDualstackEndpoint -AddressingStyle $AddressingStyle -PayloadSigning $PayloadSigning creates a new profile with these values" {
@@ -271,7 +274,10 @@ Describe "AWS Configuration and Credential Management" {
 }
 
 Describe "List Buckets" {
+
     BeforeAll {
+        $BucketName += "-list-buckets"
+        $UnicodeBucketName += "-list-buckets"
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -303,7 +309,10 @@ Describe "List Buckets" {
 }
 
 Describe "Test Bucket existence" {
+
     BeforeAll {
+        $BucketName += "-test-bucket-existence"
+        $UnicodeBucketName += "-test-bucket-existence"
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -331,6 +340,11 @@ Describe "Test Bucket existence" {
 }
 
 Describe "Create Bucket" {
+
+    BeforeAll {
+        $BucketName += "-create-bucket"
+        $UnicodeBucketName += "-create-bucket"
+    }
 
     AfterEach {
         Cleanup -BucketName $BucketName
@@ -394,7 +408,10 @@ Describe "Create Bucket" {
 }
 
 Describe "Remove Bucket" {
+
     BeforeAll {
+        $BucketName += "-remove-bucket"
+        $UnicodeBucketName += "-remove-bucket"
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -420,7 +437,10 @@ Describe "Remove Bucket" {
 }
 
 Describe "Upload Object" {
+
     BeforeAll {
+        $BucketName += "-upload-object"
+        $UnicodeBucketName += "-upload-object"
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -491,16 +511,19 @@ Describe "Upload Object" {
 
 Describe "Multipart Upload of Object" {
 
-    Context "Upload large file" {
-        BeforeAll {
-            Setup -BucketName $BucketName
-            Setup -BucketName $UnicodeBucketName
-        }
+    BeforeAll {
+        $BucketName += "-multipart-upload-object"
+        $UnicodeBucketName += "-multipart-upload-object"
+        Setup -BucketName $BucketName
+        Setup -BucketName $UnicodeBucketName
+    }
 
-        AfterAll {
-            Cleanup -BucketName $BucketName
-            Cleanup -BucketName $UnicodeBucketName
-        }
+    AfterAll {
+        Cleanup -BucketName $BucketName
+        Cleanup -BucketName $UnicodeBucketName
+    }
+
+    Context "Upload large file" {
 
         It "Given file -InFile `"$LargeFile`" it is succesfully uploaded to Bucket $BucketName" {
             Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $BucketName -InFile $LargeFile
@@ -531,7 +554,9 @@ Describe "Multipart Upload of Object" {
 }
 
 Describe "Copy Object" {
+
     BeforeAll {
+        $BucketName += "-copy-object"
         Setup -BucketName $BucketName -Key $Key
     }
 
@@ -618,7 +643,10 @@ Describe "Copy Object" {
 }
 
 Describe "S3 Bucket Encryption" {
+
     BeforeAll {
+        $BucketName += "-bucket-encryption"
+        $UnicodeBucketName += "-bucket-encryption"
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -684,7 +712,10 @@ Describe "S3 Bucket Encryption" {
 }
 
 Describe "S3 Bucket Tagging" {
+
     BeforeAll {
+        $BucketName += "-bucket-tagging"
+        $UnicodeBucketName += "-bucket-tagging"
         Setup -BucketName $BucketName
         Setup -BucketName $UnicodeBucketName
     }
@@ -729,7 +760,10 @@ Describe "S3 Bucket Tagging" {
 }
 
 Describe "S3 Object Tagging" {
+
     BeforeAll {
+        $BucketName += "-object-tagging"
+        $UnicodeBucketName += "-object-tagging"
         Setup -BucketName $BucketName -Key $Key
         Setup -BucketName $UnicodeBucketName -Key $UnicodeKey
     }
@@ -773,16 +807,20 @@ Describe "S3 Object Tagging" {
 }
 
 Describe "S3 Bucket Versioning" {
-    Context "Enable and Suspend Bucket Versioning" {
-        BeforeAll {
-            Setup -BucketName $BucketName
-            Setup -BucketName $UnicodeBucketName
-        }
 
-        AfterAll {
-            Cleanup -BucketName $BucketName
-            Cleanup -BucketName $UnicodeBucketName
-        }
+    BeforeAll {
+        $BucketName += "-bucket-versioning"
+        $UnicodeBucketName += "-bucket-versioning"
+        Setup -BucketName $BucketName
+        Setup -BucketName $UnicodeBucketName
+    }
+
+    AfterAll {
+        Cleanup -BucketName $BucketName
+        Cleanup -BucketName $UnicodeBucketName
+    }
+
+    Context "Enable and Suspend Bucket Versioning" {
 
         It "Given -BucketName $BucketName versioning is enabled and then suspended" -Skip:($ProfileName -match "minio") {
             Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
@@ -838,15 +876,6 @@ Describe "S3 Bucket Versioning" {
     }
 
     Context "Create, list and delete 10 Object Versions and Delete Markers in Versioning enabled Bucket" {
-        BeforeAll {
-            Setup -BucketName $BucketName
-            Setup -BucketName $UnicodeBucketName
-        }
-
-        AfterAll {
-            Cleanup -BucketName $BucketName
-            Cleanup -BucketName $UnicodeBucketName
-        }
 
         It "Given -BucketName $BucketName and different keys, object versions and delete markers are created, listed and deleted successfully" -Skip:($ProfileName -match "minio") {
             Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
@@ -971,7 +1000,11 @@ Describe "S3 Bucket Versioning" {
 }
 
 Describe "S3 Bucket CORS Configuration" {
+
     BeforeAll {
+        $BucketName += "-bucket-cors"
+        $UnicodeBucketName += "-bucket-cors"
+
         $AllowedMethods = "GET","PUT","POST","DELETE"
         $AllowedOrigins = "netapp.com","*.example.org"
         $AllowedHeaders = "x-amz-meta-1","x-amz-meta-2"
@@ -1082,6 +1115,8 @@ Describe "S3 Bucket CORS Configuration" {
 Describe "S3 Bucket Replication Configuration" {
 
     BeforeAll {
+        $BucketName += "-bucket-replication"
+        $UnicodeBucketName += "-bucket-replication"
         $DestinationBucketName = $BucketName + "-dst"
         $DestinationUnicodeBucketName = $UnicodeBucketName +  "-dst"
         $DestinationRegion = "us-east-2"
@@ -1102,7 +1137,6 @@ Describe "S3 Bucket Replication Configuration" {
             $UnicodeEndpointConfiguration = Add-SgwEndpoint -ProfileName $ProfileName -DisplayName $DestinationUnicodeBucketName -EndpointUri "https://s3.us-east-2.amazonaws.com" -EndpointUrn "arn:aws:s3:::$DestinationUnicodeBucketName" -AccessKey $AwsProfile.AccessKey -SecretAccessKey $AwsProfile.SecretKey -ErrorAction Stop
             sleep 5
         }
-
     }
 
     AfterAll {
