@@ -665,7 +665,7 @@ Describe "S3 Bucket Encryption" {
         It "Given -BucketName $BucketName and -SSEAlgorithm AES256 server side encryption is enabled" -Skip:($ProfileName -match "minio|webscaledemo") {
             Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName -SSEAlgorithm AES256
 
-            foreach ($i in $MAX_WAIT_TIME) {
+            foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
                 $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
                 if ($BucketEncryption.SSEAlgorithm -eq "AES256") {
@@ -677,7 +677,7 @@ Describe "S3 Bucket Encryption" {
 
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
 
-            foreach ($i in $MAX_WAIT_TIME) {
+            foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
                 $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $BucketName
                 if (!$BucketEncryption) {
@@ -691,7 +691,7 @@ Describe "S3 Bucket Encryption" {
         It "Given -BucketName $UnicodeBucketName and -SSEAlgorithm AES256 server side encryption is enabled" -Skip:($ProfileName -match "minio|webscaledemo") {
             Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName -SSEAlgorithm AES256
 
-            foreach ($i in $MAX_WAIT_TIME) {
+            foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
                 $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
                 if ($BucketEncryption.SSEAlgorithm -eq "AES256") {
@@ -703,7 +703,7 @@ Describe "S3 Bucket Encryption" {
 
             Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
 
-            foreach ($i in $MAX_WAIT_TIME) {
+            foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
                 $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
                 if (!$BucketEncryption) {
