@@ -1029,7 +1029,7 @@ Describe "S3 Bucket CORS Configuration" {
     }
 
     Context "Set Bucket CORS Configuration" {
-        It "Given -BucketName $BucketName -Id $BucketName -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins -AllowedHeaders $AllowedHeaders -MaxAgeSeconds $MaxAgeSeconds -ExposeHeaders $ExposeHeaders a CORS Configuration rule is added" -Skip:($ProfileName -match "mini") {
+        It "Given -BucketName $BucketName -Id $BucketName -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins -AllowedHeaders $AllowedHeaders -MaxAgeSeconds $MaxAgeSeconds -ExposeHeaders $ExposeHeaders a CORS Configuration rule is added" -Skip:($ProfileName -match "minio") {
             $Id = "BucketName"
             Add-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins -AllowedHeaders $AllowedHeaders -MaxAgeSeconds $MaxAgeSeconds -ExposeHeaders $ExposeHeaders
 
@@ -1049,7 +1049,7 @@ Describe "S3 Bucket CORS Configuration" {
             $CorsConfiguration.ExposeHeader | Should -Be $ExposeHeaders
         }
 
-        It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins a CORS configuration rule is added" {
+        It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins a CORS configuration rule is added" -Skip:($ProfileName -match "minio") {
             $Id = "UnicodeBucketName"
             Add-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins
 
@@ -1066,7 +1066,7 @@ Describe "S3 Bucket CORS Configuration" {
             $CorsConfiguration.AllowedOrigin | Should -Be $AllowedOrigins
         }
 
-        It "Given -BucketName $BucketName -Id `"remove`" a CORS configuration rule is removed" {
+        It "Given -BucketName $BucketName -Id `"remove`" a CORS configuration rule is removed" -Skip:($ProfileName -match "minio") {
             $Id = "Remove"
             Add-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins
 
@@ -1092,7 +1092,7 @@ Describe "S3 Bucket CORS Configuration" {
             $CorsConfigurationRule | Should -BeNullOrEmpty
         }
 
-        It "Given -BucketName $BucketName all CORS configuration is removed" {
+        It "Given -BucketName $BucketName all CORS configuration is removed" -Skip:($ProfileName -match "minio") {
             $Id = "RemoveAll"
             Add-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $BucketName -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins
 
@@ -1121,6 +1121,7 @@ Describe "S3 Bucket CORS Configuration" {
 }
 
 Describe "S3 Bucket Replication Configuration" {
+    if ($ProfileName -eq "Minio") { continue }
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-repl"
