@@ -951,7 +951,7 @@ Describe "S3 Bucket Versioning" {
             foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
                 $BucketVersioning = Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
-                if ($BucketVersioning -eq $Enabled) {
+                if ($BucketVersioning -eq "Enabled") {
                     break
                 }
                 Write-Warning "Tried $i times but bucket versioning not yet enabled. Retrying in 1 second."
