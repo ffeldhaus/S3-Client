@@ -1123,8 +1123,8 @@ Describe "S3 Bucket CORS Configuration" {
 Describe "S3 Bucket Replication Configuration" {
 
     BeforeAll {
-        $BucketName = $BaseBucketName + "-bucket-replication"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-replication"
+        $BucketName = $BaseBucketName + "-bucket-repl"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-repl"
 
         $DestinationBucketName = $BucketName + "-dst"
         $DestinationUnicodeBucketName = $UnicodeBucketName +  "-dst"
