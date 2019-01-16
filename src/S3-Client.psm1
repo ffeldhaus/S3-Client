@@ -7661,7 +7661,7 @@ function Global:Read-S3Object {
             $null = $HttpStream.Result.CopyToAsync($Stream)
 
             Write-Debug "Report progress and check for cancellation requests"
-            while ($Stream.Position -ne $Stream.Length -and !$Task.IsCanceled -and !$Task.IsFaulted -and $Duration -lt $HttpClient.Timeout.TotalSeconds ) {
+            while ($Stream.Position -ne $Size -and !$Task.IsCanceled -and !$Task.IsFaulted -and $Duration -lt $HttpClient.Timeout.TotalSeconds ) {
                 Start-Sleep -Milliseconds 500
                 $WrittenBytes = $Stream.Position
                 $PercentCompleted = $WrittenBytes / $Size * 100
