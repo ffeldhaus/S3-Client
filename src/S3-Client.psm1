@@ -2152,8 +2152,8 @@ function Global:New-AwsPolicy {
             if ($Resource -match "aws") {
                 Write-Warning "Not supported by AWS!"
             }
-                $Statement.Action = @("s3:PutOverwriteObject","s3:DeleteObject","s3:DeleteObjectVersion","s3:PutBucketPolicy","s3:DeleteBucketPolicy")
-            }
+            $Statement.Action = @("s3:PutOverwriteObject","s3:DeleteObject","s3:DeleteObjectVersion","s3:PutBucketPolicy","s3:DeleteBucketPolicy")
+        }
 
         $Policy.Statement += $Statement
 
@@ -7632,68 +7632,69 @@ function Global:Read-S3Object {
         Write-Debug "Creating HTTP Client"
         $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
-            Write-Debug "Creating Stream"
-            $Stream = $MemoryMappedFile.CreateViewStream()
+        Write-Debug "Creating Stream"
+        $Stream = $MemoryMappedFile.CreateViewStream()
 
-            Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)"
-            $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 1KB / 100,60))
-            Write-Debug "Timeout set to $($HttpClient.Timeout)"
+        Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)"
+        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 1KB / 100,60))
+        Write-Debug "Timeout set to $($HttpClient.Timeout)"
 
-            Write-Debug "Creating GET request"
-            $GetRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get,$AwsRequest.Uri)
+        Write-Debug "Creating GET request"
+        $GetRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get,$AwsRequest.Uri)
 
-            Write-Debug "Adding headers"
-            foreach ($HeaderKey in $AwsRequest.Headers.Keys) {
-                # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
-                $null = $GetRequest.Headers.TryAddWithoutValidation($HeaderKey,$AwsRequest.Headers[$HeaderKey])
-            }
+        Write-Debug "Adding headers"
+        foreach ($HeaderKey in $AwsRequest.Headers.Keys) {
+            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+            $null = $GetRequest.Headers.TryAddWithoutValidation($HeaderKey,$AwsRequest.Headers[$HeaderKey])
+        }
 
-            $StreamLength = $Stream.Length
+        $StreamLength = $Stream.Length
 
-            try {
-                Write-Debug "Start download"
-                $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
-                $CancellationToken = $CancellationTokenSource.Token
-                $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
-                $CompletionOption = [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead
-                $Task = $HttpClient.SendAsync($GetRequest, $CompletionOption,  $CancellationToken)
-                $HttpStream = $Task.Result.Content.ReadAsStreamAsync()
-                $null = $HttpStream.Result.CopyToAsync($Stream)
+        try {
+            Write-Debug "Start download"
+            $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
+            $CancellationToken = $CancellationTokenSource.Token
+            $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
+            $CompletionOption = [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead
+            $Task = $HttpClient.SendAsync($GetRequest, $CompletionOption,  $CancellationToken)
+            $HttpStream = $Task.Result.Content.ReadAsStreamAsync()
+            $null = $HttpStream.Result.CopyToAsync($Stream)
 
-                Write-Debug "Report progress and check for cancellation requests"
-                while ($Stream.Position -ne $Stream.Length -and !$Task.IsCanceled -and !$Task.IsFaulted -and $Duration -lt $HttpClient.Timeout.TotalSeconds ) {
-                    Start-Sleep -Milliseconds 500
-                    $WrittenBytes = $Stream.Position
-                    $PercentCompleted = $WrittenBytes / $Size * 100
-                    $Duration = ((Get-Date) - $StartTime).TotalSeconds
-                    $Throughput = $WrittenBytes / 1MB / $Duration
-                    if ($Throughput -gt 0) {
-                        $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds([Math]::Round(($Size - $WrittenBytes) / 1MB / $Throughput))
-                    }
-                    else {
-                        $EstimatedTimeToCompletion = 0
-                    }
-                    $Activity = "Downloading file $($OutFile.Name) to $BucketName/$Key"
-                    $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes/1MB),$PercentCompleted,$Throughput,$EstimatedTimeToCompletion
-                    Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
+            Write-Debug "Report progress and check for cancellation requests"
+            while ($Stream.Position -ne $Stream.Length -and !$Task.IsCanceled -and !$Task.IsFaulted -and $Duration -lt $HttpClient.Timeout.TotalSeconds ) {
+                Start-Sleep -Milliseconds 500
+                $WrittenBytes = $Stream.Position
+                $PercentCompleted = $WrittenBytes / $Size * 100
+                $Duration = ((Get-Date) - $StartTime).TotalSeconds
+                $Throughput = $WrittenBytes / 1MB / $Duration
+                if ($Throughput -gt 0) {
+                    $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds([Math]::Round(($Size - $WrittenBytes) / 1MB / $Throughput))
                 }
-                $WrittenBytes = $StreamLength
-
-                if ($Task.Exception) {
-                    throw $Task.Exception
+                else {
+                    $EstimatedTimeToCompletion = 0
                 }
+                $Activity = "Downloading file $($OutFile.Name) from $BucketName/$Key"
+                $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes/1MB),$PercentCompleted,$Throughput,$EstimatedTimeToCompletion
+                Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
+                Write-Verbose "Written bytes: $WrittenBytes"
             }
-            catch {
-                throw $_
+            $WrittenBytes = $StreamLength
+
+            if ($Task.Exception) {
+                throw $Task.Exception
             }
-            finally {
-                Write-Verbose "Dispose used resources"
-                if ($Task) { $Task.Dispose() }
-                if ($PutRequest) { $PutRequest.Dispose() }
-                if ($StreamContent) { $StreamContent.Dispose() }
-                if ($Stream) { $Stream.Dispose() }
-                if ($MemoryMappedFile) { $MemoryMappedFile.Dispose() }
-            }
+        }
+        catch {
+            throw $_
+        }
+        finally {
+            Write-Verbose "Dispose used resources"
+            if ($Task) { $Task.Dispose() }
+            if ($PutRequest) { $PutRequest.Dispose() }
+            if ($StreamContent) { $StreamContent.Dispose() }
+            if ($Stream) { $Stream.Dispose() }
+            if ($MemoryMappedFile) { $MemoryMappedFile.Dispose() }
+        }
 
         Write-Host "Downloading object $BucketName/$Key of size $([Math]::Round($Size/1MB,4))MiB to file $OutFile completed in $([Math]::Round($Duration,2)) seconds with average throughput of $([Math]::Round($Throughput,2)) MiB/s"
     }
