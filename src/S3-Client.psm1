@@ -2150,12 +2150,10 @@ function Global:New-AwsPolicy {
             $Statement.Effect = "Deny"
             # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
             if ($Resource -match "aws") {
-                throw "not supported by AWS"
+                Write-Warning "Not supported by AWS!"
             }
-            else {
                 $Statement.Action = @("s3:PutOverwriteObject","s3:DeleteObject","s3:DeleteObjectVersion","s3:PutBucketPolicy","s3:DeleteBucketPolicy")
             }
-        }
 
         $Policy.Statement += $Statement
 
