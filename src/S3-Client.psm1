@@ -7623,15 +7623,12 @@ function Global:Read-S3Object {
         $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($OutFile, [System.IO.FileMode]::Open)
 
         Write-Debug "Creating HTTP Client Handler"
+        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
         if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
         }
         elseif ($SkipCertificateCheck) {
-            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
             $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
-        }
-        else {
-            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
         }
 
         Write-Debug "Creating HTTP Client"
@@ -8031,15 +8028,12 @@ function Global:Write-S3Object {
                         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
 
                         Write-Debug "Creating HTTP Client Handler"
+                        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
                         if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
                             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
                         }
                         elseif ($SkipCertificateCheck) {
-                            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
                             $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
-                        }
-                        else {
-                            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
                         }
 
                         Write-Debug "Creating Stream"
@@ -8937,6 +8931,7 @@ function Global:Write-S3MultipartUpload {
                                 HelpMessage="Skip Certificate Check")][Boolean]$SkipCertificateCheck
                     )
 
+                    $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
                     if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
                         Add-Type @"
                             using System.Net;
@@ -8953,11 +8948,7 @@ function Global:Write-S3MultipartUpload {
                         [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
                     }
                     elseif ($SkipCertificateCheck) {
-                        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
                         $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
-                    }
-                    else {
-                        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
                     }
 
                     # using CryptoSteam to calculate the MD5 sum while uploading the part
