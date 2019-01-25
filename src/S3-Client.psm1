@@ -341,6 +341,7 @@ function ConvertTo-Punycode {
                 $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
                 if ($BucketNameExists) {
                     Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+                    Write-Output $BucketName
                 }
                 else {
                     Write-Output $PunycodeBucketName
