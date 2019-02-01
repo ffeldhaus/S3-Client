@@ -7216,7 +7216,22 @@ function Global:Get-S3PresignedUrl {
         [parameter(
                 Mandatory=$False,
                 Position=14,
-                HelpMessage="HTTP Request Method")][ValidateSet("OPTIONS","GET","HEAD","PUT","DELETE","TRACE","CONNECT")][String]$Method="GET"
+                HelpMessage="HTTP Request Method")][ValidateSet("OPTIONS","GET","HEAD","PUT","DELETE","TRACE","CONNECT")][String]$Method="GET",
+        [parameter(
+                Mandatory=$False,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Content MD5")][String]$ContentMd5,
+        [parameter(
+                Mandatory=$False,
+                Position=16,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Content Type")][String]$ContentType,
+        [parameter(
+                Mandatory=$False,
+                Position=17,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Content Length")][String]$ContentLength
     )
 
     Begin {
@@ -7247,14 +7262,26 @@ function Global:Get-S3PresignedUrl {
             $Query = @{}
         }
 
+        $Headers = @{}
+
         if ($Metadata) {
             foreach ($Key in $Metadata.Keys) {
                 $Key = $Key -replace "^x-amz-meta-",""
-                $Query["x-amz-meta-$Key"] = $Metadata[$Key]
+                $Headers["x-amz-meta-$Key"] = $Metadata[$Key]
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region -Expires $Expires
+        if ($ContentMd5) {
+            $Headers["Content-MD5"] = $ContentMd5
+        }
+        if ($ContentType) {
+            $Headers["Content-Type"] = $ContentType
+            }
+        if ($ContentLength) {
+            $Headers["Content-Length"] = $ContentLength
+        }
+
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Headers $Headers -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region -Expires $Expires
 
         Write-Output $AwsRequest.Uri.ToString()
     }
