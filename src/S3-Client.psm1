@@ -7663,8 +7663,8 @@ function Global:Read-S3Object {
         Write-Debug "Creating Stream"
         $Stream = $MemoryMappedFile.CreateViewStream()
 
-        Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)"
-        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 1KB / 100,60))
+        Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 10 KByte/s)"
+        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 10KB,60))
         Write-Debug "Timeout set to $($HttpClient.Timeout)"
 
         Write-Debug "Creating GET request"
@@ -8074,8 +8074,8 @@ function Global:Write-S3Object {
                         Write-Debug "Creating HTTP Client"
                         $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
-                        Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)"
-                        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 1KB / 100,60))
+                        Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 10 KByte/s)"
+                        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 10KB,60))
                         Write-Debug "Timeout set to $($HttpClient.Timeout)"
 
                         Write-Debug "Creating PUT request"
@@ -8985,8 +8985,8 @@ function Global:Write-S3MultipartUpload {
 
                     $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
-                    # set Timeout proportional to size of data to be uploaded (assuming at least 100 KByte/s)
-                    $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 1KB / 100,60))
+                    # set Timeout proportional to size of data to be uploaded (assuming at least 10 KByte/s)
+                    $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 10KB,60))
                     Write-Debug "Timeout set to $($HttpClient.Timeout)"
 
                     $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$Uri)
