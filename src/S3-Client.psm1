@@ -7281,7 +7281,7 @@ function Global:Get-S3PresignedUrl {
             $Headers["Content-Length"] = $ContentLength
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Headers $Headers -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region -Expires $Expires
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Headers $Headers -ContentType $ContentType -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region -Expires $Expires
 
         Write-Output $AwsRequest.Uri.ToString()
     }
