@@ -1079,24 +1079,24 @@ function Global:Invoke-AwsRequest {
                 if ($OutFile) {
                     Write-Verbose "Body:`n$Body"
                     Write-Verbose "Saving output in file $OutFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile
                 }
                 else {
                     Write-Verbose "Body:`n$Body"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body))
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -Body ([System.Text.Encoding]::UTF8.GetBytes($Body))
                 }
             }
             else {
                 if ($OutFile) {
                     Write-Verbose "Saving output in file $OutFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -OutFile $OutFile
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -OutFile $OutFile
                 }
                 elseif ($InFile) {
                     Write-Verbose "InFile:`n$InFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -InFile $InFile
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -InFile $InFile
                 }
                 else {
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType
                 }
             }
             if ($SkipCertificateCheck.IsPresent) {
@@ -1108,24 +1108,24 @@ function Global:Invoke-AwsRequest {
                 if ($OutFile) {
                     Write-Verbose "Body:`n$Body"
                     Write-Verbose "Saving output in file $OutFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                 }
                 else {
                     Write-Verbose "Body:`n$Body"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                 }
             }
             else {
                 if ($OutFile) {
                     Write-Verbose "Saving output in file $OutFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                 }
                 elseif ($InFile) {
                     Write-Verbose "InFile:`n$InFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -InFile $InFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -InFile $InFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                 }
                 else {
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
+                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
                 }
             }
         }
