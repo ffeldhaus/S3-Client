@@ -9222,13 +9222,18 @@ function Global:Write-S3ObjectPart {
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Multipart part number (from 1 to 10000)")][ValidateRange(1,10000)][Int]$PartNumber,
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=14,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Content Stream")][System.IO.Stream]$Stream,
         [parameter(
                 Mandatory=$False,
                 Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="UTF-8 encoded content")][String]$Content,
+        [parameter(
+                Mandatory=$False,
+                Position=16,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
     )
@@ -9256,7 +9261,13 @@ function Global:Write-S3ObjectPart {
 
         $Query = @{partNumber=$PartNumber;uploadId=$UploadId}
 
-        $Headers = @{"Content-Length"=$Stream.Length}
+        if ($Content) {
+            $Stream = [System.IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes($Content)) 
+        }     
+
+        $ContentLength = $Stream.Length
+
+        $Headers = @{"Content-Length" = $ContentLength}
 
         # Force Presign because it allows UNSIGNED_PAYLOAD and we do not want
         # to read the Stream to calculate a signature before uploading it for performance reasons
@@ -9283,13 +9294,62 @@ function Global:Write-S3ObjectPart {
                 $PutRequest.Headers.Add("Host",$AwsRequest.Headers["Host"])
 
                 $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
-                $StreamContent.Headers.ContentLength = $Stream.Length
+                $StreamContent.Headers.ContentLength = $ContentLength
                 $PutRequest.Content = $StreamContent
 
-                $Task = $HttpClient.SendAsync($PutRequest)
+                Write-Debug "Start upload of part $PartNumber"
+                
+                $StartTime = Get-Date
 
+                $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
+                $CancellationToken = $CancellationTokenSource.Token
+                $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
+                $Task = $HttpClient.SendAsync($PutRequest, $CancellationToken)
+
+                Write-Debug "Report progress"
+                while ($Stream.Position -ne $ContentLength -and !$Task.IsCanceled -and !$Task.IsFaulted -and !$Task.IsCompleted) {
+                    Start-Sleep -Milliseconds 500
+                    $WrittenBytes = $Stream.Position
+                    $PercentCompleted = $WrittenBytes / $ContentLength * 100
+                    $Duration = ((Get-Date) - $StartTime).TotalSeconds
+                    $Throughput = $WrittenBytes / 1MB / $Duration
+                    if ($Throughput -gt 0) {
+                        $EstimatedTimeToCompletion = [TimeSpan]::FromSeconds([Math]::Round(($InFile.Length - $WrittenBytes) / 1MB / $Throughput))
+                    }
+                    else {
+                        $EstimatedTimeToCompletion = 0
+                    }
+                    $Activity = "Uploading part to $BucketName/$Key"
+                    $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes/1MB),$PercentCompleted,$Throughput,$EstimatedTimeToCompletion
+                    Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
+                }
+
+                if ($Task.Exception) {
+                    throw $Task.Exception
+                }
+
+                if ($Task.IsCanceled) {
+                    Write-Warning "Upload was canceled with result $($Task.Result)"
+                }
+
+                $Etag = New-Object 'System.Collections.Generic.List[string]'
+                [void]$Task.Result.Headers.TryGetValues("ETag",[ref]$Etag)
+                $Etag = ($Etag | Select-Object -First 1) -replace '"',''
+
+                $CryptoStream.Dispose()
                 $Md5Sum = [BitConverter]::ToString($Md5.Hash) -replace "-",""
-                Write-Output [PSCustomObject]@{ETag=$Md5Sum}
+
+                Write-Verbose "Response Headers:`n$(ConvertTo-Json -InputObject $Task.Result.Headers)"
+
+                if ($Task.Result.StatusCode -ne "OK") {
+                    return $Task.Result
+                }
+                elseif ($Etag -ne $MD5Sum) {
+                    throw "Etag $Etag does not match calculated MD5 sum $MD5Sum"
+                }
+                else {
+                    Write-Output ([PSCustomObject]@{ETag=$Etag})
+                }
 
                 #$Task.Dispose()
                 $PutRequest.Dispose()
@@ -9307,8 +9367,6 @@ function Global:Write-S3ObjectPart {
                     Throw
                 }
             }
-
-            Write-Output $Result.Content
         }
     }
 }
