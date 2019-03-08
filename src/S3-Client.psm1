@@ -8375,7 +8375,7 @@ function Global:Start-S3MultipartUpload {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body "" -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body "" -ContentType $ContentType -ErrorAction Stop
             # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
             $Xml = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             $Content = $Xml.InitiateMultipartUploadResult
