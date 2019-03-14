@@ -827,7 +827,7 @@ function Global:Get-AwsRequest {
         }
 
         # ensure that plus sign (+) is encoded in URI, otherwise AWS signing will not work
-        $Uri = $Uri -replace '\+','%2B'
+        $Uri = $Uri -replace '\+','%2B' -replace '!','%21' -replace '\*','%2A' -replace '\(','%28' -replace '\)','%29'
 
         if ($UrlStyle -match "virtual" -and $BucketName) {
             Write-Verbose "Using virtual-hosted style URL"
@@ -928,7 +928,7 @@ function Global:Get-AwsRequest {
             $SpecialQueryStrings = "partNumber|uploadId|versioning|location|acl|torrent|lifecycle|versionid|response-content-type|response-content-language|response-expires|response-cache-control|response-content-disposition|response-content-encoding"
             foreach ($Key in ($SortedQuery.Keys | Where-Object { $_ -notmatch $SpecialQueryStrings })) {
                 # AWS expects that spaces be encoded as %20 instead of as + and .NET has a different view on this, therefore we need to do it manually
-                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+','%20'
+                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+','%20' -replace '!','%21' -replace '\*','%2A' -replace '\(','%28' -replace '\)','%29'
                 $CanonicalQueryString += "$([System.Net.WebUtility]::UrlEncode($Key))=$($Value)&"
             }
             foreach ($Key in ($SortedQuery.Keys | Where-Object { $_ -match $SpecialQueryStrings })) {
@@ -939,7 +939,7 @@ function Global:Get-AwsRequest {
                     $QueryString += "$Key&"
                 }
                 # AWS expects that spaces be encoded as %20 instead of as + and .NET has a different view on this, therefore we need to do it manually
-                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+','%20'
+                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+','%20' -replace '!','%21' -replace '\*','%2A' -replace '\(','%28' -replace '\)','%29'
                 $CanonicalQueryString += "$([System.Net.WebUtility]::UrlEncode($Key))=$($Value)&"
             }
             $QueryString = $QueryString -replace "&`$",""
