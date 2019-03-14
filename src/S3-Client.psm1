@@ -9859,7 +9859,7 @@ function Global:Copy-S3Object {
             $SourceKey = $Key
         }
         if (!$Metadata -and !$Tags) {
-            $Metadata = Get-S3ObjectMetadata -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key | Select -ExpandProperty Metadata
+            $Metadata = Get-S3ObjectMetadata -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $SourceBucketName -Key $SourceKey | Select-Object -ExpandProperty Metadata
         }
 
         $SourceBucketName = ConvertTo-Punycode -Config $Config -BucketName $SourceBucketName
