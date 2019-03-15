@@ -2059,7 +2059,7 @@ function Global:New-AwsPolicy {
 
         if ($CurrentSgwServer -and ($Resource -match "arn:aws" -or $NotResource  -match "arn:aws") -or $Principal.Keys -match 'SGWS') {
             Write-Warning "Resource starts with arn:aws:"
-            Write-Warning "If the policy is created for an S3 service different than AWS (e.g. StorageGRID),the Resource may need to be specified as:"
+            Write-Warning "If the policy is created for an S3 service different than AWS (e.g. StorageGRID 11.1 and earlier),the Resource may need to be specified as:"
             if ($Resource) {
                 foreach ($WrongResource in $Resource) {
                     Write-Warning $($WrongResource.Uri.OriginalString -replace "arn:aws:","urn:sgws:")
@@ -2126,10 +2126,10 @@ function Global:New-AwsPolicy {
             $Effect = "Allow"
             # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
             if ($Resource -match "aws") {
-                $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
+                $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
             }
             else {
-                $Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketVersioning", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging", "s3:GetReplicationConfiguration")
+                $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketVersioning", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging", "s3:GetReplicationConfiguration")
             }
         }
 
@@ -2137,10 +2137,10 @@ function Global:New-AwsPolicy {
             $Effect = "Deny"
             # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
             if ($Resource -match "aws") {
-                $Action = @("s3:AbortMultipartUpload","s3:DeleteObject","s3:DeleteObjectTagging","s3:DeleteObjectVersion","s3:DeleteObjectVersionTagging","s3:PutObject","s3:PutObjectAcl","s3:PutObjectTagging","s3:PutObjectVersionAcl","s3:PutObjectVersionTagging","s3:RestoreObject","s3:CreateBucket","s3:DeleteBucket","s3:DeleteBucketPolicy","s3:DeleteBucketWebsite","s3:PutAccelerateConfiguration","s3:PutAnalyticsConfiguration","s3:PutBucketAcl","s3:PutBucketCORS","s3:PutBucketLogging","s3:PutBucketNotification","s3:PutBucketPolicy","s3:PutBucketRequestPayment","s3:PutBucketTagging","s3:PutBucketVersioning","s3:PutBucketWebsite","s3:PutEncryptionConfiguration","s3:PutInventoryConfiguration","s3:PutLifecycleConfiguration","s3:PutMetricsConfiguration","s3:PutReplicationConfiguration")
+                $Statement.Action = @("s3:AbortMultipartUpload","s3:DeleteObject","s3:DeleteObjectTagging","s3:DeleteObjectVersion","s3:DeleteObjectVersionTagging","s3:PutObject","s3:PutObjectAcl","s3:PutObjectTagging","s3:PutObjectVersionAcl","s3:PutObjectVersionTagging","s3:RestoreObject","s3:CreateBucket","s3:DeleteBucket","s3:DeleteBucketPolicy","s3:DeleteBucketWebsite","s3:PutAccelerateConfiguration","s3:PutAnalyticsConfiguration","s3:PutBucketAcl","s3:PutBucketCORS","s3:PutBucketLogging","s3:PutBucketNotification","s3:PutBucketPolicy","s3:PutBucketRequestPayment","s3:PutBucketTagging","s3:PutBucketVersioning","s3:PutBucketWebsite","s3:PutEncryptionConfiguration","s3:PutInventoryConfiguration","s3:PutLifecycleConfiguration","s3:PutMetricsConfiguration","s3:PutReplicationConfiguration")
             }
             else {
-                $Action = @("s3:AbortMultipartUpload","s3:DeleteObject","s3:DeleteObjectTagging","s3:DeleteObjectVersion","s3:DeleteObjectVersionTagging","s3:PutObject","s3:PutObjectTagging","s3:PutObjectVersionTagging","s3:CreateBucket","s3:DeleteBucket","s3:DeleteBucketPolicy","s3:PutBucketCORS","s3:PutBucketLogging","s3:PutBucketNotification","s3:PutBucketPolicy","s3:PutBucketTagging","s3:PutBucketVersioning","s3:PutReplicationConfiguration")
+                $Statement.Action = @("s3:AbortMultipartUpload","s3:DeleteObject","s3:DeleteObjectTagging","s3:DeleteObjectVersion","s3:DeleteObjectVersionTagging","s3:PutObject","s3:PutObjectTagging","s3:PutObjectVersionTagging","s3:CreateBucket","s3:DeleteBucket","s3:DeleteBucketPolicy","s3:PutBucketCORS","s3:PutBucketLogging","s3:PutBucketNotification","s3:PutBucketPolicy","s3:PutBucketTagging","s3:PutBucketVersioning","s3:PutReplicationConfiguration")
             }
         }
 
@@ -2615,36 +2615,27 @@ function Global:New-S3Bucket {
         [parameter(
                 Mandatory=$False,
                 Position=11,
-                HelpMessage="If set, applies an ACL making the bucket public with read-only permissions")][Switch]$PublicReadOnly,
-        [parameter(
-                Mandatory=$False,
-                Position=12,
-                HelpMessage="If set, applies an ACL making the bucket public with read-write permissions")][Switch]$PublicReadWrite,
-        [parameter(
-                Mandatory=$False,
-                Position=13,
                 HelpMessage="If set, applies a Bucket Policy making the bucket public with read-only permissions")][Switch]$PublicReadOnlyPolicy,
         [parameter(
                 Mandatory=$False,
-                Position=14,
+                Position=12,
                 HelpMessage="If set, applies a Bucket Policy making the bucket public with read-write permissions")][Switch]$PublicReadWritePolicy,
         [parameter(
                 Mandatory=$False,
-                Position=15,
+                Position=13,
                 HelpMessage="Bucket Region")][Alias("Location","LocationConstraint")][String]$Region,
         [parameter(
                 Mandatory=$False,
-                Position=16,
+                Position=14,
                 HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
         [parameter(
                 Mandatory=$False,
-                Position=17,
+                Position=15,
                 HelpMessage="Parameter is only used for compatibility with AWS Cmdlets and will be ignored")][Switch]$Force,
         [parameter(
                 Mandatory=$False,
-                Position=18,
+                Position=16,
                 HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
-
     )
 
     Begin {
@@ -2684,6 +2675,13 @@ function Global:New-S3Bucket {
         }
         else {
             $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+        }
+
+        if ($PublicReadOnlyPolicy) {
+            Set-S3BucketPolicy -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType:$SignerType -EndpointUrl $Config.EndpointUrl -Region:$Region -UrlStyle $UrlStyle -PayloadSigning $Config.PayloadSigning -BucketName $BucketName -PublicReadOnlyPolicy
+        }
+        if ($PublicReadWritePolicy) {
+            Set-S3BucketPolicy -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType:$SignerType -EndpointUrl $Config.EndpointUrl -Region:$Region -UrlStyle $UrlStyle -PayloadSigning $Config.PayloadSigning -BucketName $BucketName -PublicReadWritePolicy
         }
     }
 }
@@ -5214,7 +5212,7 @@ function Global:Set-S3BucketPolicy {
         if (!$Policy -and $PublicReadOnlyPolicy.IsPresent) {
             $Policy = New-AwsPolicy -Resource $Resource -ReadOnlyAccess
         }
-        if (!$Policy -and $PublicReadOnlyPolicy.IsPresent) {
+        if (!$Policy -and $PublicReadWritePolicy.IsPresent) {
             $Policy = New-AwsPolicy -Resource $Resource
         }
 
