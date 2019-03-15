@@ -569,7 +569,7 @@ Describe "Copy Object" {
     }
 
     Context "Copy object to itself" {
-        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key it is copied to itself" -Skip:($ProfileName -match "minio|webscaledemo") {
+        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
             $OriginalObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
 
             Start-Sleep -Seconds 2
@@ -588,7 +588,7 @@ Describe "Copy Object" {
             $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
         }
 
-        It "Given -BucketName $BucketName and -Key $Key it is copied to itself" -Skip:($ProfileName -match "minio|webscaledemo") {
+        It "Given -BucketName $BucketName and -Key $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
             $OriginalObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
 
             Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
@@ -606,7 +606,7 @@ Describe "Copy Object" {
             $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
         }
 
-        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key and additional metadata it is copied to itself" -Skip:($ProfileName -match "minio|webscaledemo") {
+        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key and additional metadata it is copied to itself" -Skip:($ProfileName -match "minio") {
             $Metadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty Metadata
             $Metadata["copytest"]="test"
 
