@@ -8379,7 +8379,7 @@ function Global:Start-S3MultipartUpload {
             # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
             $Xml = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
             $Content = $Xml.InitiateMultipartUploadResult
-            $InitiateMultipartUploadResult = [PSCustomObject]@{Bucket=$Content.Bucket;Key=$Content.Key;UploadId=$Content.UploadId}
+            $InitiateMultipartUploadResult = [PSCustomObject]@{Bucket=$Content.Bucket;Key=$Content.Key;UploadId=$Content.UploadId;Etags=[System.Collections.Generic.SortedDictionary[int, string]]::new()}
             Write-Output $InitiateMultipartUploadResult
         }
     }
@@ -9235,7 +9235,12 @@ function Global:Write-S3ObjectPart {
                 Mandatory=$False,
                 Position=16,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning
+                HelpMessage="Enable Payload Signing")][Switch]$PayloadSigning,
+        [parameter(
+                Mandatory=$False,
+                Position=17,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Part Etags in the format partNumber=ETag")][System.Collections.Generic.SortedDictionary[int, string]]$Etags
     )
 
     Begin {
@@ -9348,6 +9353,7 @@ function Global:Write-S3ObjectPart {
                     throw "Etag $Etag does not match calculated MD5 sum $MD5Sum"
                 }
                 else {
+                    $Etags[$PartNumber] = $Etag
                     Write-Output ([PSCustomObject]@{ETag=$Etag})
                 }
 
