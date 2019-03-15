@@ -1723,7 +1723,7 @@ function Global:Get-AwsConfig {
                                     PayloadSigning = $PayloadSigning;
                                     SkipCertificateCheck = $SkipCertificateCheck}
 
-        if (!$ProfileName -and !$AccessKey -and !$Server) {
+        if (!$ProfileName -and !$AccessKey -and !($Server -and ($AccountId -or $Server.AccountId))) {
             $ProfileName = "default"
         }
 
