@@ -8854,7 +8854,6 @@ function Global:Write-S3MultipartUpload {
         if (!$Key) {
             $Key = $InFile.Name
         }
-        $Key = $Key
 
         $FileSize = $InFile.Length
 
