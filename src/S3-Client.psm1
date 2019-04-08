@@ -9121,13 +9121,13 @@ function Global:Write-S3MultipartUpload {
                 $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
             }
         else {
-        Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key completed" -Completed
-        Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4))MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
-        Write-Verbose "Completing multipart upload"
-        $MultipartUpload | Complete-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -Etags $Etags
-        Write-Verbose "Completed multipart upload"
+            Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key completed" -Completed
+            Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4))MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+            Write-Verbose "Completing multipart upload"
+            $MultipartUpload | Complete-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -Etags $Etags
+            Write-Verbose "Completed multipart upload"
+        }
     }
-}
 }
 
 <#
