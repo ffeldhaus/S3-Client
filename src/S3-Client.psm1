@@ -7632,12 +7632,16 @@ function Global:Read-S3Object {
             $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
             return $Result.Content
         }
+        elseif ($Range) {
+            # TODO: use download with progress status
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -OutFile $OutFile
+        }
         elseif (!$Path) {
-            throw "No path specified and object is not of content-type text XML or JSON"
+            throw "No path specified and object is not of content-type text, XML or JSON"
         }
 
         $StartTime = Get-Date
-        Write-Progress -Activity "Downloading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
+        Write-Progress -Activity "Downloading object $BucketName/$Key to file $($OutFile.Name)" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
 
         Write-Debug "Create new file of size $Size"
         $FileStream = [System.IO.FileStream]::new($OutFile,[System.IO.FileMode]::OpenOrCreate,[System.IO.FileAccess]::Write,[System.IO.FileShare]::None)
@@ -7647,50 +7651,198 @@ function Global:Read-S3Object {
         Write-Debug "Initializing Memory Mapped File"
         $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($OutFile, [System.IO.FileMode]::Open)
 
-        Write-Debug "Creating HTTP Client Handler"
-        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
-        if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        if ($Config.MaxConcurrentRequests) {
+            $MaxRunspaces = $Config.MaxConcurrentRequests
         }
-        elseif ($SkipCertificateCheck) {
-            $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+        else {
+            $MaxRunspaces = [Environment]::ProcessorCount * 2
         }
+        Write-Verbose "Downloading maximum $MaxRunspaces parts in parallel"
 
-        Write-Debug "Creating HTTP Client"
-        $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
+        # when using range reads, we should choose the chunksize such that every runspace has at least one chunk
+        $Chunksize = [Math]::Pow(2,[Math]::Floor([Math]::Log($Size/$MaxRunspaces)/[Math]::Log(2)))
+        #  the min chunksize should be 1MB and the max chunksize should be 1GB
+        $Chunksize = [Math]::Max($Chunksize,1MB)
+        $Chunksize = [Math]::Min($Chunksize,1GB)
+        Write-Verbose "Chunksize of $($Chunksize/1MB)MB will be used"
 
-        Write-Debug "Creating Stream"
-        $Stream = $MemoryMappedFile.CreateViewStream()
+        $PartCount = [Math]::Ceiling($Size / $ChunkSize)
 
-        Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 10 KByte/s)"
-        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 10KB,60))
-        Write-Debug "Timeout set to $($HttpClient.Timeout)"
-
-        Write-Debug "Creating GET request"
-        $GetRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get,$AwsRequest.Uri)
-
-        Write-Debug "Adding headers"
-        foreach ($HeaderKey in $AwsRequest.Headers.Keys) {
-            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
-            $null = $GetRequest.Headers.TryAddWithoutValidation($HeaderKey,$AwsRequest.Headers[$HeaderKey])
-        }
-
-        $StreamLength = $Stream.Length
+        Write-Verbose "File will be downloaded in $PartCount parts"
 
         try {
-            Write-Debug "Start download"
+            Write-Verbose "Initializing Runspace Pool"
             $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
             $CancellationToken = $CancellationTokenSource.Token
             $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
-            $CompletionOption = [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead
-            $Task = $HttpClient.SendAsync($GetRequest, $CompletionOption,  $CancellationToken)
-            $HttpStream = $Task.Result.Content.ReadAsStreamAsync()
-            $null = $HttpStream.Result.CopyToAsync($Stream)
+            $PartDownloadProgress = [Hashtable]::Synchronized(@{})
+            $PartDownloadProgressVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('PartDownloadProgress',$PartDownloadProgress,$Null)
+            $InitialSessionState = [System.Management.Automation.Runspaces.InitialSessionState]::CreateDefault()
+            $InitialSessionState.Variables.Add($CancellationTokenVariable)
+            $InitialSessionState.Variables.Add($PartDownloadProgressVariable)
+            $RunspacePool = [runspacefactory]::CreateRunspacePool(1, $MaxRunspaces, $InitialSessionState, $Host)
+            $RunspacePool.Open()
 
-            Write-Debug "Report progress and check for cancellation requests"
-            while ($Stream.Position -ne $Size -and !$Task.IsCanceled -and !$Task.IsFaulted -and $Duration -lt $HttpClient.Timeout.TotalSeconds ) {
+            Write-Verbose "Initializing Part Download Jobs"
+            $Jobs = New-Object System.Collections.ArrayList
+
+            foreach ($PartNumber in 1..$PartCount) {
+                $Runspace = [PowerShell]::Create()
+                $Runspace.RunspacePool = $RunspacePool
+                [void]$Runspace.AddScript({
+                    Param (
+                            [parameter(
+                                    Mandatory=$True,
+                                    Position=0,
+                                    HelpMessage="Content Stream")][System.IO.Stream]$Stream,
+                            [parameter(
+                                    Mandatory=$True,
+                                    Position=1,
+                                    HelpMessage="Request URI")][Uri]$Uri,
+                            [parameter(
+                                    Mandatory=$True,
+                                    Position=2,
+                                    HelpMessage="Request Headers")][Hashtable]$Headers,
+                            [parameter(
+                                    Mandatory=$True,
+                                    Position=3,
+                                    HelpMessage="Part number")][Int]$PartNumber,
+                            [parameter(
+                                    Mandatory=$False,
+                                    Position=4,
+                                    HelpMessage="Skip Certificate Check")][Boolean]$SkipCertificateCheck,
+                            [parameter(
+                                    Mandatory=$False,
+                                    Position=5,
+                                    HelpMessage="Cancellation Token")][System.Threading.CancellationToken]$CancellationToken
+                    )
+
+                    $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
+                    if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
+                        Add-Type @"
+                            using System.Net;
+                            using System.Security.Cryptography.X509Certificates;
+                            public class TrustAllCertsPolicy : ICertificatePolicy {
+                            public bool CheckValidationResult(
+                                    ServicePoint srvPoint, X509Certificate certificate,
+                                    WebRequest request, int certificateProblem) {
+                                    return true;
+                                }
+                            }
+"@
+
+                        [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+                    }
+                    elseif ($SkipCertificateCheck) {
+                        $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+                    }
+
+                    $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
+
+                    Write-Debug "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
+                    $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 10KB,60))
+                    Write-Debug "Timeout set to $($HttpClient.Timeout)"
+
+                    $GetRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get,$Uri)
+
+                    foreach ($HeaderKey in $Headers.Keys) {
+                        # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+                        $null = $GetRequest.Headers.TryAddWithoutValidation($HeaderKey,$Headers[$HeaderKey])
+                    }
+
+                    $StreamLength = $Stream.Length
+
+                    try {
+                        $Task = $HttpClient.SendAsync($GetRequest, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
+
+                        $Response = $Task.Result
+
+                        if (!$Response.EnsureSuccessStatusCode()) {
+                            Write-Output $Task
+                        }
+                        $Task = $Response.Content.CopyToAsync($Stream, 81920, $CancellationToken)
+
+                        while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Task.IsCanceled -and !$Task.IsFaulted -and !$Task.IsCompleted) {
+                            Start-Sleep -Milliseconds 500
+                            $PartDownloadProgress.$PartNumber = $Stream.Position
+                        }
+                        $PartDownloadProgress.$PartNumber = $StreamLength
+
+                        if ($Task.IsCanceled -or $Task.IsFaulted) {
+                            Write-Output $Task
+                        }
+                    }
+                    catch {
+                        Write-Output $_
+                    }
+                    finally {
+                        $Task.Dispose()
+                        $GetRequest.Dispose()
+                        $Stream.Dispose()
+                    }
+                })
+
+                if (($PartNumber * $Chunksize) -gt $Size) {
+                    $ViewSize = $Chunksize - ($PartNumber * $Chunksize - $Size)
+                }
+                else {
+                    $ViewSize = $Chunksize
+                }
+
+                Write-Verbose "Creating File view from position $(($PartNumber -1) * $Chunksize) with size $ViewSize"
+                $Stream = $MemoryMappedFile.CreateViewStream(($PartNumber - 1) * $Chunksize,$ViewSize)
+
+                $StartRange = ($PartNumber - 1) * $Chunksize
+                $EndRange = $StartRange + $ViewSize - 1
+                $Range = "bytes=" + $StartRange + "-" + $EndRange
+
+                Write-Verbose "Using HTTP byte range $Range"
+
+                $AwsRequest.Headers["range"] = $Range
+
+                $Parameters = @{
+                    Stream                  = $Stream
+                    Uri                     = $AwsRequest.Uri
+                    Headers                 = $AwsRequest.Headers.PSObject.Copy()
+                    PartNumber              = $PartNumber
+                    SkipCertificateCheck    = $Config.SkipCertificateCheck
+                    CancellationToken       = $CancellationToken
+                }
+                [void]$Runspace.AddParameters($Parameters)
+                $Job = [PSCustomObject]@{
+                    Pipe        = $Runspace
+                    Status      = $Runspace.BeginInvoke()
+                    PartNumber  = $PartNumber
+                }
+                [void]$Jobs.Add($Job)
+            }
+
+            $PercentCompleted = 0
+
+            Write-Progress -Activity "Downloading object $BucketName/$Key to $($OutFile.Name)" -Status "0 MiB written (0% Complete) / 0 MiB/s /  / estimated time to completion: 0" -PercentComplete $PercentCompleted
+
+            $StartTime = Get-Date
+
+            while ($Jobs) {
                 Start-Sleep -Milliseconds 500
-                $WrittenBytes = $Stream.Position
+                $CompletedJobs = $Jobs | Where-Object { $_.Status.IsCompleted -eq $true }
+                foreach ($Job in $CompletedJobs) {
+                    $Output = $Job.Pipe.EndInvoke($Job.Status)
+                    if ($Output[0]) {
+                        Write-Verbose (ConvertTo-Json -InputObject $Output)
+                        foreach ($Job in $Jobs) {
+                            $CancellationToken = $CancellationTokenSource.Cancel()
+                            $Job.Pipe.Stop()
+                        }
+                        throw "Download of part $($Job.PartNumber) failed with output`n$(ConvertTo-Json -InputObject $Output)"
+                    }
+                    Write-Verbose "Part $($Job.PartNumber) has completed"
+                    $Job.Pipe.Dispose()
+                    $Jobs.Remove($Job)
+                }
+
+                # report progress
+                $WrittenBytes = $PartDownloadProgress.Clone().Values | Measure-Object -Sum | Select-Object -ExpandProperty Sum
                 $PercentCompleted = $WrittenBytes / $Size * 100
                 $Duration = ((Get-Date) - $StartTime).TotalSeconds
                 $Throughput = $WrittenBytes / 1MB / $Duration
@@ -7700,30 +7852,30 @@ function Global:Read-S3Object {
                 else {
                     $EstimatedTimeToCompletion = 0
                 }
-                $Activity = "Downloading file $($OutFile.Name) from $BucketName/$Key"
+
+                $Activity = "Downloading object $BucketName/$Key to file $($OutFile.Name)"
                 $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes/1MB),$PercentCompleted,$Throughput,$EstimatedTimeToCompletion
                 Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
-                Write-Verbose "Written bytes: $WrittenBytes"
-            }
-            $WrittenBytes = $StreamLength
-
-            if ($Task.Exception) {
-                throw $Task.Exception
             }
         }
         catch {
+            Write-Warning "Something has gone wrong"
             throw $_
         }
         finally {
-            Write-Verbose "Dispose used resources"
-            if ($Task) { $Task.Dispose() }
-            if ($PutRequest) { $PutRequest.Dispose() }
-            if ($StreamContent) { $StreamContent.Dispose() }
-            if ($Stream) { $Stream.Dispose() }
-            if ($MemoryMappedFile) { $MemoryMappedFile.Dispose() }
+            Write-Verbose "Cleaning up"
+            $MemoryMappedFile.Dispose()
+            $RunspacePool.Close()
+            $RunspacePool.Dispose()
         }
 
-        Write-Host "Downloading object $BucketName/$Key of size $([Math]::Round($Size/1MB,4))MiB to file $OutFile completed in $([Math]::Round($Duration,2)) seconds with average throughput of $([Math]::Round($Throughput,2)) MiB/s"
+        if ($Jobs) {
+            throw "Job(s) with partnumber(s) $($Jobs.PartNumber -join ',') did not complete"
+        }
+        else {
+            Write-Progress -Activity "Downloading object $BucketName/$Key to file $($OutFile.Name) completed" -Completed
+            Write-Host "Downloading object $BucketName/$Key of size $([Math]::Round($Size/1MB,4))MiB to file $($OutFile.Name) completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
+        }
     }
 }
 
@@ -8880,8 +9032,8 @@ function Global:Write-S3MultipartUpload {
         }
 
         if (!$Chunksize) {
-            # S3 only allows 1000 parts, therefore we need to set the chunksize to something larger than 1GB
             if ($FileSize -gt 1TB) {
+                # S3 only allows 1000 parts, therefore we need to ensure that the chunksize is larger than 1GB for files larger than 1TB
                 $Chunksize = [Math]::Pow(2,[Math]::Ceiling([Math]::Log($FileSize/1000)/[Math]::Log(2)))
             }
             elseif ($FileSize -gt ([int64]$MaxRunspaces * 1GB)) {
@@ -8953,7 +9105,11 @@ function Global:Write-S3MultipartUpload {
                         [parameter(
                                 Mandatory=$False,
                                 Position=4,
-                                HelpMessage="Skip Certificate Check")][Boolean]$SkipCertificateCheck
+                                HelpMessage="Skip Certificate Check")][Boolean]$SkipCertificateCheck,
+                        [parameter(
+                                Mandatory=$False,
+                                Position=5,
+                                HelpMessage="Cancellation Token")][System.Threading.CancellationToken]$CancellationToken
                     )
 
                     $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
@@ -9052,6 +9208,7 @@ function Global:Write-S3MultipartUpload {
                     Headers                 = $AwsRequest.Headers
                     PartNumber              = $PartNumber
                     SkipCertificateCheck    = $Config.SkipCertificateCheck
+                    CancellationToken       = $CancellationToken
                 }
                 [void]$Runspace.AddParameters($Parameters)
                 $Job = [PSCustomObject]@{
