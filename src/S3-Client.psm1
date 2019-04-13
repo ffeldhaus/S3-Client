@@ -7760,7 +7760,7 @@ function Global:Read-S3Object {
                         if (!$Response.EnsureSuccessStatusCode()) {
                             Write-Output $Task
                         }
-                        $Task = $Response.Content.CopyToAsync($Stream, 81920, $CancellationToken)
+                        $Task = $Response.Content.CopyToAsync($Stream)
 
                         while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Task.IsCanceled -and !$Task.IsFaulted -and !$Task.IsCompleted) {
                             Start-Sleep -Milliseconds 500
