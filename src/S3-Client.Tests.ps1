@@ -466,7 +466,7 @@ Describe "Upload Object" {
             Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
         }
 
-        It "Given -BucketName $BucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio") {
+        It "Given -BucketName $BucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio" -or $PSVersionTable.PSVersion.Major -eq 5) {
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
 
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName

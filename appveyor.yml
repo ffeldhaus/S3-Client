@@ -1,11 +1,11 @@
 image:
-#- Ubuntu1804
+- Ubuntu1804
 - Visual Studio 2017
 
 configuration:
-#- AWS
+- AWS
 - WebscaleDemo
-#- WebscaleDemoNext
+- WebscaleDemoNext
 - Minio
 
 matrix:
