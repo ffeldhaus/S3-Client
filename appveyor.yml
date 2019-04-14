@@ -81,7 +81,7 @@ before_test:
 # Invoke Pester to run all of the unit tests, then save the results into XML in order to populate the AppVeyor tests section
 # If any of the tests fail, consider the pipeline failed
 test_script:
-  - ps: $DebugPreference = "Continue"
+#  - ps: $DebugPreference = "Continue"
   - ps: $VerbosePreference = "Continue"
   - ps: Get-Culture
   - ps: $res = Invoke-Pester -OutputFormat NUnitXml -OutputFile TestsResults.xml -PassThru -Script @{Path="./src/S3-Client.Tests.ps1";Parameters=@{ProfileName=$($env:CONFIGURATION)}}

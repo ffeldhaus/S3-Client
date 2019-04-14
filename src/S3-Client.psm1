@@ -826,8 +826,9 @@ function Global:Get-AwsRequest {
             $EndpointUrl = [System.UriBuilder]::new($EndpointUrl.ToString())
         }
 
-        # ensure that plus sign (+) is encoded in URI, otherwise AWS signing will not work
+        Write-Verbose "Ensure that plus sign (+), exclamation mark (!), asterisk (*) and brackets (()) are encoded in URI, otherwise AWS signing will not work"
         $Uri = $Uri -replace '\+','%2B' -replace '!','%21' -replace '\*','%2A' -replace '\(','%28' -replace '\)','%29'
+        Write-Verbose "Encoded URI: $Uri"
 
         if ($UrlStyle -match "virtual" -and $BucketName) {
             Write-Verbose "Using virtual-hosted style URL"
