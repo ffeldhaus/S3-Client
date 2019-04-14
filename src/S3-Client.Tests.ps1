@@ -13,7 +13,13 @@ $Tags = @(@{Key=$UnicodeString;Value="valuewithunicodekey"},@{Key="keywithunicod
 $BaseBucketName = (Get-Date -Format "yyyyMMddHHmm") + "B"
 $BaseUnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "$BaseBucketName"
 $Key = "dir/dir/dir/dir/dir/dir/Key"
-$UnicodeKey = [System.Web.HttpUtility]::UrlDecode("%u842c%u570b%u78bc%2BTesting+%u00ab%u03c4%u03b1%u0411%u042c%u2113%u03c3%u00bb+1%3c2%2B%2B41%3e3%2Bnow%2B20%25%2Boff%21%2A%28%29")
+if ($PSVersionTable.PSVersion.Major -eq 5) {
+    $UnicodeKey = [System.Web.HttpUtility]::UrlDecode("%u842c%u570b%u78bc%2BTesting+%u00ab%u03c4%u03b1%u0411%u042c%u2113%u03c3%u00bb+1%3c2%2B%2B41%3e3%2Bnow%2B20%25%2Boff")
+
+}
+else {
+    $UnicodeKey = [System.Web.HttpUtility]::UrlDecode("%u842c%u570b%u78bc%2BTesting+%u00ab%u03c4%u03b1%u0411%u042c%u2113%u03c3%u00bb+1%3c2%2B%2B41%3e3%2Bnow%2B20%25%2Boff%21%2A%28%29")
+}
 $Content = "Hello World!"
 $Metadata = @{"MetadataKey"="MetadataValue"}
 
@@ -466,7 +472,7 @@ Describe "Upload Object" {
             Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
         }
 
-        It "Given -BucketName $BucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio" -or $PSVersionTable.PSVersion.Major -eq 5) {
+        It "Given -BucketName $BucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio") {
             Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
 
             $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
