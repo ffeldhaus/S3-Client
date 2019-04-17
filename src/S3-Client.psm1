@@ -223,7 +223,7 @@ function ConvertTo-AwsConfigFile {
                 }
             }
         }
-        Write-Debug "Output:`n$Output"
+        Write-Verbose "Output:`n$Output"
 
         if ([environment]::OSVersion.Platform -match "win") {
             # replace LF with CRLF
@@ -484,57 +484,57 @@ function Global:New-AwsSignatureV2 {
             $DateTime = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
         }
 
-        Write-Debug "Task 1: Constructing the CanonicalizedResource Element "
+        Write-Verbose "Task 1: Constructing the CanonicalizedResource Element "
 
         $CanonicalizedResource = ""
-        Write-Debug "1. Start with an empty string:`n$CanonicalizedResource"
+        Write-Verbose "1. Start with an empty string:`n$CanonicalizedResource"
 
         if ($BucketName -and $EndpointUrl.Host -match "^$BucketName") {
             $CanonicalizedResource += "/$BucketName"
-            Write-Debug "2. Add the bucketname for virtual host style:`n$CanonicalizedResource"
+            Write-Verbose "2. Add the bucketname for virtual host style:`n$CanonicalizedResource"
         }
         else {
-            Write-Debug "2. Bucketname already part of Url for path style therefore skipping this step"
+            Write-Verbose "2. Bucketname already part of Url for path style therefore skipping this step"
         }
 
 
         $CanonicalURI = [Uri]::new($Uri).AbsolutePath
 
         $CanonicalizedResource += $CanonicalURI
-        Write-Debug "3. Append the path part of the un-decoded HTTP Request-URI, up-to but not including the query string:`n$CanonicalizedResource"
+        Write-Verbose "3. Append the path part of the un-decoded HTTP Request-URI, up-to but not including the query string:`n$CanonicalizedResource"
 
         if ($QueryString) {
             $CanonicalizedResource += "?$QueryString"
         }
-        Write-Debug "4. Append the query string unencoded for signing:`n$CanonicalizedResource"
+        Write-Verbose "4. Append the query string unencoded for signing:`n$CanonicalizedResource"
 
-        Write-Debug "Task 2: Constructing the CanonicalizedAmzHeaders Element"
+        Write-Verbose "Task 2: Constructing the CanonicalizedAmzHeaders Element"
 
-        Write-Debug "1. Filter for all headers starting with x-amz and are not x-amz-date"
+        Write-Verbose "1. Filter for all headers starting with x-amz and are not x-amz-date"
         $AmzHeaders = $Headers.Clone()
         # remove all headers which do not start with x-amz
         $Headers.Keys | ForEach-Object { if ($_ -notmatch "x-amz" -or $_ -eq "x-amz-date") { $AmzHeaders.Remove($_) } }
 
-        Write-Debug "2. Sort headers lexicographically"
+        Write-Verbose "2. Sort headers lexicographically"
         $SortedAmzHeaders = ConvertTo-SortedDictionary $AmzHeaders
         $CanonicalizedAmzHeaders = ($SortedAmzHeaders.GetEnumerator()  | ForEach-Object { "$($_.Key.ToLower()):$($_.Value)" }) -join "`n"
         if ($CanonicalizedAmzHeaders) {
             $CanonicalizedAmzHeaders = $CanonicalizedAmzHeaders + "`n"
         }
-        Write-Debug "3. CanonicalizedAmzHeaders headers:`n$CanonicalizedAmzHeaders"
+        Write-Verbose "3. CanonicalizedAmzHeaders headers:`n$CanonicalizedAmzHeaders"
 
-        Write-Debug "Task 3: String to sign"
+        Write-Verbose "Task 3: String to sign"
 
         $StringToSign = "$Method`n$ContentMD5`n$ContentType`n$DateTime`n$CanonicalizedAmzHeaders$CanonicalizedResource"
 
-        Write-Debug "1. StringToSign:`n$StringToSign"
+        Write-Verbose "1. StringToSign:`n$StringToSign"
 
-        Write-Debug "Task 4: Signature"
+        Write-Verbose "Task 4: Signature"
 
         $SignedString = Get-SignedString -Key ([Text.Encoding]::UTF8.GetBytes($SecretKey)) -Message $StringToSign -Algorithm SHA1
         $Signature = [Convert]::ToBase64String($SignedString)
 
-        Write-Debug "1. Signature:`n$Signature"
+        Write-Verbose "1. Signature:`n$Signature"
 
         Write-Output $Signature
     }
@@ -616,57 +616,57 @@ function Global:New-AwsSignatureV4 {
             $DateString = [DateTime]::UtcNow.ToString('yyyyMMdd')
         }
 
-        Write-Debug "Task 1: Create a Canonical Request for Signature Version 4"
+        Write-Verbose "Task 1: Create a Canonical Request for Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
 
-        Write-Debug "1. HTTP Request Method:`n$Method"
+        Write-Verbose "1. HTTP Request Method:`n$Method"
 
         # TODO: Think of a better way to get the properly encoded relative URI
         $CanonicalURI = ([System.UriBuilder]"$EndpointUrl$($Uri -replace '^/','')").Uri.PathAndQuery
-        Write-Debug "2. Canonical URI:`n$CanonicalURI"
+        Write-Verbose "2. Canonical URI:`n$CanonicalURI"
 
-        Write-Debug "3. Canonical query string:`n$CanonicalQueryString"
+        Write-Verbose "3. Canonical query string:`n$CanonicalQueryString"
 
         $SortedHeaders = ConvertTo-SortedDictionary $Headers
         $CanonicalHeaders = (($SortedHeaders.GetEnumerator()  | ForEach-Object { "$($_.Key.ToLower()):$($_.Value)" }) -join "`n") + "`n"
-        Write-Debug "4. Canonical headers:`n$CanonicalHeaders"
+        Write-Verbose "4. Canonical headers:`n$CanonicalHeaders"
 
         $SignedHeaders = $SortedHeaders.Keys.ToLower() -join ";"
-        Write-Debug "5. Signed headers:`n$SignedHeaders"
+        Write-Verbose "5. Signed headers:`n$SignedHeaders"
 
-        Write-Debug "6. Hashed Payload`n$RequestPayloadHash"
+        Write-Verbose "6. Hashed Payload`n$RequestPayloadHash"
 
         $CanonicalRequest = "$Method`n$CanonicalURI`n$CanonicalQueryString`n$CanonicalHeaders`n$SignedHeaders`n$RequestPayloadHash"
-        Write-Debug "7. CanonicalRequest:`n$CanonicalRequest"
+        Write-Verbose "7. CanonicalRequest:`n$CanonicalRequest"
 
         $hasher = [System.Security.Cryptography.SHA256]::Create()
         $CanonicalRequestHash = ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($CanonicalRequest))) -replace '-','').ToLower()
-        Write-Debug "8. Canonical request hash:`n$CanonicalRequestHash"
+        Write-Verbose "8. Canonical request hash:`n$CanonicalRequestHash"
 
-        Write-Debug "Task 2: Create a String to Sign for Signature Version 4"
+        Write-Verbose "Task 2: Create a String to Sign for Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-create-string-to-sign.html
 
         $AlgorithmDesignation = "AWS4-HMAC-SHA256"
-        Write-Debug "1. Algorithm designation:`n$AlgorithmDesignation"
+        Write-Verbose "1. Algorithm designation:`n$AlgorithmDesignation"
 
-        Write-Debug "2. request date value, specified with ISO8601 basic format in the format YYYYMMDD'T'HHMMSS'Z:`n$DateTime"
+        Write-Verbose "2. request date value, specified with ISO8601 basic format in the format YYYYMMDD'T'HHMMSS'Z:`n$DateTime"
 
         $CredentialScope = "$DateString/$Region/$Service/aws4_request"
-        Write-Debug "3. Credential scope:`n$CredentialScope"
+        Write-Verbose "3. Credential scope:`n$CredentialScope"
 
-        Write-Debug "4. Canonical request hash:`n$CanonicalRequestHash"
+        Write-Verbose "4. Canonical request hash:`n$CanonicalRequestHash"
 
         $StringToSign = "$AlgorithmDesignation`n$DateTime`n$CredentialScope`n$CanonicalRequestHash"
-        Write-Debug "StringToSign:`n$StringToSign"
+        Write-Verbose "StringToSign:`n$StringToSign"
 
-        Write-Debug "Task 3: Calculate the Signature for AWS Signature Version 4"
+        Write-Verbose "Task 3: Calculate the Signature for AWS Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
 
         $SigningKey = GetSignatureKey $SecretKey $DateString $Region $Service
-        Write-Debug "1. Signing Key:`n$([System.BitConverter]::ToString($SigningKey))"
+        Write-Verbose "1. Signing Key:`n$([System.BitConverter]::ToString($SigningKey))"
 
         $Signature = ([BitConverter]::ToString((sign $SigningKey $StringToSign)) -replace '-','').ToLower()
-        Write-Debug "2. Signature:`n$Signature"
+        Write-Verbose "2. Signature:`n$Signature"
 
         Write-Output $Signature
     }
@@ -946,13 +946,13 @@ function Global:Get-AwsRequest {
             $QueryString = $QueryString -replace "&`$",""
             $CanonicalQueryString = $CanonicalQueryString -replace "&`$",""
         }
-        Write-Debug "Query String with selected Query components for S3 Signer: $QueryString"
-        Write-Debug "Canonical Query String with all Query components for AWS Signer: $CanonicalQueryString"
+        Write-Verbose "Query String with selected Query components for S3 Signer: $QueryString"
+        Write-Verbose "Canonical Query String with all Query components for AWS Signer: $CanonicalQueryString"
 
         if ($SignerType -eq "AWS4") {
             Write-Verbose "Using AWS Signature Version 4"
             $Signature = New-AwsSignatureV4 -AccessKey $AccessKey -SecretKey $SecretKey -EndpointUrl $EndpointUrl -Region $Region -Uri $Uri -CanonicalQueryString $CanonicalQueryString -Method $Method -RequestPayloadHash $RequestPayloadHash -DateTime $DateTime -DateString $DateString -Headers $Headers
-            Write-Debug "Task 4: Add the Signing Information to the Request"
+            Write-Verbose "Task 4: Add the Signing Information to the Request"
             # http://docs.aws.amazon.com/general/latest/gr/sigv4-add-signature-to-request.html
             if (!$Presign.IsPresent) {
                 $Headers["Authorization"]="AWS4-HMAC-SHA256 Credential=$AccessKey/$DateString/$Region/$Service/aws4_request,SignedHeaders=$SignedHeaders,Signature=$Signature"
@@ -1293,7 +1293,7 @@ function Global:Add-AwsConfig {
             $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_access_key_id -Value $AccessKey -Force
             $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $SecretKey -Force
 
-            Write-Debug $CredentialEntry
+            Write-Verbose $CredentialEntry
 
             $Credentials = (@($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry) | Where-Object { $_.ProfileName}
             ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
@@ -6689,8 +6689,8 @@ function Global:Get-S3MultipartUploads {
 
                 if ($Content.ListMultipartUploadsResult.IsTruncated -eq "true" -and $MaxUploads -eq 0) {
                     Write-Verbose "1000 Uploads were returned and max uploads was not limited so continuing to get all uploads"
-                    Write-Debug "NextKeyMarker: $($Content.ListMultipartUploadsResult.NextKeyMarker)"
-                    Write-Debug "NextUploadIdMarker: $($Content.ListMultipartUploadsResult.NextUploadIdMarker)"
+                    Write-Verbose "NextKeyMarker: $($Content.ListMultipartUploadsResult.NextKeyMarker)"
+                    Write-Verbose "NextUploadIdMarker: $($Content.ListMultipartUploadsResult.NextUploadIdMarker)"
                     Get-S3MultipartUploads -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -SkipCertificateCheck:$Config.SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxUploads $MaxUploads -KeyMarker $Content.ListMultipartUploadsResult.NextKeyMarker -UploadIdMarker $Content.ListMultipartUploadsResult.UploadIdMarker
                 }
             }
@@ -6904,7 +6904,7 @@ function Global:Get-S3Objects {
 
                 if ($Content.ListBucketResult.IsTruncated -eq "true" -and $MaxKeys -eq 0) {
                     Write-Verbose "1000 Objects were returned and max keys was not limited so continuing to get all objects"
-                    Write-Debug "NextMarker: $($Content.ListBucketResult.NextMarker)"
+                    Write-Verbose "NextMarker: $($Content.ListBucketResult.NextMarker)"
                     Get-S3Objects -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -SkipCertificateCheck:$Config.SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxKeys $MaxKeys -Prefix $Prefix -FetchOwner:$FetchOwner -StartAfter $StartAfter -ContinuationToken $Content.ListBucketResult.NextContinuationToken -Marker $Content.ListBucketResult.NextMarker
                 }
             }
@@ -7644,12 +7644,12 @@ function Global:Read-S3Object {
         $StartTime = Get-Date
         Write-Progress -Activity "Downloading object $BucketName/$Key to file $($OutFile.Name)" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
 
-        Write-Debug "Create new file of size $Size"
+        Write-Verbose "Create new file of size $Size"
         $FileStream = [System.IO.FileStream]::new($OutFile,[System.IO.FileMode]::OpenOrCreate,[System.IO.FileAccess]::Write,[System.IO.FileShare]::None)
         $FileStream.SetLength($Size)
         $FileStream.Close()
 
-        Write-Debug "Initializing Memory Mapped File"
+        Write-Verbose "Initializing Memory Mapped File"
         $MemoryMappedFile = [System.IO.MemoryMappedFiles.MemoryMappedFile]::CreateFromFile($OutFile, [System.IO.FileMode]::Open)
 
         if ($Config.MaxConcurrentRequests) {
@@ -7740,9 +7740,9 @@ function Global:Read-S3Object {
 
                     $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
-                    Write-Debug "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
+                    Write-Verbose "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
                     $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 10KB,60))
-                    Write-Debug "Timeout set to $($HttpClient.Timeout)"
+                    Write-Verbose "Timeout set to $($HttpClient.Timeout)"
 
                     $GetRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get,$Uri)
 
@@ -8206,7 +8206,7 @@ function Global:Write-S3Object {
 
                         Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
 
-                        Write-Debug "Creating HTTP Client Handler"
+                        Write-Verbose "Creating HTTP Client Handler"
                         $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
                         if ($SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
                             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
@@ -8215,7 +8215,7 @@ function Global:Write-S3Object {
                             $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
                         }
 
-                        Write-Debug "Creating Stream"
+                        Write-Verbose "Creating Stream"
                         $Stream = [System.IO.FileStream]::new($InFile,[System.IO.FileMode]::Open,[System.IO.FileAccess]::Read)
 
                         # using CryptoSteam to calculate the MD5 sum while uploading the file
@@ -8223,17 +8223,17 @@ function Global:Write-S3Object {
                         $Md5 = [System.Security.Cryptography.MD5]::Create()
                         $CryptoStream = [System.Security.Cryptography.CryptoStream]::new($Stream, $Md5, [System.Security.Cryptography.CryptoStreamMode]::Read)
 
-                        Write-Debug "Creating HTTP Client"
+                        Write-Verbose "Creating HTTP Client"
                         $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
-                        Write-Debug "Set Timeout proportional to size of data to be uploaded (assuming at least 10 KByte/s)"
+                        Write-Verbose "Set Timeout proportional to size of data to be uploaded (assuming at least 10 KByte/s)"
                         $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 10KB,60))
-                        Write-Debug "Timeout set to $($HttpClient.Timeout)"
+                        Write-Verbose "Timeout set to $($HttpClient.Timeout)"
 
-                        Write-Debug "Creating PUT request"
+                        Write-Verbose "Creating PUT request"
                         $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$AwsRequest.Uri)
 
-                        Write-Debug "Adding headers"
+                        Write-Verbose "Adding headers"
                         foreach ($Key in $AwsRequest.Headers.Keys) {
                             # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
                             $null = $PutRequest.Headers.TryAddWithoutValidation($Key,$AwsRequest.Headers[$Key])
@@ -8253,13 +8253,13 @@ function Global:Write-S3Object {
                         Write-Verbose "PUT $($AwsRequest.Uri) with $($Stream.Length)-byte payload"
 
                         try {
-                            Write-Debug "Start upload"
+                            Write-Verbose "Start upload"
                             $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
                             $CancellationToken = $CancellationTokenSource.Token
                             $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
                             $Task = $HttpClient.SendAsync($PutRequest, $CancellationToken)
 
-                            Write-Debug "Report progress"
+                            Write-Verbose "Report progress"
                             while ($Stream.Position -ne $Stream.Length -and !$Task.IsCanceled -and !$Task.IsFaulted -and !$Task.IsCompleted) {
                                 Start-Sleep -Milliseconds 500
                                 $WrittenBytes = $Stream.Position
@@ -9142,7 +9142,7 @@ function Global:Write-S3MultipartUpload {
 
                     # set Timeout proportional to size of data to be uploaded (assuming at least 10 KByte/s)
                     $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Stream.Length / 10KB,60))
-                    Write-Debug "Timeout set to $($HttpClient.Timeout)"
+                    Write-Verbose "Timeout set to $($HttpClient.Timeout)"
 
                     $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$Uri)
 
@@ -9458,7 +9458,7 @@ function Global:Write-S3ObjectPart {
                 $StreamContent.Headers.ContentLength = $ContentLength
                 $PutRequest.Content = $StreamContent
 
-                Write-Debug "Start upload of part $PartNumber"
+                Write-Verbose "Start upload of part $PartNumber"
                 
                 $StartTime = Get-Date
 
@@ -9467,7 +9467,7 @@ function Global:Write-S3ObjectPart {
                 $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken',$CancellationToken,$Null)
                 $Task = $HttpClient.SendAsync($PutRequest, $CancellationToken)
 
-                Write-Debug "Report progress"
+                Write-Verbose "Report progress"
                 while ($Stream.Position -ne $ContentLength -and !$Task.IsCanceled -and !$Task.IsFaulted -and !$Task.IsCompleted) {
                     Start-Sleep -Milliseconds 500
                     $WrittenBytes = $Stream.Position
@@ -9699,7 +9699,7 @@ function Global:Get-S3ObjectParts {
 
                 if ($Content.ListPartsResult.IsTruncated -eq "true" -and $MaxParts -eq 0) {
                     Write-Verbose "1000 Parts were returned and max parts was not limited so continuing to get all parts"
-                    Write-Debug "NextPartNumberMarker: $($Content.ListPartsResult.NextPartNumberMarker)"
+                    Write-Verbose "NextPartNumberMarker: $($Content.ListPartsResult.NextPartNumberMarker)"
                     Get-S3ObjectParts -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -SkipCertificateCheck:$Config.SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxParts $MaxParts -PartNumberMarker $Content.ListPartsResult.NextPartNumberMarker
                 }
             }
