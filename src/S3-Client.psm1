@@ -1844,18 +1844,18 @@ function Global:Remove-AwsConfig {
 
     PARAM (
         [parameter(
-                Mandatory=$True,
-                Position=0,
-                HelpMessage="AWS Profile where config should be removed")][Alias("Profile")][String]$ProfileName,
+            Mandatory = $True,
+            Position = 0,
+            HelpMessage = "AWS Profile where config should be removed")][Alias("Profile")][String]$ProfileName,
         [parameter(
-                Mandatory=$False,
-                Position=1,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation=$AWS_CREDENTIALS_FILE
+            Mandatory = $False,
+            Position = 1,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation = $AWS_CREDENTIALS_FILE
     )
 
     Process {
-        $ConfigLocation = $ProfileLocation -replace "/[^/]+$",'/config'
+        $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
 
         $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
         $Credentials = $Credentials | Where-Object { $_.ProfileName -ne $ProfileName }
