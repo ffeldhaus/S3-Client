@@ -676,9 +676,9 @@ function Global:New-AwsSignatureV4 {
 
 <#
     .SYNOPSIS
-    Get AWS URL
+    Get AWS Request
     .DESCRIPTION
-    Get AWS URL
+    Get AWS Request
     .PARAMETER AccessKey
     S3 Access Key
     .PARAMETER SecretKey
@@ -723,122 +723,93 @@ function Global:Get-AwsRequest {
 
     PARAM (
         [parameter(
-                Mandatory=$False,
-                Position=0,
-                HelpMessage="S3 Access Key")][String]$AccessKey,
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Config")][PSCustomObject]$Config,
         [parameter(
-                Mandatory=$False,
-                Position=1,
-                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+            Mandatory = $False,
+            Position = 1,
+            HelpMessage = "HTTP Request Method")][ValidateSet("OPTIONS", "GET", "HEAD", "PUT", "POST", "DELETE", "TRACE", "CONNECT")][String]$Method = "GET",
         [parameter(
-                Mandatory=$False,
-                Position=2,
-                HelpMessage="HTTP Request Method")][ValidateSet("OPTIONS","GET","HEAD","PUT","POST","DELETE","TRACE","CONNECT")][String]$Method="GET",
+            Mandatory = $False,
+            Position = 2,
+            HelpMessage = "URI (e.g. / or /key)")][String]$Uri = "/",
         [parameter(
-                Mandatory=$False,
-                Position=3,
-                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl,
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Query")][Hashtable]$Query = @{ },
         [parameter(
-                Mandatory=$False,
-                Position=4,
-                HelpMessage="URL Style")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Request payload")][String]$RequestPayload = "",
         [parameter(
-                Mandatory=$False,
-                Position=5,
-                HelpMessage="URI (e.g. / or /key)")][String]$Uri="/",
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Service (e.g. S3)")][String]$Service = "s3",
         [parameter(
-                Mandatory=$False,
-                Position=6,
-                HelpMessage="Query")][Hashtable]$Query=@{},
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Headers")][Hashtable]$Headers = @{ },
         [parameter(
-                Mandatory=$False,
-                Position=7,
-                HelpMessage="Request payload")][String]$RequestPayload="",
+            Mandatory = $False,
+            Position = 7,
+            HelpMessage = "Content type")][String]$ContentType,
         [parameter(
-                Mandatory=$False,
-                Position=8,
-                HelpMessage="Region")][String]$Region="us-east-1",
+            Mandatory = $False,
+            Position = 8,
+            HelpMessage = "Bucket name")][String]$BucketName,
         [parameter(
-                Mandatory=$False,
-                Position=9,
-                HelpMessage="Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+            Mandatory = $False,
+            Position = 9,
+            HelpMessage = "Date")][DateTime]$Date = [DateTime]::Now,
         [parameter(
-                Mandatory=$False,
-                Position=10,
-                HelpMessage="Service (e.g. S3)")][String]$Service="s3",
+            Mandatory = $False,
+            Position = 10,
+            HelpMessage = "File to read data from")][System.IO.FileInfo]$InFile,
         [parameter(
-                Mandatory=$False,
-                Position=11,
-                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+            Mandatory = $False,
+            Position = 11,
+            HelpMessage = "Presign URL")][Switch]$Presign,
         [parameter(
-                Mandatory=$False,
-                Position=12,
-                HelpMessage="Headers")][Hashtable]$Headers=@{},
-        [parameter(
-                Mandatory=$False,
-                Position=13,
-                HelpMessage="Content type")][String]$ContentType,
-        [parameter(
-                Mandatory=$False,
-                Position=14,
-                HelpMessage="Bucket name")][String]$BucketName,
-        [parameter(
-                Mandatory=$False,
-                Position=15,
-                HelpMessage="Date")][DateTime]$Date=[DateTime]::Now,
-        [parameter(
-                Mandatory=$False,
-                Position=16,
-                HelpMessage="File to read data from")][System.IO.FileInfo]$InFile,
-        [parameter(
-                Mandatory=$False,
-                Position=17,
-                HelpMessage="Presign URL")][Switch]$Presign,
-        [parameter(
-                Mandatory=$False,
-                Position=18,
-                HelpMessage="Presign URL Expiration Date")][DateTime]$Expires=(Get-Date).AddHours(1),
-        [parameter(
-                Mandatory=$False,
-                Position=19,
-                HelpMessage="Payload signing")][String]$PayloadSigning
+            Mandatory = $False,
+            Position = 12,
+            HelpMessage = "Presign URL Expiration Date")][DateTime]$Expires = (Get-Date).AddHours(1)
     )
 
     Begin {
-        if (!$EndpointUrl) {
-            if ($Region -eq "us-east-1" -or !$Region) {
-                if ($UseDualstackEndpoint) {
-                    $EndpointUrl = [System.UriBuilder]::new("https://s3.dualstack.amazonaws.com")
+        # as we are modifying the endpoint URL, make sure to work on a new object and not modify the original object
+        $Config = $Config.PSObject.Copy()
+        $Config.EndpointUrl = [System.UriBuilder]::new($Config.EndpointUrl.ToString())
+        if (!$Config.EndpointUrl -or $Config.EndpointUrl -match "amazonaws.com") {
+            if ($Config.Region -eq "us-east-1" -or !$Config.Region) {
+                if ($Config.UseDualstackEndpoint) {
+                    $Config.EndpointUrl.Host = "s3.dualstack.amazonaws.com"
                 }
                 else {
-                    $EndpointUrl = [System.UriBuilder]::new("https://s3.amazonaws.com")
+                    $Config.EndpointUrl.Host = "s3.amazonaws.com"
                 }
             }
             else {
-                if ($UseDualstackEndpoint) {
-                    $EndpointUrl = [System.UriBuilder]::new("https://s3.dualstack.$Region.amazonaws.com")
+                if ($Config.UseDualstackEndpoint) {
+                    $Config.EndpointUrl.Host = "s3.dualstack.$($Config.Region).amazonaws.com"
                 }
                 else {
-                    $EndpointUrl = [System.UriBuilder]::new("https://s3.$Region.amazonaws.com")
+                    $Config.EndpointUrl.Host = "s3.$($Config.Region).amazonaws.com"
                 }
             }
         }
-        else {
-            # as we are modifying the endpoint URL, make sure to work on a new object and not modify the origianl object
-            $EndpointUrl = [System.UriBuilder]::new($EndpointUrl.ToString())
-        }
 
         Write-Verbose "Ensure that plus sign (+), exclamation mark (!), asterisk (*) and brackets (()) are encoded in URI, otherwise AWS signing will not work"
-        $Uri = $Uri -replace '\+','%2B' -replace '!','%21' -replace '\*','%2A' -replace '\(','%28' -replace '\)','%29'
+        $Uri = $Uri -replace '\+', '%2B' -replace '!', '%21' -replace '\*', '%2A' -replace '\(', '%28' -replace '\)', '%29'
         Write-Verbose "Encoded URI: $Uri"
 
-        if ($UrlStyle -match "virtual" -and $BucketName) {
+        if ($Config.UrlStyle -match "virtual" -and $BucketName) {
             Write-Verbose "Using virtual-hosted style URL"
-            $EndpointUrl.Host = $BucketName + '.' + $EndpointUrl.Host
+            $Config.EndpointUrl.Host = $BucketName + '.' + $Config.EndpointUrl.Host
         }
-        elseif ($UrlStyle -eq "auto" -and $EndpointUrl -match "amazonaws.com" -and $BucketName) {
+        elseif ($Config.UrlStyle -eq "auto" -and $Config.EndpointUrl -match "amazonaws.com" -and $BucketName) {
             Write-Verbose "Using virtual-hosted style URL"
-            $EndpointUrl.Host = $BucketName + '.' + $EndpointUrl.Host
+            $Config.EndpointUrl.Host = $BucketName + '.' + $Config.EndpointUrl.Host
         }
         elseif ($BucketName) {
             Write-Verbose "Using path style URL"
@@ -850,21 +821,21 @@ function Global:Get-AwsRequest {
         $DateTime = $Date.ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
         $DateString = $Date.ToUniversalTime().ToString('yyyyMMdd')
 
-        Write-Verbose "PayloadSigning: $PayloadSigning"
+        Write-Verbose "PayloadSigning: $($Config.PayloadSigning)"
 
-        if ($Method -match 'PUT|POST|DELETE' -and $SignerType -eq "AWS4" -and ($PayloadSigning -eq "true" -or ($PayloadSigning -eq "auto" -and $EndpointUrl.Scheme -eq "http"))) {
+        if ($Method -match 'PUT|POST|DELETE' -and $Config.SignerType -eq "AWS4" -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl.Scheme -eq "http"))) {
             if ($InFile) {
-                $RequestPayloadHash=Get-AwsHash -FileToHash $InFile
+                $RequestPayloadHash = Get-AwsHash -FileToHash $InFile
             }
             else {
-                $RequestPayloadHash=Get-AwsHash -StringToHash $RequestPayload
+                $RequestPayloadHash = Get-AwsHash -StringToHash $RequestPayload
             }
         }
         else {
             $RequestPayloadHash = 'UNSIGNED-PAYLOAD'
         }
 
-        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $RequestPayload) -and $PayloadSigning -eq "true") {
+        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $RequestPayload) -and $Config.PayloadSigning -eq "true") {
             if ($InFile) {
                 $Stream = [System.IO.FileStream]::new($InFile, [System.IO.FileMode]::Open)
                 $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash($Stream)
@@ -879,15 +850,15 @@ function Global:Get-AwsRequest {
             $ContentMd5 = $null
         }
 
-        if (!$Headers["host"]) { $Headers["host"] = $EndpointUrl.Uri.Authority }
+        if (!$Headers["host"]) { $Headers["host"] = $Config.EndpointUrl.Uri.Authority }
 
         if (!$Presign.IsPresent) {
-            if ($SignerType -eq "AWS4") {
+            if ($Config.SignerType -eq "AWS4") {
                 if (!$Headers["x-amz-date"]) { $Headers["x-amz-date"] = $DateTime }
                 if (!$Headers["x-amz-content-sha256"]) { $Headers["x-amz-content-sha256"] = $RequestPayloadHash }
             }
             else {
-                if (!$Headers["date"]) { $Headers["date"] = $DateTime }
+                if (!$Headers["date"]) { $Headers["date"] = $Date.ToUniversalTime().ToString("r") }
             }
             if (!$Headers["content-type"] -and $ContentType) { $Headers["content-type"] = $ContentType }
             if (!$Headers["content-md5"] -and $ContentMd5) { $Headers["content-md5"] = $ContentMd5 }
@@ -897,13 +868,13 @@ function Global:Get-AwsRequest {
         $SignedHeaders = $SortedHeaders.Keys.ToLower() -join ";"
 
         if ($Presign.IsPresent) {
-            if ($SignerType -eq "AWS4") {
+            if ($Config.SignerType -eq "AWS4") {
                 $RequestPayloadHash = "UNSIGNED-PAYLOAD"
                 $ExpiresInSeconds = [Math]::Ceiling(($Expires - $Date).TotalSeconds)
-                $CredentialScope = "$DateString/$Region/$Service/aws4_request"
+                $CredentialScope = "$DateString/$($Config.Region)/$Service/aws4_request"
                 $Query["Action"] = $Method
                 $Query["X-Amz-Algorithm"] = "AWS4-HMAC-SHA256"
-                $Query["X-Amz-Credential"] = "$($AccessKey)/$($CredentialScope)"
+                $Query["X-Amz-Credential"] = "$($Config.AccessKey)/$($CredentialScope)"
                 $Query["X-Amz-Date"] = $DateTime
                 $Query["X-Amz-Expires"] = $ExpiresInSeconds
                 $Query["X-Amz-SignedHeaders"] = $SignedHeaders
@@ -911,7 +882,7 @@ function Global:Get-AwsRequest {
             else {
                 $ExpiresUnixTime = $Expires | ConvertTo-UnixTimestamp -Unit Seconds
                 $Query["Expires"] = $ExpiresUnixTime
-                $Query["AWSAccessKeyId"] = $AccessKey
+                $Query["AWSAccessKeyId"] = $Config.AccessKey
                 $DateTime = $ExpiresUnixTime
             }
         }
@@ -924,14 +895,14 @@ function Global:Get-AwsRequest {
 
             foreach ($Key in $Query.Keys) {
                 # Key and value need to be URL encoded separately
-                $SortedQuery[$Key]=$Query[$Key]
+                $SortedQuery[$Key] = $Query[$Key]
             }
             # AWS V2 only requires specific queries to be included in signing process
             # and AWS V4 requires these queries to come after all other queries
             $SpecialQueryStrings = "partNumber|uploadId|versioning|location|acl|torrent|lifecycle|versionid|response-content-type|response-content-language|response-expires|response-cache-control|response-content-disposition|response-content-encoding"
             foreach ($Key in ($SortedQuery.Keys | Where-Object { $_ -notmatch $SpecialQueryStrings })) {
                 # AWS expects that spaces be encoded as %20 instead of as + and .NET has a different view on this, therefore we need to do it manually
-                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+','%20' -replace '!','%21' -replace '\*','%2A' -replace '\(','%28' -replace '\)','%29'
+                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+', '%20' -replace '!', '%21' -replace '\*', '%2A' -replace '\(', '%28' -replace '\)', '%29'
                 $CanonicalQueryString += "$([System.Net.WebUtility]::UrlEncode($Key))=$($Value)&"
             }
             foreach ($Key in ($SortedQuery.Keys | Where-Object { $_ -match $SpecialQueryStrings })) {
@@ -942,35 +913,35 @@ function Global:Get-AwsRequest {
                     $QueryString += "$Key&"
                 }
                 # AWS expects that spaces be encoded as %20 instead of as + and .NET has a different view on this, therefore we need to do it manually
-                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+','%20' -replace '!','%21' -replace '\*','%2A' -replace '\(','%28' -replace '\)','%29'
+                $Value = [System.Net.WebUtility]::UrlEncode($SortedQuery[$Key]) -replace '\+', '%20' -replace '!', '%21' -replace '\*', '%2A' -replace '\(', '%28' -replace '\)', '%29'
                 $CanonicalQueryString += "$([System.Net.WebUtility]::UrlEncode($Key))=$($Value)&"
             }
-            $QueryString = $QueryString -replace "&`$",""
-            $CanonicalQueryString = $CanonicalQueryString -replace "&`$",""
+            $QueryString = $QueryString -replace "&`$", ""
+            $CanonicalQueryString = $CanonicalQueryString -replace "&`$", ""
         }
         Write-Verbose "Query String with selected Query components for S3 Signer: $QueryString"
         Write-Verbose "Canonical Query String with all Query components for AWS Signer: $CanonicalQueryString"
 
-        if ($SignerType -eq "AWS4") {
+        if ($Config.SignerType -eq "AWS4") {
             Write-Verbose "Using AWS Signature Version 4"
-            $Signature = New-AwsSignatureV4 -AccessKey $AccessKey -SecretKey $SecretKey -EndpointUrl $EndpointUrl -Region $Region -Uri $Uri -CanonicalQueryString $CanonicalQueryString -Method $Method -RequestPayloadHash $RequestPayloadHash -DateTime $DateTime -DateString $DateString -Headers $Headers
+            $Signature = New-AwsSignatureV4 -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Config.Region -Uri $Uri -CanonicalQueryString $CanonicalQueryString -Method $Method -RequestPayloadHash $RequestPayloadHash -DateTime $DateTime -DateString $DateString -Headers $Headers
             Write-Verbose "Task 4: Add the Signing Information to the Request"
             # http://docs.aws.amazon.com/general/latest/gr/sigv4-add-signature-to-request.html
             if (!$Presign.IsPresent) {
-                $Headers["Authorization"]="AWS4-HMAC-SHA256 Credential=$AccessKey/$DateString/$Region/$Service/aws4_request,SignedHeaders=$SignedHeaders,Signature=$Signature"
+                $Headers["Authorization"] = "AWS4-HMAC-SHA256 Credential=$($Config.AccessKey)/$DateString/$($Config.Region)/$Service/aws4_request,SignedHeaders=$SignedHeaders,Signature=$Signature"
             }
         }
         else {
             Write-Verbose "Using AWS Signature Version 2"
-            $Signature = New-AwsSignatureV2 -AccessKey $AccessKey -SecretKey $SecretKey -EndpointUrl $EndpointUrl -Uri $Uri -Method $Method -ContentMD5 $ContentMd5 -ContentType $ContentType -DateTime $DateTime -Bucket $BucketName -QueryString $QueryString -Headers $Headers
+            $Signature = New-AwsSignatureV2 -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Uri $Uri -Method $Method -ContentMD5 $ContentMd5 -ContentType $ContentType -DateTime $Date.ToUniversalTime().ToString("r") -Bucket $BucketName -QueryString $QueryString -Headers $Headers
             if (!$Presign.IsPresent) {
-                $Headers["Authorization"] = "AWS $($AccessKey):$($Signature)"
+                $Headers["Authorization"] = "AWS $($Config.AccessKey):$($Signature)"
             }
         }
 
         if ($Presign.IsPresent) {
             $UrlEncodedSignature = [System.Net.WebUtility]::UrlEncode($Signature)
-            if ($SignerType -eq "AWS4") {
+            if ($Config.SignerType -eq "AWS4") {
                 $CanonicalQueryString += "&X-Amz-Signature=$UrlEncodedSignature"
             }
             else {
@@ -978,13 +949,13 @@ function Global:Get-AwsRequest {
             }
         }
 
-        $EndpointUrl.Path = $Uri
-        $EndpointUrl.Query = $CanonicalQueryString
+        $Config.EndpointUrl.Path = $Uri
+        $Config.EndpointUrl.Query = $CanonicalQueryString
 
-        Write-Verbose "Request URI:`n$($EndpointUrl.Uri)"
+        Write-Verbose "Request URI:`n$($Config.EndpointUrl.Uri)"
         Write-Verbose "Request Headers:`n$($Headers | ConvertTo-Json)"
 
-        $Request = [PSCustomObject]@{Method=$Method;Uri=$EndpointUrl.Uri;Headers=$Headers;Md5=$Md5}
+        $Request = [PSCustomObject]@{Method = $Method; Uri = $Config.EndpointUrl.Uri; Headers = $Headers; Md5 = $Md5 }
 
         Write-Output $Request
     }
