@@ -1391,17 +1391,17 @@ function Global:Get-AwsConfigs {
 
     PARAM (
         [parameter(
-                Mandatory=$False,
-                Position=0,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation=$AWS_CREDENTIALS_FILE
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation = $AWS_CREDENTIALS_FILE
     )
 
     Process {
         if (!$ProfileLocation) {
             $ProfileLocation = $AWS_CREDENTIALS_FILE
         }
-        $ConfigLocation = $ProfileLocation -replace "/[^/]+$",'/config'
+        $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
 
         if (!(Test-Path $ProfileLocation)) {
             Write-Warning "Profile location $ProfileLocation does not exist!"
@@ -1426,7 +1426,7 @@ function Global:Get-AwsConfigs {
         foreach ($Credential in $Credentials) {
             $Config = $Configs | Where-Object { $_.ProfileName -eq $Credential.ProfileName } | Select-Object -First 1
             if (!$Config) {
-                $Config = [PSCustomObject]@{ProfileName=$Credential.ProfileName}
+                $Config = [PSCustomObject]@{ProfileName = $Credential.ProfileName }
                 $Configs = @($Configs) + $Config
             }
             if ($Credential.aws_access_key_id) {
@@ -1438,7 +1438,7 @@ function Global:Get-AwsConfigs {
         }
 
         foreach ($Config in $Configs) {
-            $Output = [PSCustomObject]@{ProfileName = $Config.ProfileName;AccessKey = $Config.aws_access_key_id;SecretKey = $Config.aws_secret_access_key}
+            $Output = [PSCustomObject]@{ProfileName = $Config.ProfileName; AccessKey = $Config.aws_access_key_id; SecretKey = $Config.aws_secret_access_key }
             if ($Config.S3.Region) {
                 $Output | Add-Member -MemberType NoteProperty -Name Region -Value $Config.S3.Region
             }
@@ -1451,8 +1451,11 @@ function Global:Get-AwsConfigs {
             if ($Config.S3.endpoint_url) {
                 $Output | Add-Member -MemberType NoteProperty -Name EndpointUrl -Value $Config.S3.endpoint_url
             }
-            else {
+            elseif ($Config.endpoint_url) {
                 $Output | Add-Member -MemberType NoteProperty -Name EndpointUrl -Value $Config.endpoint_url
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name EndpointUrl -Value $DEFAULT_AWS_ENDPOINT
             }
             if ($Config.S3.max_concurrent_requests) {
                 $Output | Add-Member -MemberType NoteProperty -Name MaxConcurrentRequests -Value $Config.S3.max_concurrent_requests
@@ -1541,6 +1544,15 @@ function Global:Get-AwsConfigs {
             }
             else {
                 $Output | Add-Member -MemberType NoteProperty -Name SkipCertificateCheck -Value $False
+            }
+            if ($Config.S3.signer_type) {
+                $Output | Add-Member -MemberType NoteProperty -Name SignerType -Value $Config.S3.signer_type
+            }
+            elseif ($Config.signer_type) {
+                $Output | Add-Member -MemberType NoteProperty -Name SignerType -Value $Config.signer_type
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name SignerType -Value "AWS4"
             }
             Write-Output $Output
         }
