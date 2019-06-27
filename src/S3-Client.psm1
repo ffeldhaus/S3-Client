@@ -1592,94 +1592,94 @@ function Global:Get-AwsConfig {
 
     PARAM (
         [parameter(
-                Mandatory=$False,
-                Position=0,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
-                Mandatory=$False,
-                Position=1,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName,
+            Mandatory = $False,
+            Position = 1,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName,
         [parameter(
-                Mandatory=$False,
-                Position=2,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation=$AWS_CREDENTIALS_FILE,
+            Mandatory = $False,
+            Position = 2,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation = $AWS_CREDENTIALS_FILE,
         [parameter(
-                Mandatory=$False,
-                Position=3,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="S3 Access Key")][String]$AccessKey,
+            Mandatory = $False,
+            Position = 3,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
-                Mandatory=$False,
-                Position=4,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="S3 Secret Access Key")][String]$SecretKey,
+            Mandatory = $False,
+            Position = 4,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "S3 Secret Access Key")][String]$SecretKey,
         [parameter(
-                Mandatory=$False,
-                Position=5,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="StorageGRID Account ID")][String]$AccountId,
+            Mandatory = $False,
+            Position = 5,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "StorageGRID Account ID")][String]$AccountId,
         [parameter(
-                Mandatory=$False,
-                Position=6,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Default Region to use for all requests made with these credentials")][String]$Region,
+            Mandatory = $False,
+            Position = 6,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Default Region to use for all requests made with these credentials")][String]$Region,
         [parameter(
-                Mandatory=$False,
-                Position=7,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Endpoint URL")][System.UriBuilder]$EndpointUrl,
+            Mandatory = $False,
+            Position = 7,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
-                Mandatory=$False,
-                Position=8,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of concurrent requests (Default: processor count * 2)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
+            Mandatory = $False,
+            Position = 8,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "The maximum number of concurrent requests (Default: processor count * 2)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
         [parameter(
-                Mandatory=$False,
-                Position=9,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of tasks in the task queue (Default: 1000)")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
+            Mandatory = $False,
+            Position = 9,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "The maximum number of tasks in the task queue (Default: 1000)")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
         [parameter(
-                Mandatory=$False,
-                Position=10,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold,
+            Mandatory = $False,
+            Position = 10,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold,
         [parameter(
-                Mandatory=$False,
-                Position=11,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files")][Alias("multipart_chunksize")][String]$MultipartChunksize,
+            Mandatory = $False,
+            Position = 11,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files")][Alias("multipart_chunksize")][String]$MultipartChunksize,
         [parameter(
-                Mandatory=$False,
-                Position=12,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum bandwidth that will be consumed for uploading and downloading data to and from Amazon S3")][Alias("max_bandwidth")][String]$MaxBandwidth,
+            Mandatory = $False,
+            Position = 12,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "The maximum bandwidth that will be consumed for uploading and downloading data to and from Amazon S3")][Alias("max_bandwidth")][String]$MaxBandwidth,
         [parameter(
-                Mandatory=$False,
-                Position=13,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][String]$UseAccelerateEndpoint,
+            Mandatory = $False,
+            Position = 13,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][String]$UseAccelerateEndpoint,
         [parameter(
-                Mandatory=$False,
-                Position=14,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][String]$UseDualstackEndpoint,
+            Mandatory = $False,
+            Position = 14,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][String]$UseDualstackEndpoint,
         [parameter(
-                Mandatory=$False,
-                Position=15,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("addressing_style")][ValidateSet("auto","path","virtual")][String]$AddressingStyle,
+            Mandatory = $False,
+            Position = 15,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("addressing_style")][ValidateSet("auto", "path", "virtual")][String]$AddressingStyle,
         [parameter(
-                Mandatory=$False,
-                Position=16,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][String]$PayloadSigning,
+            Mandatory = $False,
+            Position = 16,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][String]$PayloadSigning,
         [parameter(
-                Mandatory=$False,
-                Position=1,
-                HelpMessage="Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][String]$SkipCertificateCheck
+            Mandatory = $False,
+            Position = 1,
+            HelpMessage = "Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][String]$SkipCertificateCheck
     )
 
     Begin {
@@ -1690,20 +1690,21 @@ function Global:Get-AwsConfig {
 
     Process {
         $Config = [PSCustomObject]@{ProfileName = $ProfileName;
-                                    AccessKey = $AccessKey;
-                                    SecretKey = $SecretKey;
-                                    Region = $Region;
-                                    EndpointUrl = $EndpointUrl;
-                                    MaxConcurrentRequests = $MaxConcurrentRequests;
-                                    MaxQueueSize = $MaxQueueSize;
-                                    MultipartThreshold = $MultipartThreshold;
-                                    MultipartChunksize = $MultipartChunksize;
-                                    MaxBandwidth = $MaxBandwidth;
-                                    UseAccelerateEndpoint = $UseAccelerateEndpoint;
-                                    UseDualstackEndpoint = $UseDualstackEndpoint;
-                                    AddressingStyle = $AddressingStyle;
-                                    PayloadSigning = $PayloadSigning;
-                                    SkipCertificateCheck = $SkipCertificateCheck}
+            AccessKey                           = $AccessKey;
+            SecretKey                           = $SecretKey;
+            Region                              = $Region;
+            EndpointUrl                         = $EndpointUrl;
+            MaxConcurrentRequests               = $MaxConcurrentRequests;
+            MaxQueueSize                        = $MaxQueueSize;
+            MultipartThreshold                  = $MultipartThreshold;
+            MultipartChunksize                  = $MultipartChunksize;
+            MaxBandwidth                        = $MaxBandwidth;
+            UseAccelerateEndpoint               = $UseAccelerateEndpoint;
+            UseDualstackEndpoint                = $UseDualstackEndpoint;
+            AddressingStyle                     = $AddressingStyle;
+            PayloadSigning                      = $PayloadSigning;
+            SkipCertificateCheck                = $SkipCertificateCheck
+        }
 
         if (!$ProfileName -and !$AccessKey -and !($Server -and ($AccountId -or $Server.AccountId))) {
             $ProfileName = "default"
