@@ -200,7 +200,7 @@ Describe "AWS Configuration and Credential Management" {
             $Config.AccessKey | Should -Be $AccessKey
             $Config.SecretKey | Should -Be $SecretKey
             $Config.Region | Should -Be "us-east-1"
-            $Config.EndpointUrl | Should -BeNullOrEmpty
+            $Config.EndpointUrl | Should -Be "https://s3.amazonaws.com"
             $Config.MaxConcurrentRequests | Should -Be ([Environment]::ProcessorCount * 2)
             $Config.MaxQueueSize |  Should -Be 1000
             $Config.MultipartThreshold | Should -Be "8MB"
