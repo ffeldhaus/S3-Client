@@ -4,8 +4,8 @@ $DEFAULT_AWS_ENDPOINT = "https://s3.amazonaws.com"
 $DEFAULT_TIMEOUT_SECONDS = 60
 $MAX_RETRIES = 5
 
-$MIME_TYPES = @{}
-Import-Csv -Delimiter ',' -Path (Join-Path -Path $PSScriptRoot -ChildPath 'mimetypes.txt') -Header 'Extension','MimeType' | ForEach-Object { $MIME_TYPES[$_.Extension] = $_.MimeType }
+$MIME_TYPES = @{ }
+Import-Csv -Delimiter ',' -Path (Join-Path -Path $PSScriptRoot -ChildPath 'mimetypes.txt') -Header 'Extension', 'MimeType' | ForEach-Object { $MIME_TYPES[$_.Extension] = $_.MimeType }
 
 # workarounds for PowerShell issues
 if ($PSVersionTable.PSVersion.Major -lt 6) {
@@ -37,7 +37,7 @@ else {
     # unfortunately AWS Authentication is not RFC-7232 compliant (it is using semicolons in the value)
     # and PowerShell 6 enforces strict header verification by default
     # therefore disabling strict header verification until AWS fixed this
-    $PSDefaultParameterValues.Add("Invoke-WebRequest:SkipHeaderValidation",$true)
+    $PSDefaultParameterValues.Add("Invoke-WebRequest:SkipHeaderValidation", $true)
 }
 
 ### Helper Functions ###
@@ -46,7 +46,7 @@ function ConvertTo-SortedDictionary($HashTable) {
     #private
     $SortedDictionary = New-Object 'System.Collections.Generic.SortedDictionary[string, string]'
     foreach ($Key in $HashTable.Keys) {
-        $SortedDictionary[$Key]=$HashTable[$Key]
+        $SortedDictionary[$Key] = $HashTable[$Key]
     }
     Write-Output $SortedDictionary
 }
@@ -56,19 +56,19 @@ function Get-SignedString {
     [CmdletBinding()]
 
     PARAM (
-        [parameter(Mandatory=$True,
-                    Position=0,
-                    ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName=$True,
-                    HelpMessage="Key in Bytes.")][Byte[]]$Key,
-        [parameter(Mandatory=$False,
-                    Position=1,
-                    ValueFromPipeline=$True,
-                    ValueFromPipelineByPropertyName=$True,
-                    HelpMessage="Unit of timestamp.")][String]$Message="",
-        [parameter(Mandatory=$False,
-                    Position=2,
-                    HelpMessage="Algorithm to use for signing.")][ValidateSet("SHA1","SHA256")][String]$Algorithm="SHA256"
+        [parameter(Mandatory = $True,
+            Position = 0,
+            ValueFromPipeline = $True,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Key in Bytes.")][Byte[]]$Key,
+        [parameter(Mandatory = $False,
+            Position = 1,
+            ValueFromPipeline = $True,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Unit of timestamp.")][String]$Message = "",
+        [parameter(Mandatory = $False,
+            Position = 2,
+            HelpMessage = "Algorithm to use for signing.")][ValidateSet("SHA1", "SHA256")][String]$Algorithm = "SHA256"
     )
 
     PROCESS {
@@ -84,7 +84,7 @@ function Get-SignedString {
     }
 }
 
-function Sign($Key,$Message) {
+function Sign($Key, $Message) {
     #private
     $hmacsha = New-Object System.Security.Cryptography.HMACSHA256
     $hmacsha.Key = $Key
@@ -105,14 +105,13 @@ function ConvertFrom-AwsConfigFile {
 
     PARAM (
         [parameter(
-            Mandatory=$True,
-            Position=0,
-            HelpMessage="AWS Config File")][String]$AwsConfigFile
+            Mandatory = $True,
+            Position = 0,
+            HelpMessage = "AWS Config File")][String]$AwsConfigFile
     )
 
     Process {
-        if (!(Test-Path $AwsConfigFile))
-        {
+        if (!(Test-Path $AwsConfigFile)) {
             throw "Config file $AwsConfigFile does not exist!"
         }
 
@@ -121,29 +120,29 @@ function ConvertFrom-AwsConfigFile {
         $Content = Get-Content -Path $AwsConfigFile -Raw
         # convert to JSON structure
         # replace all carriage returns
-        $Content = $Content -replace "\r",""
+        $Content = $Content -replace "\r", ""
         # remove empty lines
         $Content = $Content -replace "(\n$)*", ""
         # remove profile string from profile section
         $Content = $Content -replace "profile ", ""
 
         # replace sections like s3 or iam where the line ends with a = with a JSON object including opening and closing curly brackets
-        $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*((?:\n  .+)+)",'"$1":{ $2 },'
-        $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*\n","`"`$1`":{ },`n"
-        $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*\z",'"$1":{ },'
+        $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*((?:\n  .+)+)", '"$1":{ $2 },'
+        $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*\n", "`"`$1`":{ },`n"
+        $Content = $Content -replace "([a-zA-Z0-9]+)\s*=\s*\z", '"$1":{ },'
 
         # replace key value pairs with quoted key value pairs and replace = with :
-        $Content = $Content -replace "\n\s*([^=^\s^`"]+)\s*=\s*([^\s^\n]*)","`n`"`$1`":`"`$2`","
+        $Content = $Content -replace "\n\s*([^=^\s^`"]+)\s*=\s*([^\s^\n]*)", "`n`"`$1`":`"`$2`","
 
         # make sure that Profile is a Key Value inside the JSON Object
-        $Content = $Content -replace "\[([^\]]+)\]([^\[]+)","{`"ProfileName`":`"`$1`",`$2},`n"
+        $Content = $Content -replace "\[([^\]]+)\]([^\[]+)", "{`"ProfileName`":`"`$1`",`$2},`n"
 
         # remove additional , before a closing curly bracket
-        $Content = $Content -replace "\s*,\s*\n?}","}"
+        $Content = $Content -replace "\s*,\s*\n?}", "}"
 
         # ensure that the complete output is an array consisting of multiple JSON objects
-        $Content = $Content -replace "\A","["
-        $Content = $Content -replace "},?\s*\n?\s*\z","}]"
+        $Content = $Content -replace "\A", "["
+        $Content = $Content -replace "},?\s*\n?\s*\z", "}]"
 
         $Config = ConvertFrom-Json -InputObject $Content
         Write-Output $Config
@@ -156,13 +155,13 @@ function ConvertTo-AwsConfigFile {
 
     PARAM (
         [parameter(
-            Mandatory=$True,
-            Position=0,
-            HelpMessage="Configs to store in config file")][PSCustomObject]$Configs,
+            Mandatory = $True,
+            Position = 0,
+            HelpMessage = "Configs to store in config file")][PSCustomObject]$Configs,
         [parameter(
-            Mandatory=$True,
-            Position=1,
-            HelpMessage="AWS Config File")][String]$AwsConfigFile
+            Mandatory = $True,
+            Position = 1,
+            HelpMessage = "AWS Config File")][String]$AwsConfigFile
     )
 
     Process {
@@ -177,9 +176,9 @@ function ConvertTo-AwsConfigFile {
             if ([environment]::OSVersion.Platform -match "win") {
                 $Acl = Get-Acl -Path $AwsConfigDirectory
                 # remove inheritance
-                $Acl.SetAccessRuleProtection($true,$false)
+                $Acl.SetAccessRuleProtection($true, $false)
                 $AcessRule = [System.Security.AccessControl.FileSystemAccessRule]::new(
-                    $env:USERNAME,"FullControl",
+                    $env:USERNAME, "FullControl",
                     ([System.Security.AccessControl.InheritanceFlags]::ContainerInherit -bor [System.Security.AccessControl.InheritanceFlags]::ObjectInherit),
                     [System.Security.AccessControl.PropagationFlags]::None,
                     [System.Security.AccessControl.AccessControlType]::Allow)
@@ -213,7 +212,7 @@ function ConvertTo-AwsConfigFile {
                     $Output += "[profile $( $Config.ProfileName )]`n"
                 }
                 $Properties = $Config.PSObject.Members | Where-Object { $_.MemberType -eq "NoteProperty" -and $_.Name -ne "ProfileName" -and $_.Value -isnot [PSCustomObject] }
-                $Sections = $Config.PSObject.Members | Where-Object { $_.MemberType -eq "NoteProperty" -and $_.Name -ne "ProfileName" -and $_.Value -is [PSCustomObject]}
+                $Sections = $Config.PSObject.Members | Where-Object { $_.MemberType -eq "NoteProperty" -and $_.Name -ne "ProfileName" -and $_.Value -is [PSCustomObject] }
                 foreach ($Property in $Properties) {
                     $Output += "$($Property.Name) = $($Property.Value)`n"
                 }
@@ -230,7 +229,7 @@ function ConvertTo-AwsConfigFile {
 
         if ([environment]::OSVersion.Platform -match "win") {
             # replace LF with CRLF
-            $Output = $Output -replace "`n","`r`n"
+            $Output = $Output -replace "`n", "`r`n"
         }
 
         $Output | Out-File -FilePath $AwsConfigFile -NoNewline
@@ -245,16 +244,16 @@ function ConvertTo-UnixTimestamp {
     #private
 
     PARAM (
-        [parameter(Mandatory=$True,
-                Position=0,
-                ValueFromPipeline=$True,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Date to be converted.")][DateTime[]]$Date,
-        [parameter(Mandatory=$False,
-                Position=1,
-                ValueFromPipeline=$True,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Unit of timestamp.")][ValidateSet("Seconds","Milliseconds")][String]$Unit="Milliseconds"
+        [parameter(Mandatory = $True,
+            Position = 0,
+            ValueFromPipeline = $True,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Date to be converted.")][DateTime[]]$Date,
+        [parameter(Mandatory = $False,
+            Position = 1,
+            ValueFromPipeline = $True,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Unit of timestamp.")][ValidateSet("Seconds", "Milliseconds")][String]$Unit = "Milliseconds"
     )
 
     BEGIN {
@@ -262,7 +261,7 @@ function ConvertTo-UnixTimestamp {
     }
 
     PROCESS {
-        if ($Unit="Seconds") {
+        if ($Unit = "Seconds") {
             Write-Output ([math]::truncate($Date.ToUniversalTime().Subtract($epoch).TotalSeconds))
         }
         else {
@@ -277,29 +276,29 @@ function ConvertFrom-UnixTimestamp {
     [CmdletBinding()]
 
     PARAM (
-        [parameter(Mandatory=$True,
-                Position=0,
-                ValueFromPipeline=$True,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Timestamp to be converted.")][String]$Timestamp,
-        [parameter(Mandatory=$False,
-                Position=0,
-                ValueFromPipeline=$True,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Unit of timestamp.")][ValidateSet("Seconds","Milliseconds")][String]$Unit="Milliseconds",
-        [parameter(Mandatory=$False,
-                Position=1,
-                HelpMessage="Optional Timezone to be used as basis for Timestamp. Default is system Timezone.")][System.TimeZoneInfo]$Timezone=[System.TimeZoneInfo]::Local
+        [parameter(Mandatory = $True,
+            Position = 0,
+            ValueFromPipeline = $True,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Timestamp to be converted.")][String]$Timestamp,
+        [parameter(Mandatory = $False,
+            Position = 0,
+            ValueFromPipeline = $True,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Unit of timestamp.")][ValidateSet("Seconds", "Milliseconds")][String]$Unit = "Milliseconds",
+        [parameter(Mandatory = $False,
+            Position = 1,
+            HelpMessage = "Optional Timezone to be used as basis for Timestamp. Default is system Timezone.")][System.TimeZoneInfo]$Timezone = [System.TimeZoneInfo]::Local
     )
 
     PROCESS {
         $Timestamp = @($Timestamp)
         foreach ($Timestamp in $Timestamp) {
             if ($Unit -eq "Seconds") {
-                $Date = [System.TimeZoneInfo]::ConvertTimeFromUtc(([datetime]'1/1/1970').AddSeconds($Timestamp),$Timezone)
+                $Date = [System.TimeZoneInfo]::ConvertTimeFromUtc(([datetime]'1/1/1970').AddSeconds($Timestamp), $Timezone)
             }
             else {
-                $Date = [System.TimeZoneInfo]::ConvertTimeFromUtc(([datetime]'1/1/1970').AddMilliseconds($Timestamp),$Timezone)
+                $Date = [System.TimeZoneInfo]::ConvertTimeFromUtc(([datetime]'1/1/1970').AddMilliseconds($Timestamp), $Timezone)
             }
             Write-Output $Date
         }
@@ -319,16 +318,16 @@ function ConvertTo-Punycode {
     [CmdletBinding()]
 
     PARAM (
-        [parameter(Mandatory=$True,
-                Position=0,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName,
-        [parameter(Mandatory=$False,
-                Position=1,
-                HelpMessage="Skip test if non DNS conform bucket exist")][Switch]$SkipTest,
-        [parameter(Mandatory=$False,
-                Position=2,
-                HelpMessage="AWS Config")][PSCustomObject]$Config
+        [parameter(Mandatory = $True,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName,
+        [parameter(Mandatory = $False,
+            Position = 1,
+            HelpMessage = "Skip test if non DNS conform bucket exist")][Switch]$SkipTest,
+        [parameter(Mandatory = $False,
+            Position = 2,
+            HelpMessage = "AWS Config")][PSCustomObject]$Config
     )
 
     PROCESS {
@@ -365,15 +364,15 @@ function ConvertTo-Punycode {
     .PARAMETER BucketName
     Bucket name to convert from punycode
  #>
- function ConvertFrom-Punycode {
+function ConvertFrom-Punycode {
     #private
     [CmdletBinding()]
 
     PARAM (
-        [parameter(Mandatory=$True,
-                Position=0,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName
+        [parameter(Mandatory = $True,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName
     )
 
     PROCESS {
@@ -393,19 +392,19 @@ function ConvertTo-Punycode {
 #>
 function Global:Get-AwsHash {
     #private
-    [CmdletBinding(DefaultParameterSetName="string")]
+    [CmdletBinding(DefaultParameterSetName = "string")]
 
     PARAM (
         [parameter(
-            Mandatory=$False,
-            Position=0,
-            ParameterSetName="string",
-            HelpMessage="String to hash")][String]$StringToHash="",
+            Mandatory = $False,
+            Position = 0,
+            ParameterSetName = "string",
+            HelpMessage = "String to hash")][String]$StringToHash = "",
         [parameter(
-            Mandatory=$True,
-            Position=1,
-            ParameterSetName="file",
-            HelpMessage="File to hash")][System.IO.FileInfo]$FileToHash
+            Mandatory = $True,
+            Position = 1,
+            ParameterSetName = "file",
+            HelpMessage = "File to hash")][System.IO.FileInfo]$FileToHash
     )
 
     Process {
@@ -415,7 +414,7 @@ function Global:Get-AwsHash {
             $Hash = Get-FileHash -Algorithm SHA256 -Path $FileToHash | Select-Object -ExpandProperty Hash
         }
         else {
-            $Hash = ([BitConverter]::ToString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($StringToHash))) -replace '-','').ToLower()
+            $Hash = ([BitConverter]::ToString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($StringToHash))) -replace '-', '').ToLower()
         }
 
         Write-Output $Hash
@@ -434,49 +433,49 @@ function Global:New-AwsSignatureV2 {
 
     PARAM (
         [parameter(
-            Mandatory=$True,
-            Position=0,
-            HelpMessage="S3 Access Key")][String]$AccessKey,
+            Mandatory = $True,
+            Position = 0,
+            HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
-            Mandatory=$True,
-            Position=1,
-            HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+            Mandatory = $True,
+            Position = 1,
+            HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
-            Mandatory=$True,
-            Position=2,
-            HelpMessage="Endpoint hostname and optional port")][System.UriBuilder]$EndpointUrl,
+            Mandatory = $True,
+            Position = 2,
+            HelpMessage = "Endpoint hostname and optional port")][System.UriBuilder]$EndpointUrl,
         [parameter(
-            Mandatory=$False,
-            Position=3,
-            HelpMessage="HTTP Request Method")][ValidateSet("OPTIONS","GET","HEAD","PUT","POST","DELETE","TRACE","CONNECT")][String]$Method="GET",
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "HTTP Request Method")][ValidateSet("OPTIONS", "GET", "HEAD", "PUT", "POST", "DELETE", "TRACE", "CONNECT")][String]$Method = "GET",
         [parameter(
-            Mandatory=$False,
-            Position=4,
-            HelpMessage="URI")][String]$Uri="/",
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "URI")][String]$Uri = "/",
         [parameter(
-            Mandatory=$False,
-            Position=6,
-            HelpMessage="Content MD5")][String]$ContentMD5="",
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Content MD5")][String]$ContentMD5 = "",
         [parameter(
-            Mandatory=$False,
-            Position=7,
-            HelpMessage="Content Type")][String]$ContentType="",
+            Mandatory = $False,
+            Position = 7,
+            HelpMessage = "Content Type")][String]$ContentType = "",
         [parameter(
-            Mandatory=$False,
-            Position=8,
-            HelpMessage="Date")][String]$DateTime,
+            Mandatory = $False,
+            Position = 8,
+            HelpMessage = "Date")][String]$DateTime,
         [parameter(
-            Mandatory=$False,
-            Position=9,
-            HelpMessage="Headers")][Hashtable]$Headers=@{},
+            Mandatory = $False,
+            Position = 9,
+            HelpMessage = "Headers")][Hashtable]$Headers = @{ },
         [parameter(
-            Mandatory=$False,
-            Position=10,
-            HelpMessage="Bucket")][String]$BucketName,
+            Mandatory = $False,
+            Position = 10,
+            HelpMessage = "Bucket")][String]$BucketName,
         [parameter(
-            Mandatory=$False,
-            Position=11,
-            HelpMessage="Query String (unencoded)")][String]$QueryString
+            Mandatory = $False,
+            Position = 11,
+            HelpMessage = "Query String (unencoded)")][String]$QueryString
     )
 
     Process {
@@ -520,7 +519,7 @@ function Global:New-AwsSignatureV2 {
 
         Write-Verbose "2. Sort headers lexicographically"
         $SortedAmzHeaders = ConvertTo-SortedDictionary $AmzHeaders
-        $CanonicalizedAmzHeaders = ($SortedAmzHeaders.GetEnumerator()  | ForEach-Object { "$($_.Key.ToLower()):$($_.Value)" }) -join "`n"
+        $CanonicalizedAmzHeaders = ($SortedAmzHeaders.GetEnumerator() | ForEach-Object { "$($_.Key.ToLower()):$($_.Value)" }) -join "`n"
         if ($CanonicalizedAmzHeaders) {
             $CanonicalizedAmzHeaders = $CanonicalizedAmzHeaders + "`n"
         }
@@ -555,57 +554,57 @@ function Global:New-AwsSignatureV4 {
 
     PARAM (
         [parameter(
-            Mandatory=$True,
-            Position=0,
-            HelpMessage="S3 Access Key")][String]$AccessKey,
+            Mandatory = $True,
+            Position = 0,
+            HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
-            Mandatory=$True,
-            Position=1,
-            HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+            Mandatory = $True,
+            Position = 1,
+            HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
-            Mandatory=$True,
-            Position=2,
-            HelpMessage="Endpoint hostname and optional port")][System.UriBuilder]$EndpointUrl,
+            Mandatory = $True,
+            Position = 2,
+            HelpMessage = "Endpoint hostname and optional port")][System.UriBuilder]$EndpointUrl,
         [parameter(
-            Mandatory=$False,
-            Position=3,
-            HelpMessage="HTTP Request Method")][ValidateSet("OPTIONS","GET","HEAD","PUT","POST","DELETE","TRACE","CONNECT")][String]$Method="GET",
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "HTTP Request Method")][ValidateSet("OPTIONS", "GET", "HEAD", "PUT", "POST", "DELETE", "TRACE", "CONNECT")][String]$Method = "GET",
         [parameter(
-            Mandatory=$False,
-            Position=4,
-            HelpMessage="URI")][String]$Uri="/",
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "URI")][String]$Uri = "/",
         [parameter(
-            Mandatory=$False,
-            Position=5,
-            HelpMessage="Canonical Query String")][String]$CanonicalQueryString,
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Canonical Query String")][String]$CanonicalQueryString,
         [parameter(
-            Mandatory=$False,
-            Position=6,
-            HelpMessage="Date Time (yyyyMMddTHHmmssZ)")][String]$DateTime,
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Date Time (yyyyMMddTHHmmssZ)")][String]$DateTime,
         [parameter(
-            Mandatory=$False,
-            Position=7,
-            HelpMessage="Date String (yyyyMMdd)")][String]$DateString,
+            Mandatory = $False,
+            Position = 7,
+            HelpMessage = "Date String (yyyyMMdd)")][String]$DateString,
         [parameter(
-            Mandatory=$False,
-            Position=8,
-            HelpMessage="Request payload hash")][String]$RequestPayloadHash,
+            Mandatory = $False,
+            Position = 8,
+            HelpMessage = "Request payload hash")][String]$RequestPayloadHash,
         [parameter(
-            Mandatory=$False,
-            Position=9,
-            HelpMessage="Region")][String]$Region="us-east-1",
+            Mandatory = $False,
+            Position = 9,
+            HelpMessage = "Region")][String]$Region = "us-east-1",
         [parameter(
-            Mandatory=$False,
-            Position=10,
-            HelpMessage="Region")][String]$Service="s3",
+            Mandatory = $False,
+            Position = 10,
+            HelpMessage = "Region")][String]$Service = "s3",
         [parameter(
-            Mandatory=$False,
-            Position=11,
-            HelpMessage="Headers")][Hashtable]$Headers=@{},
+            Mandatory = $False,
+            Position = 11,
+            HelpMessage = "Headers")][Hashtable]$Headers = @{ },
         [parameter(
-            Mandatory=$False,
-            Position=12,
-            HelpMessage="Content type")][String]$ContentType
+            Mandatory = $False,
+            Position = 12,
+            HelpMessage = "Content type")][String]$ContentType
     )
 
     Process {
@@ -631,7 +630,7 @@ function Global:New-AwsSignatureV4 {
         Write-Verbose "3. Canonical query string:`n$CanonicalQueryString"
 
         $SortedHeaders = ConvertTo-SortedDictionary $Headers
-        $CanonicalHeaders = (($SortedHeaders.GetEnumerator()  | ForEach-Object { "$($_.Key.ToLower()):$($_.Value)" }) -join "`n") + "`n"
+        $CanonicalHeaders = (($SortedHeaders.GetEnumerator() | ForEach-Object { "$($_.Key.ToLower()):$($_.Value)" }) -join "`n") + "`n"
         Write-Verbose "4. Canonical headers:`n$CanonicalHeaders"
 
         $SignedHeaders = $SortedHeaders.Keys.ToLower() -join ";"
@@ -643,7 +642,7 @@ function Global:New-AwsSignatureV4 {
         Write-Verbose "7. CanonicalRequest:`n$CanonicalRequest"
 
         $hasher = [System.Security.Cryptography.SHA256]::Create()
-        $CanonicalRequestHash = ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($CanonicalRequest))) -replace '-','').ToLower()
+        $CanonicalRequestHash = ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($CanonicalRequest))) -replace '-', '').ToLower()
         Write-Verbose "8. Canonical request hash:`n$CanonicalRequestHash"
 
         Write-Verbose "Task 2: Create a String to Sign for Signature Version 4"
@@ -668,7 +667,7 @@ function Global:New-AwsSignatureV4 {
         $SigningKey = GetSignatureKey $SecretKey $DateString $Region $Service
         Write-Verbose "1. Signing Key:`n$([System.BitConverter]::ToString($SigningKey))"
 
-        $Signature = ([BitConverter]::ToString((sign $SigningKey $StringToSign)) -replace '-','').ToLower()
+        $Signature = ([BitConverter]::ToString((sign $SigningKey $StringToSign)) -replace '-', '').ToLower()
         Write-Verbose "2. Signature:`n$Signature"
 
         Write-Output $Signature
