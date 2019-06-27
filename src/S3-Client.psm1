@@ -968,41 +968,51 @@ function Global:Get-AwsRequest {
     Invoke AWS Request
 #>
 function Global:Invoke-AwsRequest {
-    [CmdletBinding(DefaultParameterSetName="none")]
+    [CmdletBinding(DefaultParameterSetName = "Body")]
 
     PARAM (
         [parameter(
-                Mandatory=$False,
-                Position=0,
-                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
-                Mandatory=$False,
-                Position=1,
-                HelpMessage="HTTP Request Method")][ValidateSet("OPTIONS","GET","HEAD","PUT","POST","DELETE","TRACE","CONNECT")][String]$Method="GET",
+            Mandatory = $False,
+            Position = 1,
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "HTTP Request Method")][ValidateSet("OPTIONS", "GET", "HEAD", "PUT", "POST", "DELETE", "TRACE", "CONNECT")][System.Net.Http.HttpMethod]$Method = "GET",
         [parameter(
-                Mandatory=$False,
-                Position=2,
-                HelpMessage="Endpoint URI")][Uri]$Uri,
+            Mandatory = $False,
+            Position = 2,
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "Endpoint URI")][Uri]$Uri,
         [parameter(
-                Mandatory=$False,
-                Position=3,
-                HelpMessage="Headers")][Hashtable]$Headers=@{},
+            Mandatory = $False,
+            Position = 3,
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "Headers")][Hashtable]$Headers = @{ },
         [parameter(
-                Mandatory=$False,
-                Position=4,
-                HelpMessage="Content type")][String]$ContentType,
+            Mandatory = $False,
+            Position = 4,
+            ParameterSetName = "Body",
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "Request payload")][String]$Body = "",
         [parameter(
-                Mandatory=$False,
-                Position=5,
-                HelpMessage="Request payload")][String]$Body,
+            Mandatory = $False,
+            Position = 4,
+            ParameterSetName = "InStream",
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "Stream to read request payload from")][System.IO.Stream]$InStream,
         [parameter(
-                Mandatory=$False,
-                Position=6,
-                HelpMessage="File to read data from")][System.IO.FileInfo]$InFile,
+            Mandatory = $False,
+            Position = 5,
+            ParameterSetName = "InStream",
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "Content size")][Int64]$Size,
         [parameter(
-                Mandatory=$False,
-                Position=7,
-                HelpMessage="File to output result to")][System.IO.DirectoryInfo]$OutFile
+            Mandatory = $False,
+            Position = 6,
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken    
     )
 
     Begin {
@@ -1021,100 +1031,75 @@ function Global:Invoke-AwsRequest {
 
     Process {
         # check if untrusted SSL certificates should be ignored
-        if ($SkipCertificateCheck.IsPresent) {
+        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
+        if ($Config.SkipCertificateCheck) {
             if ($PSVersionTable.PSVersion.Major -lt 6) {
-                [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-            }
-            else {
-                if (!"Invoke-WebRequest:SkipCertificateCheck") {
-                    $PSDefaultParameterValues.Add("Invoke-WebRequest:SkipCertificateCheck",$true)
-                }
-                else {
-                    $PSDefaultParameterValues.'Invoke-WebRequest:SkipCertificateCheck'=$true
-                }
-            }
-        }
-        else {
-            # currently there is no way to re-enable certificate check for the current session in PowerShell prior to version 6
-            if ($PSVersionTable.PSVersion.Major -ge 6) {
-                if ("Invoke-WebRequest:SkipCertificateCheck") {
-                    $PSDefaultParameterValues.Remove("Invoke-WebRequest:SkipCertificateCheck")
-                }
-            }
-        }
-
-        # PowerShell 5 and early cannot skip certificate validation per request therefore we need to use a workaround
-        if ($PSVersionTable.PSVersion.Major -lt 6 ) {
-            if ($SkipCertificateCheck.IsPresent) {
+                # PowerShell 5 and early cannot skip certificate validation per request therefore we need to use a workaround
                 $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
                 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
             }
-            if ($Body -ne "" -or $Method -eq "POST") {
-                if ($OutFile) {
-                    Write-Verbose "Body:`n$Body"
-                    Write-Verbose "Saving output in file $OutFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile
-                }
-                else {
-                    Write-Verbose "Body:`n$Body"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -Body ([System.Text.Encoding]::UTF8.GetBytes($Body))
-                }
+            else {
+                $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+            }
+        }
+        $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
+
+        if ($Size) {
+            $ContentLength = $Size
+        }
+        if ($InStream) {
+            $ContentLength = $InStream.Length
+        }
+        else {
+            $ContentLength = $Body.Length
+        }
+
+        Write-Verbose "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
+        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
+        Write-Verbose "Timeout set to $($HttpClient.Timeout)"
+
+        $Request = [System.Net.Http.HttpRequestMessage]::new($Method, $Uri)
+
+        foreach ($HeaderKey in $Headers.Keys) {
+            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+            if ($HeaderKey -eq "Authorization") {
+                $null = $Request.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
             }
             else {
-                if ($OutFile) {
-                    Write-Verbose "Saving output in file $OutFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -OutFile $OutFile
-                }
-                elseif ($InFile) {
-                    Write-Verbose "InFile:`n$InFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -InFile $InFile
-                }
-                else {
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType
-                }
+                $null = $Request.Headers.Add($HeaderKey, $Headers[$HeaderKey])
             }
-            if ($SkipCertificateCheck.IsPresent) {
+        }
+
+        if ($InStream) {
+            $StreamContent = [System.Net.Http.StreamContent]::new($InStream)
+            $StreamContent.Headers.ContentLength = $ContentLength
+            $Request.Content = $StreamContent
+        }
+        elseif ($Body) {
+            $StringContent = [System.Net.Http.StringContent]::new($Body)
+            $Request.Content = $StringContent
+        }
+
+        try {
+            if ($CancellationToken) {
+                $Task = $HttpClient.SendAsync($Request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
+            }
+            else {
+                $Task = $HttpClient.SendAsync($Request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+            }
+
+            Write-Output $Task
+        }
+        catch {
+            throw $_
+        }
+        finally {
+            if ($Config.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
                 [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
             }
         }
-        else {
-            if ($Body -ne $null) {
-                if ($OutFile) {
-                    Write-Verbose "Body:`n$Body"
-                    Write-Verbose "Saving output in file $OutFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                }
-                else {
-                    Write-Verbose "Body:`n$Body"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -Body ([System.Text.Encoding]::UTF8.GetBytes($Body)) -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                }
-            }
-            else {
-                if ($OutFile) {
-                    Write-Verbose "Saving output in file $OutFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -OutFile $OutFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                }
-                elseif ($InFile) {
-                    Write-Verbose "InFile:`n$InFile"
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -InFile $InFile -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                }
-                else {
-                    $Result = Invoke-WebRequest -Method $Method -Uri $Uri -Headers $Headers -ContentType $ContentType -SkipCertificateCheck:$SkipCertificateCheck -PreserveAuthorizationOnRedirect
-                }
-            }
-        }
-
-        Write-Verbose "Response Headers:`n$(ConvertTo-Json -InputObject $Result.Headers)"
-
-        if ($Result.Headers.'Content-Type' -match "text|application/xml|application/json" -and $Result.Headers.Length -le 10KB) {
-            Write-Verbose "Response Body:`n$($Result.Content)"
-        }
-
-        Write-Output $Result
     }
 }
-
-# TODO: Implement separate Update Cmdlet which does not overwrite values with defaults
 
 Set-Alias -Name Set-AwsProfile -Value Add-AwsConfig
 Set-Alias -Name New-AwsProfile -Value Add-AwsConfig
