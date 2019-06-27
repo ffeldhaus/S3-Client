@@ -1,5 +1,8 @@
 $AWS_PROFILE_PATH = "$HOME/.aws/"
 $AWS_CREDENTIALS_FILE = $AWS_PROFILE_PATH + "credentials"
+$DEFAULT_AWS_ENDPOINT = "https://s3.amazonaws.com"
+$DEFAULT_TIMEOUT_SECONDS = 60
+$MAX_RETRIES = 5
 
 $MIME_TYPES = @{}
 Import-Csv -Delimiter ',' -Path (Join-Path -Path $PSScriptRoot -ChildPath 'mimetypes.txt') -Header 'Extension','MimeType' | ForEach-Object { $MIME_TYPES[$_.Extension] = $_.MimeType }
