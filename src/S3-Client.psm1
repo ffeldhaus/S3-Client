@@ -1137,89 +1137,93 @@ function Global:Add-AwsConfig {
 
     PARAM (
         [parameter(
-                Mandatory=$False,
-                Position=0,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="default",
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "default",
         [parameter(
-                Mandatory=$False,
-                Position=1,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation=$AWS_CREDENTIALS_FILE,
+            Mandatory = $False,
+            Position = 1,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation = $AWS_CREDENTIALS_FILE,
         [parameter(
-                Mandatory=$False,
-                Position=2,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Credential")][PSCredential]$Credential,
+            Mandatory = $False,
+            Position = 2,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Credential")][PSCredential]$Credential,
         [parameter(
-                Mandatory=$False,
-                Position=3,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="S3 Access Key")][Alias("aws_access_key_id")][String]$AccessKey,
+            Mandatory = $False,
+            Position = 3,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "S3 Access Key")][Alias("aws_access_key_id")][String]$AccessKey,
         [parameter(
-                Mandatory=$False,
-                Position=4,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="S3 Secret Access Key")][Alias("aws_secret_access_key")][String]$SecretKey,
+            Mandatory = $False,
+            Position = 4,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "S3 Secret Access Key")][Alias("aws_secret_access_key")][String]$SecretKey,
         [parameter(
-                Mandatory=$False,
-                Position=5,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Default Region to use for all requests made with these credentials")][String]$Region,
+            Mandatory = $False,
+            Position = 5,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Default Region to use for all requests made with these credentials")][String]$Region,
         [parameter(
-                Mandatory=$False,
-                Position=6,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Custom endpoint URL if different than AWS URL")][Alias("endpoint_url")][System.UriBuilder]$EndpointUrl,
+            Mandatory = $False,
+            Position = 6,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Custom endpoint URL if different than AWS URL")][Alias("endpoint_url")][System.UriBuilder]$EndpointUrl,
         [parameter(
-                Mandatory=$False,
-                Position=7,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of concurrent requests (Default: processor count * 2)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
+            Mandatory = $False,
+            Position = 7,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "The maximum number of concurrent requests (Default: processor count * 2)")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
         [parameter(
-                Mandatory=$False,
-                Position=8,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum number of tasks in the task queue (Default: 1000)")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
+            Mandatory = $False,
+            Position = 8,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "The maximum number of tasks in the task queue (Default: 1000)")][Alias("max_queue_size")][UInt16]$MaxQueueSize,
         [parameter(
-                Mandatory=$False,
-                Position=9,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold,
+            Mandatory = $False,
+            Position = 9,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "The size threshold where multipart uploads are used of individual files (Default: 8MB)")][Alias("multipart_threshold")][String]$MultipartThreshold,
         [parameter(
-                Mandatory=$False,
-                Position=10,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files")][Alias("multipart_chunksize")][String]$MultipartChunksize,
+            Mandatory = $False,
+            Position = 10,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files")][Alias("multipart_chunksize")][String]$MultipartChunksize,
         [parameter(
-                Mandatory=$False,
-                Position=11,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="The maximum bandwidth that will be consumed for uploading and downloading data to and from Amazon S3")][Alias("max_bandwidth")][String]$MaxBandwidth,
+            Mandatory = $False,
+            Position = 11,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "The maximum bandwidth that will be consumed for uploading and downloading data to and from Amazon S3")][Alias("max_bandwidth")][String]$MaxBandwidth,
         [parameter(
-                Mandatory=$False,
-                Position=12,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][Boolean]$UseAccelerateEndpoint,
+            Mandatory = $False,
+            Position = 12,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.")][Alias("use_accelerate_endpoint")][Boolean]$UseAccelerateEndpoint,
         [parameter(
-                Mandatory=$False,
-                Position=13,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][Boolean]$UseDualstackEndpoint,
+            Mandatory = $False,
+            Position = 13,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.")][Alias("use_dualstack_endpoint")][Boolean]$UseDualstackEndpoint,
         [parameter(
-                Mandatory=$False,
-                Position=14,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("addressing_style")][ValidateSet("auto","path","virtual")][String]$AddressingStyle,
+            Mandatory = $False,
+            Position = 14,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.")][Alias("UrlStyle", "addressing_style")][ValidateSet("auto", "path", "virtual")][String]$AddressingStyle,
         [parameter(
-                Mandatory=$False,
-                Position=15,
-                ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][ValidateSet("auto","true","false")][String]$PayloadSigning,
+            Mandatory = $False,
+            Position = 15,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][ValidateSet("auto", "true", "false")][String]$PayloadSigning,
         [parameter(
-                Mandatory=$False,
-                Position=1,
-                HelpMessage="Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Boolean]$SkipCertificateCheck
+            Mandatory = $False,
+            Position = 16,
+            HelpMessage = "Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Boolean]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 17,
+            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4"
     )
 
     Process {
@@ -1253,7 +1257,7 @@ function Global:Add-AwsConfig {
 
             Write-Verbose $CredentialEntry
 
-            $Credentials = (@($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry) | Where-Object { $_.ProfileName}
+            $Credentials = (@($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry) | Where-Object { $_.ProfileName }
             ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
         }
 
@@ -1267,11 +1271,11 @@ function Global:Add-AwsConfig {
         $Config = $Configs | Where-Object { $_.ProfileName -eq $ProfileName }
         if ($Config) {
             if (!$Config.S3) {
-                $Config | Add-Member -MemberType NoteProperty -Name "S3" -Value ([PSCustomObject]@{})
+                $Config | Add-Member -MemberType NoteProperty -Name "S3" -Value ([PSCustomObject]@{ })
             }
         }
         else {
-            $Config = [PSCustomObject]@{ ProfileName = $ProfileName;s3 = [PSCustomObject]@{} }
+            $Config = [PSCustomObject]@{ ProfileName = $ProfileName; s3 = [PSCustomObject]@{ } }
         }
 
         if ($Region -and $Region -ne "us-east-1") {
@@ -1282,7 +1286,7 @@ function Global:Add-AwsConfig {
         }
 
         if ($EndpointUrl) {
-            $EndpointUrlString = $EndpointUrl -replace "(http://.*:80)",'$1' -replace "(https://.*):443",'$1' -replace "/$",""
+            $EndpointUrlString = $EndpointUrl -replace "(http://.*:80)", '$1' -replace "(https://.*):443", '$1' -replace "/$", ""
             $Config.S3 | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrlString -Force
         }
 
@@ -1360,7 +1364,14 @@ function Global:Add-AwsConfig {
             $Config.S3.PSObject.Properties.Remove("skip_certificate_check")
         }
 
-        $Configs = (@($Configs | Where-Object { $_.ProfileName -ne $ProfileName}) + $Config) | Where-Object { $_.ProfileName}
+        if ($SignerType) {
+            $Config.S3 | Add-Member -MemberType NoteProperty -Name signer_type -Value $SignerType -Force
+        }
+        elseif ($Config.S3.signer_type -and $SignerType -match "AWS4") {
+            $Config.S3.PSObject.Properties.Remove("signer_type")
+        }
+
+        $Configs = (@($Configs | Where-Object { $_.ProfileName -ne $ProfileName }) + $Config) | Where-Object { $_.ProfileName }
         ConvertTo-AwsConfigFile -Config $Configs -AwsConfigFile $ConfigLocation
     }
 }
