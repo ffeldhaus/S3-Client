@@ -6709,16 +6709,6 @@ function Global:Get-S3BucketVersioning {
     Enable S3 Bucket Versioning
     .PARAMETER Server
     StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
-    .PARAMETER SkipCertificateCheck
-    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
-    .PARAMETER Presign
-    Use presigned URL
-    .PARAMETER DryRun
-    Do not execute request, just return request URI and Headers
-    .PARAMETER SignerType
-    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
-    .PARAMETER EndpointUrl
-    Custom S3 Endpoint URL
     .PARAMETER ProfileName
     AWS Profile to use which contains AWS sredentials and settings
     .PARAMETER ProfileLocation
@@ -6729,101 +6719,115 @@ function Global:Get-S3BucketVersioning {
     S3 Secret Access Key
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
-    .PARAMETER Region
-    Bucket Region
-    .PARAMETER UrlStyle
-    URL Style (Default: Auto)
-    .PARAMETER UseDualstackEndpoint
-    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
     .PARAMETER BucketName
     Bucket Name
+    .PARAMETER Region
+    Bucket Region
 #>
 function Global:Enable-S3BucketVersioning {
     [CmdletBinding(DefaultParameterSetName = "none")]
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 7,
+            Mandatory = $False,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
+            ParameterSetName = "config",
             Mandatory = $False,
-            Position = 8,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Region to be used")][String]$Region,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
         [parameter(
             Mandatory = $False,
-            Position = 9,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
         [parameter(
             Mandatory = $True,
-            Position = 10,
+            Position = 7,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
         [parameter(
             Mandatory = $False,
-            Position = 11,
+            Position = 8,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Enable Payload Signing")][Switch]$PayloadSigning
+            HelpMessage = "Region to be used")][String]$Region
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "PUT"
     }
 
     Process {
+        Write-Verbose "Enable bucket versiong for bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Config.AccessKey) {
+            Throw "No S3 credentials found"
         }
 
         if (!$Region) {
@@ -6836,30 +6840,56 @@ function Global:Enable-S3BucketVersioning {
 
         $RequestPayload = "<VersioningConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><Status>Enabled</Status></VersioningConfiguration>"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -PayloadSigning $Config.PayloadSigning
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query -RequestPayload $RequestPayload
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
         else {
-            try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $Body
+
+            $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+
+            if ($Task.Result.IsSuccessStatusCode) {
+                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+
+                Write-Output $Content.VersioningConfiguration.Status
             }
-            catch {
-                $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
-                if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
-                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Enable-S3BucketVersioning -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+            elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $RetryCount++
+                Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
+                Start-Sleep -Seconds $SleepSeconds
+                Enable-S3BucketVersioning -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName
+            }
+            elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
+                Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
+            }
+            elseif ($Task.Exception -match "Device not configured") {
+                Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
+            }
+            elseif ($Task.IsFaulted) {
+                Throw $Task.Exception
+            }
+            elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
+                Write-Warning "Request was redirected as bucket does not belong to region $($Config.Region). Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                Enable-S3BucketVersioning -Config $Config -Presign:$Presign -Region $($RedirectedRegion[0]) -BucketName $BucketName
+            }
+            elseif ($Task.Result) {
+                $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+                if ($Result.Error.Message -match "The specified bucket does not have a bucket policy.") {
+                    Write-Warning "The specified bucket does not have a bucket policy."
+                }
+                elseif ($Result.Error.Message) {
+                    Throw $Result.Error.Message
                 }
                 else {
-                    throw
+                    Throw $Task.Result.StatusCode
                 }
             }
-
-            # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
-            $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-
-            Write-Output $Content.VersioningConfiguration.Status
+            else {
+                Throw "Task failed with status $($Task.Status)"
+            }
         }
     }
 }
@@ -6871,16 +6901,6 @@ function Global:Enable-S3BucketVersioning {
     Suspend S3 Bucket Versioning
     .PARAMETER Server
     StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
-    .PARAMETER SkipCertificateCheck
-    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
-    .PARAMETER Presign
-    Use presigned URL
-    .PARAMETER DryRun
-    Do not execute request, just return request URI and Headers
-    .PARAMETER SignerType
-    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
-    .PARAMETER EndpointUrl
-    Custom S3 Endpoint URL
     .PARAMETER ProfileName
     AWS Profile to use which contains AWS sredentials and settings
     .PARAMETER ProfileLocation
@@ -6891,101 +6911,115 @@ function Global:Enable-S3BucketVersioning {
     S3 Secret Access Key
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
-    .PARAMETER Region
-    Bucket Region
-    .PARAMETER UrlStyle
-    URL Style (Default: Auto)
-    .PARAMETER UseDualstackEndpoint
-    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
     .PARAMETER BucketName
     Bucket Name
+    .PARAMETER Region
+    Bucket Region
 #>
 function Global:Suspend-S3BucketVersioning {
     [CmdletBinding(DefaultParameterSetName = "none")]
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 7,
+            Mandatory = $False,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
+            ParameterSetName = "config",
             Mandatory = $False,
-            Position = 8,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Region to be used")][String]$Region,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
         [parameter(
             Mandatory = $False,
-            Position = 9,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
         [parameter(
             Mandatory = $True,
-            Position = 10,
+            Position = 7,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
         [parameter(
             Mandatory = $False,
-            Position = 11,
+            Position = 8,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Enable Payload Signing")][Switch]$PayloadSigning
+            HelpMessage = "Region to be used")][String]$Region
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "PUT"
     }
 
     Process {
+        Write-Verbose "Enable bucket versiong for bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Config.AccessKey) {
+            Throw "No S3 credentials found"
         }
 
         if (!$Region) {
@@ -6998,30 +7032,56 @@ function Global:Suspend-S3BucketVersioning {
 
         $RequestPayload = "<VersioningConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><Status>Suspended</Status></VersioningConfiguration>"
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Query $Query -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -PayloadSigning $Config.PayloadSigning
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query -RequestPayload $RequestPayload
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
         else {
-            try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $Body
+
+            $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+
+            if ($Task.Result.IsSuccessStatusCode) {
+                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+
+                Write-Output $Content.VersioningConfiguration.Status
             }
-            catch {
-                $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
-                if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
-                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Suspend-S3BucketVersioning -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+            elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $RetryCount++
+                Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
+                Start-Sleep -Seconds $SleepSeconds
+                Suspend-S3BucketVersioning -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName
+            }
+            elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
+                Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
+            }
+            elseif ($Task.Exception -match "Device not configured") {
+                Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
+            }
+            elseif ($Task.IsFaulted) {
+                Throw $Task.Exception
+            }
+            elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
+                Write-Warning "Request was redirected as bucket does not belong to region $($Config.Region). Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                Suspend-S3BucketVersioning -Config $Config -Presign:$Presign -Region $($RedirectedRegion[0]) -BucketName $BucketName
+            }
+            elseif ($Task.Result) {
+                $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+                if ($Result.Error.Message -match "The specified bucket does not have a bucket policy.") {
+                    Write-Warning "The specified bucket does not have a bucket policy."
+                }
+                elseif ($Result.Error.Message) {
+                    Throw $Result.Error.Message
                 }
                 else {
-                    throw
+                    Throw $Task.Result.StatusCode
                 }
             }
-
-            # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
-            $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-
-            Write-Output $Content.VersioningConfiguration.Status
+            else {
+                Throw "Task failed with status $($Task.Status)"
+            }
         }
     }
 }
