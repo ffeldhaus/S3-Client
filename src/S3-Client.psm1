@@ -2758,7 +2758,7 @@ function Global:New-S3Bucket {
 
         # AWS does not allow to set LocationConstraint for default region us-east-1
         if ($Config.Region -ne "us-east-1") {
-            $RequestPayload = "<CreateBucketConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><LocationConstraint>$Region</LocationConstraint></CreateBucketConfiguration>"
+            $RequestPayload = "<CreateBucketConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><LocationConstraint>$($Config.Region)</LocationConstraint></CreateBucketConfiguration>"
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName -SkipTest
