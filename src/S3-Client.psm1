@@ -2825,10 +2825,10 @@ function Global:New-S3Bucket {
         }
 
         if ($PublicReadOnlyPolicy) {
-            Set-S3BucketPolicy -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType:$SignerType -EndpointUrl $Config.EndpointUrl -Region:$Region -UrlStyle $UrlStyle -PayloadSigning $Config.PayloadSigning -BucketName $BucketName -PublicReadOnlyPolicy
+            Set-S3BucketPolicy -Config $Config -BucketName $BucketName -PublicReadOnlyPolicy
         }
         if ($PublicReadWritePolicy) {
-            Set-S3BucketPolicy -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType:$SignerType -EndpointUrl $Config.EndpointUrl -Region:$Region -UrlStyle $UrlStyle -PayloadSigning $Config.PayloadSigning -BucketName $BucketName -PublicReadWritePolicy
+            Set-S3BucketPolicy -Config $Config -BucketName $BucketName -PublicReadWritePolicy
         }
     }
 }
@@ -4018,7 +4018,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
 
         $CorsConfigurationRules = @()
 
-        $CorsConfigurationRules += Get-S3BucketCorsConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+        $CorsConfigurationRules += Get-S3BucketCorsConfiguration -Config $Config -BucketName $BucketName
 
         $CorsConfigurationRule = [PSCustomObject]@{
             ID            = $Id
@@ -4058,7 +4058,6 @@ function Global:Add-S3BucketCorsConfigurationRule {
 
         $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query -RequestPayload $Body
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigning $Config.PayloadSigning
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
@@ -4880,7 +4879,7 @@ function Global:Add-S3BucketReplicationConfigurationRule {
 
         $ReplicationConfigurationRules = @()
 
-        $ReplicationConfigurationRules += Get-S3BucketReplicationConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+        $ReplicationConfigurationRules += Get-S3BucketReplicationConfiguration -Config $Config -BucketName $BucketName
 
         $ReplicationConfigurationRule = [PSCustomObject]@{
             ID                      = $Id
@@ -5108,7 +5107,7 @@ function Global:Remove-S3BucketReplicationConfigurationRule {
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         # get all rules
-        $ReplicationConfigurationRules = Get-S3BucketReplicationConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+        $ReplicationConfigurationRules = Get-S3BucketReplicationConfiguration -Config $Config -BucketName $BucketName
 
         if (!($ReplicationConfigurationRules | Where-Object { $_.Id -eq $Id })) {
             Write-Warning "Replication Configuration Rule ID $Id does not exist"
@@ -5118,10 +5117,10 @@ function Global:Remove-S3BucketReplicationConfigurationRule {
         # remove the rule with the specified ID
         $ReplicationConfigurationRules = $ReplicationConfigurationRules | Where-Object { $_.Id -ne $Id }
 
-        Remove-S3BucketReplicationConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+        Remove-S3BucketReplicationConfiguration -Config $Config -BucketName $BucketName
 
         # write all rules
-        $ReplicationConfigurationRules | Add-S3BucketCorsConfigurationRule -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+        $ReplicationConfigurationRules | Add-S3BucketCorsConfigurationRule -Config $Config -BucketName $BucketName
     }
 }
 
