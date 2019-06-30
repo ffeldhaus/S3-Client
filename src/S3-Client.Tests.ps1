@@ -277,6 +277,75 @@ Describe "AWS Configuration and Credential Management" {
     }
 }
 
+Describe "Create Bucket" {
+
+    BeforeAll {
+        $BucketName = $BaseBucketName + "-create-bucket"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-create-bucket"
+    }
+
+    AfterEach {
+        Cleanup -BucketName $BucketName
+        Cleanup -BucketName $UnicodeBucketName
+    }
+
+    Context "Create new bucket with default parameters" {
+
+        It "Given -BucketName $BucketName it is succesfully created" {
+            New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+
+            $BucketExists = foreach ($i in 1..$MAX_WAIT_TIME) {
+                Start-Sleep -Seconds 1
+                $BucketExists = Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
+                if ($BucketExists) {
+                    return $BucketExists
+                }
+                if ($i -lt $MAX_WAIT_TIME) {
+                    Write-Warning "Tried $i times but bucket does not exist yet. Retrying in 1 second."
+                }
+            }
+            $BucketExists | Should -BeTrue
+        }
+
+        It "Given -BucketName $UnicodeBucketName it is succesfully created" {
+            New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
+
+            $BucketExists = foreach ($i in 1..$MAX_WAIT_TIME) {
+                Start-Sleep -Seconds 1
+                $BucketExists = Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
+                if ($BucketExists) {
+                    return $BucketExists
+                }
+                if ($i -lt $MAX_WAIT_TIME) {
+                    Write-Warning "Tried $i times but bucket does not exist yet. Retrying in 1 second."
+                }
+            }
+            $BucketExists | Should -BeTrue
+        }
+    }
+
+    Context "Create new bucket with addressing style" {
+        if ($ProfileName -eq "Minio") { continue }
+
+        It "Given -BucketName $BucketName and addressing style virtual-hosted it is succesfully created" {
+            $Config = Get-AwsConfig -ProfileName $ProfileName -AddressingStyle "virtual"
+            New-S3Bucket -Config $Config -BucketName $BucketName
+
+            $BucketExists = foreach ($i in 1..$MAX_WAIT_TIME) {
+                Start-Sleep -Seconds 1
+                $BucketExists = Test-S3Bucket -Config $Config -BucketName $BucketName
+                if ($BucketExists) {
+                    return $BucketExists
+                }
+                if ($i -lt $MAX_WAIT_TIME) {
+                    Write-Warning "Tried $i times but bucket does not exist yet. Retrying in 1 second."
+                }
+            }
+            $BucketExists | Should -BeTrue
+        }
+    }
+}
+
 Describe "List Buckets" {
 
     BeforeAll {
@@ -341,74 +410,6 @@ Describe "Test Bucket existence" {
     Context "Test bucket nonexistence with parameter -BucketName" {
         It "Given non existing bucket -BucketName non-existing-bucket `$false is returned" {
             Test-S3Bucket -ProfileName $ProfileName -BucketName non-existing-bucket | Should -BeFalse
-        }
-    }
-}
-
-Describe "Create Bucket" {
-
-    BeforeAll {
-        $BucketName = $BaseBucketName + "-create-bucket"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-create-bucket"
-    }
-
-    AfterEach {
-        Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
-    }
-
-    Context "Create new bucket with default parameters" {
-
-        It "Given -BucketName $BucketName it is succesfully created" {
-            New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
-
-            $BucketExists = foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketExists = Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName
-                if ($BucketExists) {
-                    return $BucketExists
-                }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but bucket does not exist yet. Retrying in 1 second."
-                }
-            }
-            $BucketExists | Should -BeTrue
-        }
-
-        It "Given -BucketName $UnicodeBucketName it is succesfully created" {
-            New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
-
-            $BucketExists = foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketExists = Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                if ($BucketExists) {
-                    return $BucketExists
-                }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but bucket does not exist yet. Retrying in 1 second."
-                }
-            }
-            $BucketExists | Should -BeTrue
-        }
-    }
-
-    Context "Create new bucket with parameter -UrlStyle virtual-hosted" {
-        if ($ProfileName -eq "Minio") { continue }
-
-        It "Given -BucketName $BucketName and -UrlStyle virtual-hosted it is succesfully created" {
-            New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -UrlStyle virtual-hosted
-
-            $BucketExists = foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketExists = Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName  -UrlStyle virtual-hosted
-                if ($BucketExists) {
-                    return $BucketExists
-                }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but bucket does not exist yet. Retrying in 1 second."
-                }
-            }
-            $BucketExists | Should -BeTrue
         }
     }
 }
