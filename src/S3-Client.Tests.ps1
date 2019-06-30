@@ -327,8 +327,33 @@ Describe "Create Bucket" {
     Context "Create new bucket with addressing style" {
         if ($ProfileName -eq "Minio") { continue }
 
-        It "Given -BucketName $BucketName and addressing style virtual-hosted it is succesfully created" {
+        It "Given -BucketName $BucketName and addressing style virtual it is succesfully created" {
             $Config = Get-AwsConfig -ProfileName $ProfileName -AddressingStyle "virtual"
+            $AwsRequest = New-S3Bucket -Config $Config -BucketName $BucketName -DryRun
+
+            $AwsRequest.Uri | Should -Match "$BucketName\."
+
+            New-S3Bucket -Config $Config -BucketName $BucketName
+
+            $BucketExists = foreach ($i in 1..$MAX_WAIT_TIME) {
+                Start-Sleep -Seconds 1
+                $BucketExists = Test-S3Bucket -Config $Config -BucketName $BucketName
+                if ($BucketExists) {
+                    return $BucketExists
+                }
+                if ($i -lt $MAX_WAIT_TIME) {
+                    Write-Warning "Tried $i times but bucket does not exist yet. Retrying in 1 second."
+                }
+            }
+            $BucketExists | Should -BeTrue
+        }
+
+        It "Given -BucketName $BucketName and addressing style path it is succesfully created" {
+            $Config = Get-AwsConfig -ProfileName $ProfileName -AddressingStyle "path"
+            $AwsRequest = New-S3Bucket -Config $Config -BucketName $BucketName -DryRun
+
+            $AwsRequest.Uri | Should -Not -Match "$BucketName\."
+
             New-S3Bucket -Config $Config -BucketName $BucketName
 
             $BucketExists = foreach ($i in 1..$MAX_WAIT_TIME) {
