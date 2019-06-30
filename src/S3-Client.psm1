@@ -340,7 +340,8 @@ function ConvertTo-Punycode {
                 Write-Output $PunycodeBucketName
             }
             else {
-                $BucketNameExists = Test-S3Bucket -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle "path" -Bucket $BucketName -Force
+                $Config.AddressingStyle = "path"
+                $BucketNameExists = Test-S3Bucket -Config $Config -Bucket $BucketName -Force
                 if ($BucketNameExists) {
                     Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
                     Write-Output $BucketName
@@ -687,8 +688,8 @@ function Global:New-AwsSignatureV4 {
     HTTP Request Method
     .PARAMETER EndpointUrl
     Endpoint URL
-    .PARAMETER UrlStyle
-    URL Style
+    .PARAMETER AddressingStyle
+    Addressing Style
     .PARAMETER Uri
     URI (e.g. / or /key)
     .PARAMETER Query
@@ -803,11 +804,11 @@ function Global:Get-AwsRequest {
         $Uri = $Uri -replace '\+', '%2B' -replace '!', '%21' -replace '\*', '%2A' -replace '\(', '%28' -replace '\)', '%29'
         Write-Verbose "Encoded URI: $Uri"
 
-        if ($Config.UrlStyle -match "virtual" -and $BucketName) {
+        if ($Config.AddressingStyle -match "virtual" -and $BucketName) {
             Write-Verbose "Using virtual-hosted style URL"
             $Config.EndpointUrl.Host = $BucketName + '.' + $Config.EndpointUrl.Host
         }
-        elseif ($Config.UrlStyle -eq "auto" -and $Config.EndpointUrl -match "amazonaws.com" -and $BucketName) {
+        elseif ($Config.AddressingStyle -eq "auto" -and $Config.EndpointUrl -match "amazonaws.com" -and $BucketName) {
             Write-Verbose "Using virtual-hosted style URL"
             $Config.EndpointUrl.Host = $BucketName + '.' + $Config.EndpointUrl.Host
         }
@@ -2530,7 +2531,7 @@ function Global:Test-S3Bucket {
         }
 
         if ($Force.IsPresent) {
-            $Config.UrlStyle = "path"
+            $Config.AddressingStyle = "path"
         }
         else {
             $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
