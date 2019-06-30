@@ -50,9 +50,6 @@ services:
 # Install Pester for testing, setup AWS Profiles and deploy minio via docker
 install:
   - ps: $PSVersionTable
-  - ps: Install-Module -Name PowerShellGet -Scope CurrentUser -Force -AllowClobber
-  - ps: Import-Module -Name PowerShellGet -MinimumVersion 1.6 -Force
-  - ps: Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 4.4.4
   - ps: Import-Module -Name Pester -Force
   - ps: Install-Module StorageGRID-Webscale -Scope CurrentUser -Force -SkipPublisherCheck -AllowPrerelease
   - ps: iex ((New-Object Net.WebClient).DownloadString('https://raw.githubusercontent.com/appveyor/secure-file/master/install.ps1'))
