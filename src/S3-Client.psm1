@@ -6837,7 +6837,7 @@ function Global:Enable-S3BucketVersioning {
             Write-Output $AwsRequest
         }
         else {
-            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $Body
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $RequestPayload
 
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
@@ -7026,7 +7026,7 @@ function Global:Suspend-S3BucketVersioning {
             Write-Output $AwsRequest
         }
         else {
-            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $Body
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $RequestPayload
 
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
