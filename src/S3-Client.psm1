@@ -7082,16 +7082,6 @@ Set-Alias -Name Get-S3BucketRegion -Value Get-S3BucketLocation
     Get S3 Bucket Location
     .PARAMETER Server
     StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
-    .PARAMETER SkipCertificateCheck
-    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
-    .PARAMETER Presign
-    Use presigned URL
-    .PARAMETER DryRun
-    Do not execute request, just return request URI and Headers
-    .PARAMETER SignerType
-    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
-    .PARAMETER EndpointUrl
-    Custom S3 Endpoint URL
     .PARAMETER ProfileName
     AWS Profile to use which contains AWS sredentials and settings
     .PARAMETER ProfileLocation
@@ -7102,10 +7092,18 @@ Set-Alias -Name Get-S3BucketRegion -Value Get-S3BucketLocation
     S3 Secret Access Key
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
-    .PARAMETER UrlStyle
-    URL Style (Default: Auto)
-    .PARAMETER UseDualstackEndpoint
-    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
     .PARAMETER BucketName
     Bucket Name
 #>
@@ -7114,62 +7112,65 @@ function Global:Get-S3BucketLocation {
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 7,
+            Mandatory = $False,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
+            ParameterSetName = "config",
             Mandatory = $False,
-            Position = 9,
-            HelpMessage = "Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
+        [parameter(
+            Mandatory = $False,
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
         [parameter(
             Mandatory = $True,
-            Position = 10,
+            Position = 7,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName
     )
@@ -7178,16 +7179,22 @@ function Global:Get-S3BucketLocation {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "GET"
     }
 
     Process {
+        Write-Verbose "Retrieving location for bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        Write-Verbose "Retrieving location for bucket $BucketName"
+        if (!$Config.AccessKey) {
+            Throw "No S3 credentials found"
+        }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
@@ -7196,7 +7203,8 @@ function Global:Get-S3BucketLocation {
         $Query = @{location = "" }
 
         # location requests must use path style, as virtual-host style will fail if the bucket is not in the same region as the request
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -UrlStyle "path"
+        $Config.AddressingStyle = "path"
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -7218,8 +7226,33 @@ function Global:Get-S3BucketLocation {
                     Write-Output $Content.LocationConstraint.InnerText
                 }
             }
+            elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $RetryCount++
+                Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
+                Start-Sleep -Seconds $SleepSeconds
+                Get-S3BucketLocation -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName
+            }
+            elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
+                Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
+            }
+            elseif ($Task.Exception -match "Device not configured") {
+                Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
+            }
+            elseif ($Task.IsFaulted) {
+                Throw $Task.Exception
+            }
+            elseif ($Task.Result) {
+                $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+                if ($Result.Error.Message) {
+                    Throw $Result.Error.Message
+                }
+                else {
+                    Throw $Task.Result.StatusCode
+                }
+            }
             else {
-                # TODO: Error handling
+                Throw "Task failed with status $($Task.Status)"
             }
         }
     }
