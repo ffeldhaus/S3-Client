@@ -9184,11 +9184,6 @@ function Global:Write-S3Object {
             Mandatory = $False,
             Position = 14,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Enable Payload Signing")][String]$PayloadSigning,
-        [parameter(
-            Mandatory = $False,
-            Position = 15,
-            ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Specifies the algorithm to use to when encrypting the object.")][ValidateSet("aws:kms", "AES256")][String]$ServerSideEncryption
     )
 
@@ -9264,7 +9259,7 @@ function Global:Write-S3Object {
 
             $Uri = "/$Key"
 
-            $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -Query $Query -BucketName $BucketName -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers -PayloadSigning $Config.PayloadSigning
+            $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -Query $Query -BucketName $BucketName -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers
 
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
