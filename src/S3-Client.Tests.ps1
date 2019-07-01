@@ -152,6 +152,8 @@ function Cleanup() {
     }
 }
 
+### Profile Tests
+
 Describe "AWS Configuration and Credential Management" {
 
     $ProfileName = "test"
@@ -276,6 +278,8 @@ Describe "AWS Configuration and Credential Management" {
         }
     }
 }
+
+### Bucket Tests
 
 Describe "Create Bucket" {
 
@@ -469,215 +473,6 @@ Describe "Remove Bucket" {
     }
 }
 
-Describe "Upload Object" {
-
-    BeforeAll {
-        $BucketName = $BaseBucketName + "-upload"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-upload"
-
-        Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
-    }
-
-    AfterAll {
-        Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
-    }
-
-    Context "Upload text" {
-        It "Given -BucketName $BucketName -Key $Key -Content `"$Content`" it is succesfully created" {
-            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content
-
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
-            $Key | Should -BeIn $Objects.Key
-
-            Start-Sleep -Seconds 1
-            $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-            $ObjectContent | Should -Be $Content
-
-            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-        }
-
-        It "Given -BucketName $BucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio") {
-            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
-
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
-            $UnicodeKey | Should -BeIn $Objects.Key
-
-            Start-Sleep -Seconds 1
-            $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
-            $ObjectContent | Should -Be $Content
-
-            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
-        }
-    }
-
-    Context "Upload small file" {
-        It "Given file -InFile `"$SmallFile`" it is succesfully uploaded" {
-            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
-            $SmallFile.Name | Should -BeIn $Objects.Key
-            $TempFile = New-TemporaryFile
-            Start-Sleep -Seconds 1
-            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $SmallFile.Name -OutFile $TempFile.FullName
-            $TempFileHash = $TempFile | Get-FileHash
-            $TempFileHash.Hash | Should -Be $SmallFileHash.Hash
-            $TempFile | Remove-Item
-            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $SmallFile.Name
-        }
-    }
-
-    Context "Upload small file with custom key $UnicodeKey" {
-        It "Given file -InFile `"$SmallFile`" and -Key `"$UnicodeKey`" it is succesfully uploaded" -Skip:($ProfileName -match "minio") {
-            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile -Key $UnicodeKey
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
-            $UnicodeKey | Should -BeIn $Objects.Key
-            $TempFile = New-TemporaryFile
-            Start-Sleep -Seconds 1
-            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -OutFile $TempFile.FullName
-            $TempFileHash = $TempFile | Get-FileHash
-            $TempFileHash.Hash | Should -Be $SmallFileHash.Hash
-            $TempFile | Remove-Item
-            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
-        }
-    }
-}
-
-Describe "Multipart Upload of Object" {
-
-    BeforeAll {
-        $BucketName = $BaseBucketName + "-multipart-upload"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-multipart-upload"
-
-        Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
-    }
-
-    AfterAll {
-        Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
-    }
-
-    Context "Upload large file" {
-
-        It "Given file -InFile `"$LargeFile`" it is succesfully uploaded to Bucket $BucketName" {
-            Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $BucketName -InFile $LargeFile
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
-            $LargeFile.Name | Should -BeIn $Objects.Key
-            $TempFile = New-TemporaryFile
-            Start-Sleep -Seconds 1
-            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $LargeFile.Name -OutFile $TempFile.FullName
-            $TempFileHash = $TempFile | Get-FileHash
-            $TempFileHash.Hash | Should -Be $LargeFileHash.Hash
-            $TempFile | Remove-Item
-            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $LargeFile.Name
-        }
-
-        It "Given file -InFile `"$LargeFile`" it is succesfully uploaded to Bucket $UnicodeBucketName" {
-            Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $UnicodeBucketName -InFile $LargeFile
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            $LargeFile.Name | Should -BeIn $Objects.Key
-            $TempFile = New-TemporaryFile
-            Start-Sleep -Seconds 1
-            Read-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $LargeFile.Name -OutFile $TempFile.FullName
-            $TempFileHash = $TempFile | Get-FileHash
-            $TempFileHash.Hash | Should -Be $LargeFileHash.Hash
-            $TempFile | Remove-Item
-            Remove-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $LargeFile.Name
-        }
-    }
-}
-
-Describe "Copy Object" {
-
-    BeforeAll {
-        $BucketName = $BaseBucketName + "-copy-object"
-
-        Setup -BucketName $BucketName -Key $Key
-    }
-
-    AfterAll {
-        Cleanup -BucketName $BucketName
-    }
-
-    Context "Copy object to itself" {
-        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
-            $OriginalObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-
-            Start-Sleep -Seconds 2
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $ObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-                if ($OriginalObjectMetadata.LastModified -lt $ObjectMetadata.LastModified) {
-                    break
-                }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but object is not copied to itself yet. Trying again in 1 second."
-                }
-            }
-            $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
-        }
-
-        It "Given -BucketName $BucketName and -Key $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
-            $OriginalObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $ObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-                if ($OriginalObjectMetadata.LastModified -lt $ObjectMetadata.LastModified) {
-                    break
-                }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but object is not copied to itself yet. Trying again in 1 second."
-                }
-            }
-            $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
-        }
-
-        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key and additional metadata it is copied to itself" -Skip:($ProfileName -match "minio") {
-            $Metadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty Metadata
-            $Metadata["copytest"]="test"
-
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $Metadata
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $ObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-                if ($OriginalObjectMetadata.LastModified -lt $ObjectMetadata.LastModified) {
-                    break
-                }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but object is not copied to itself yet. Trying again in 1 second."
-                }
-            }
-            $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
-            $ObjectMetadata.Metadata.copytest | Should -Be "test"
-        }
-    }
-
-    Context "Copy object to a new object" {
-        It "Given -BucketName $BucketName and -Key $UnicodeKey and -SourceBucket $BucketName and -SourceKey $Key it is copied to a new object" -Skip:($ProfileName -match "minio") {
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $ObjectExists = Test-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-                if ($ObjectExists) {
-                    break
-                }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but object does not exist yet. Trying again in 1 second."
-                }
-            }
-            $ObjectExists | Should -BeTrue
-        }
-    }
-}
-
 Describe "S3 Bucket Encryption" {
 
     BeforeAll {
@@ -793,54 +588,6 @@ Describe "S3 Bucket Tagging" {
             }
             $BucketTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
             $BucketTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
-        }
-    }
-}
-
-Describe "S3 Object Tagging" {
-
-    BeforeAll {
-        $BucketName = $BaseBucketName + "-object-tagging"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-object-tagging"
-
-        Setup -BucketName $BucketName -Key $Key
-        Setup -BucketName $UnicodeBucketName -Key $UnicodeKey
-    }
-
-    AfterAll {
-        Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
-    }
-
-    Context "Set Object tagging" {
-        It "Given -BucketName $BucketName -Key $Key and -Tags $Tags tags should be added to bucket" -Skip:($ProfileName -match "minio") {
-            Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Tags $Tags
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-                if ($ObjectTagging) {
-                    break
-                }
-                Write-Warning "Tried $i times but object is not yet tagged. Retrying in 1 second."
-            }
-
-            $ObjectTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $ObjectTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
-        }
-
-        It "Given -BucketName $UnicodeBucketName -Key $UnicodeKey and -Tags $Tags tags should be added to bucket" -Skip:($ProfileName -match "minio") {
-            Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey -Tags $Tags
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
-                if ($ObjectTagging) {
-                    break
-                }
-                Write-Warning "Tried $i times but object is not yet tagged. Retrying in 1 second."
-            }
-
-            $ObjectTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $ObjectTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
     }
 }
@@ -1258,6 +1005,265 @@ Describe "S3 Bucket Replication Configuration" {
             }
 
             $DestinationObject.Key | Should -Be $UnicodeKey
+        }
+    }
+}
+
+### Object Tests
+
+Describe "Upload Object" {
+
+    BeforeAll {
+        $BucketName = $BaseBucketName + "-upload"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-upload"
+
+        Setup -BucketName $BucketName
+        Setup -BucketName $UnicodeBucketName
+    }
+
+    AfterAll {
+        Cleanup -BucketName $BucketName
+        Cleanup -BucketName $UnicodeBucketName
+    }
+
+    Context "Upload text" {
+        It "Given -BucketName $BucketName -Key $Key -Content `"$Content`" it is succesfully created" {
+            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Content $Content
+
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+            $Key | Should -BeIn $Objects.Key
+
+            Start-Sleep -Seconds 1
+            $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+            $ObjectContent | Should -Be $Content
+
+            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+        }
+
+        It "Given -BucketName $BucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio") {
+            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
+
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+            $UnicodeKey | Should -BeIn $Objects.Key
+
+            Start-Sleep -Seconds 1
+            $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
+            $ObjectContent | Should -Be $Content
+
+            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
+        }
+    }
+
+    Context "Upload small file" {
+        It "Given file -InFile `"$SmallFile`" it is succesfully uploaded" {
+            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+            $SmallFile.Name | Should -BeIn $Objects.Key
+            $TempFile = New-TemporaryFile
+            Start-Sleep -Seconds 1
+            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $SmallFile.Name -OutFile $TempFile.FullName
+            $TempFileHash = $TempFile | Get-FileHash
+            $TempFileHash.Hash | Should -Be $SmallFileHash.Hash
+            $TempFile | Remove-Item
+            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $SmallFile.Name
+        }
+    }
+
+    Context "Upload small file with custom key $UnicodeKey" {
+        It "Given file -InFile `"$SmallFile`" and -Key `"$UnicodeKey`" it is succesfully uploaded" -Skip:($ProfileName -match "minio") {
+            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile -Key $UnicodeKey
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+            $UnicodeKey | Should -BeIn $Objects.Key
+            $TempFile = New-TemporaryFile
+            Start-Sleep -Seconds 1
+            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -OutFile $TempFile.FullName
+            $TempFileHash = $TempFile | Get-FileHash
+            $TempFileHash.Hash | Should -Be $SmallFileHash.Hash
+            $TempFile | Remove-Item
+            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
+        }
+    }
+}
+
+Describe "Multipart Upload of Object" {
+
+    BeforeAll {
+        $BucketName = $BaseBucketName + "-multipart-upload"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-multipart-upload"
+
+        Setup -BucketName $BucketName
+        Setup -BucketName $UnicodeBucketName
+    }
+
+    AfterAll {
+        Cleanup -BucketName $BucketName
+        Cleanup -BucketName $UnicodeBucketName
+    }
+
+    Context "Upload large file" {
+
+        It "Given file -InFile `"$LargeFile`" it is succesfully uploaded to Bucket $BucketName" {
+            Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $BucketName -InFile $LargeFile
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+            $LargeFile.Name | Should -BeIn $Objects.Key
+            $TempFile = New-TemporaryFile
+            Start-Sleep -Seconds 1
+            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $LargeFile.Name -OutFile $TempFile.FullName
+            $TempFileHash = $TempFile | Get-FileHash
+            $TempFileHash.Hash | Should -Be $LargeFileHash.Hash
+            $TempFile | Remove-Item
+            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $LargeFile.Name
+        }
+
+        It "Given file -InFile `"$LargeFile`" it is succesfully uploaded to Bucket $UnicodeBucketName" {
+            Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $UnicodeBucketName -InFile $LargeFile
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            $LargeFile.Name | Should -BeIn $Objects.Key
+            $TempFile = New-TemporaryFile
+            Start-Sleep -Seconds 1
+            Read-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $LargeFile.Name -OutFile $TempFile.FullName
+            $TempFileHash = $TempFile | Get-FileHash
+            $TempFileHash.Hash | Should -Be $LargeFileHash.Hash
+            $TempFile | Remove-Item
+            Remove-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $LargeFile.Name
+        }
+    }
+}
+
+Describe "Copy Object" {
+
+    BeforeAll {
+        $BucketName = $BaseBucketName + "-copy-object"
+
+        Setup -BucketName $BucketName -Key $Key
+    }
+
+    AfterAll {
+        Cleanup -BucketName $BucketName
+    }
+
+    Context "Copy object to itself" {
+        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
+            $OriginalObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+
+            Start-Sleep -Seconds 2
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key
+
+            foreach ($i in 1..$MAX_WAIT_TIME) {
+                Start-Sleep -Seconds 1
+                $ObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+                if ($OriginalObjectMetadata.LastModified -lt $ObjectMetadata.LastModified) {
+                    break
+                }
+                if ($i -lt $MAX_WAIT_TIME) {
+                    Write-Warning "Tried $i times but object is not copied to itself yet. Trying again in 1 second."
+                }
+            }
+            $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
+        }
+
+        It "Given -BucketName $BucketName and -Key $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
+            $OriginalObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+
+            foreach ($i in 1..$MAX_WAIT_TIME) {
+                Start-Sleep -Seconds 1
+                $ObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+                if ($OriginalObjectMetadata.LastModified -lt $ObjectMetadata.LastModified) {
+                    break
+                }
+                if ($i -lt $MAX_WAIT_TIME) {
+                    Write-Warning "Tried $i times but object is not copied to itself yet. Trying again in 1 second."
+                }
+            }
+            $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
+        }
+
+        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key and additional metadata it is copied to itself" -Skip:($ProfileName -match "minio") {
+            $Metadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty Metadata
+            $Metadata["copytest"]="test"
+
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $Metadata
+
+            foreach ($i in 1..$MAX_WAIT_TIME) {
+                Start-Sleep -Seconds 1
+                $ObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+                if ($OriginalObjectMetadata.LastModified -lt $ObjectMetadata.LastModified) {
+                    break
+                }
+                if ($i -lt $MAX_WAIT_TIME) {
+                    Write-Warning "Tried $i times but object is not copied to itself yet. Trying again in 1 second."
+                }
+            }
+            $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
+            $ObjectMetadata.Metadata.copytest | Should -Be "test"
+        }
+    }
+
+    Context "Copy object to a new object" {
+        It "Given -BucketName $BucketName and -Key $UnicodeKey and -SourceBucket $BucketName and -SourceKey $Key it is copied to a new object" -Skip:($ProfileName -match "minio") {
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key
+
+            foreach ($i in 1..$MAX_WAIT_TIME) {
+                Start-Sleep -Seconds 1
+                $ObjectExists = Test-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+                if ($ObjectExists) {
+                    break
+                }
+                if ($i -lt $MAX_WAIT_TIME) {
+                    Write-Warning "Tried $i times but object does not exist yet. Trying again in 1 second."
+                }
+            }
+            $ObjectExists | Should -BeTrue
+        }
+    }
+}
+
+Describe "S3 Object Tagging" {
+
+    BeforeAll {
+        $BucketName = $BaseBucketName + "-object-tagging"
+        $UnicodeBucketName = $BaseUnicodeBucketName + "-object-tagging"
+
+        Setup -BucketName $BucketName -Key $Key
+        Setup -BucketName $UnicodeBucketName -Key $UnicodeKey
+    }
+
+    AfterAll {
+        Cleanup -BucketName $BucketName
+        Cleanup -BucketName $UnicodeBucketName
+    }
+
+    Context "Set Object tagging" {
+        It "Given -BucketName $BucketName -Key $Key and -Tags $Tags tags should be added to bucket" -Skip:($ProfileName -match "minio") {
+            Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Tags $Tags
+
+            foreach ($i in 1..$MAX_WAIT_TIME) {
+                $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+                if ($ObjectTagging) {
+                    break
+                }
+                Write-Warning "Tried $i times but object is not yet tagged. Retrying in 1 second."
+            }
+
+            $ObjectTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $ObjectTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
+        }
+
+        It "Given -BucketName $UnicodeBucketName -Key $UnicodeKey and -Tags $Tags tags should be added to bucket" -Skip:($ProfileName -match "minio") {
+            Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey -Tags $Tags
+
+            foreach ($i in 1..$MAX_WAIT_TIME) {
+                $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
+                if ($ObjectTagging) {
+                    break
+                }
+                Write-Warning "Tried $i times but object is not yet tagged. Retrying in 1 second."
+            }
+
+            $ObjectTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
+            $ObjectTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
     }
 }
