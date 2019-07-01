@@ -8074,109 +8074,159 @@ function Global:Get-S3ObjectVersions {
     Get S3 Presigned URL
     .DESCRIPTION
     Get S3 Presigned URL
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER Key
+    Object Key
+    .PARAMETER VersionId
+    Object version ID
+    .PARAMETER Metadata
+    Metadata
+    .PARAMETER Expires
+    Expiration Date of presigned URL (default 60 minutes from now)
+    .PARAMETER Method
+    HTTP Request Method (Default GET)
+    .PARAMETER ContentMd5
+    Content MD5
+    .PARAMETER ContentType
+    Content Type
+    .PARAMETER ContentLength
+    Content Length
 #>
 function Global:Get-S3PresignedUrl {
     [CmdletBinding(DefaultParameterSetName = "none")]
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 6,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
             Mandatory = $False,
-            Position = 5,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
             Mandatory = $False,
-            Position = 6,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
             Mandatory = $False,
-            Position = 5,
-            ValueFromPipeline = $True,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
+            ParameterSetName = "config",
             Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
+        [parameter(
+            Mandatory = $False,
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
+        [parameter(
+            Mandatory = $True,
             Position = 7,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Region to be used")][String]$Region,
+            HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
         [parameter(
             Mandatory = $False,
             Position = 8,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Region to be used")][String]$Region,
         [parameter(
             Mandatory = $True,
             Position = 9,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Bucket Name")][Alias("Name", "Bucket")][String]$BucketName,
-        [parameter(
-            Mandatory = $True,
-            Position = 10,
-            ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object key")][Alias("Object")][String]$Key,
         [parameter(
             Mandatory = $False,
-            Position = 11,
+            Position = 10,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object version ID")][String]$VersionId,
         [parameter(
             Mandatory = $False,
-            Position = 12,
+            Position = 11,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Metadata")][Hashtable]$Metadata,
         [parameter(
             Mandatory = $False,
-            Position = 13,
+            Position = 12,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Expiration Date of presigned URL (default 60 minutes from now)")][System.Datetime]$Expires = (Get-Date).AddHours(1),
         [parameter(
             Mandatory = $False,
-            Position = 14,
-            HelpMessage = "HTTP Request Method")][ValidateSet("OPTIONS", "GET", "HEAD", "PUT", "DELETE", "TRACE", "CONNECT")][String]$Method = "GET",
+            Position = 13,
+            HelpMessage = "HTTP Request Method (Default GET)")][ValidateSet("OPTIONS", "GET", "HEAD", "PUT", "DELETE", "TRACE", "CONNECT")][String]$Method = "GET",
         [parameter(
             Mandatory = $False,
-            Position = 15,
+            Position = 14,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Content MD5")][String]$ContentMd5,
         [parameter(
             Mandatory = $False,
-            Position = 16,
+            Position = 15,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Content Type")][String]$ContentType,
         [parameter(
             Mandatory = $False,
-            Position = 17,
+            Position = 16,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Content Length")][String]$ContentLength
     )
@@ -8185,12 +8235,20 @@ function Global:Get-S3PresignedUrl {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
     }
 
     Process {
+        Write-Verbose "Get presigned URL"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Config.AccessKey) {
+            Throw "No S3 credentials found"
         }
 
         if (!$Region) {
@@ -8228,7 +8286,7 @@ function Global:Get-S3PresignedUrl {
             $Headers["Content-Length"] = $ContentLength
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Headers $Headers -ContentType $ContentType -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region -Expires $Expires
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query  -ContentType $ContentType -Expires $Expires
 
         Write-Output $AwsRequest.Uri.ToString()
     }
