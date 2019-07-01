@@ -6098,10 +6098,7 @@ function Global:Get-S3BucketTagging {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message -match "The specified bucket does not have a bucket policy.") {
-                    Write-Warning "The specified bucket does not have a bucket policy."
-                }
-                elseif ($Result.Error.Message) {
+                if ($Result.Error.Message) {
                     Throw $Result.Error.Message
                 }
                 else {
@@ -6306,10 +6303,7 @@ function Global:Set-S3BucketTagging {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message -match "The specified bucket does not have a bucket policy.") {
-                    Write-Warning "The specified bucket does not have a bucket policy."
-                }
-                elseif ($Result.Error.Message) {
+                if ($Result.Error.Message) {
                     Throw $Result.Error.Message
                 }
                 else {
@@ -6499,10 +6493,7 @@ function Global:Remove-S3BucketTagging {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message -match "The specified bucket does not have a bucket policy.") {
-                    Write-Warning "The specified bucket does not have a bucket policy."
-                }
-                elseif ($Result.Error.Message) {
+                if ($Result.Error.Message) {
                     Throw $Result.Error.Message
                 }
                 else {
@@ -6877,10 +6868,7 @@ function Global:Enable-S3BucketVersioning {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message -match "The specified bucket does not have a bucket policy.") {
-                    Write-Warning "The specified bucket does not have a bucket policy."
-                }
-                elseif ($Result.Error.Message) {
+                if ($Result.Error.Message) {
                     Throw $Result.Error.Message
                 }
                 else {
