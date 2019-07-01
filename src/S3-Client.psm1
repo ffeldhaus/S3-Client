@@ -7057,10 +7057,7 @@ function Global:Suspend-S3BucketVersioning {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message -match "The specified bucket does not have a bucket policy.") {
-                    Write-Warning "The specified bucket does not have a bucket policy."
-                }
-                elseif ($Result.Error.Message) {
+                if ($Result.Error.Message) {
                     Throw $Result.Error.Message
                 }
                 else {
