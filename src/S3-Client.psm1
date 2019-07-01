@@ -9056,116 +9056,103 @@ function Global:Read-S3Object {
     Write S3 Object
     .DESCRIPTION
     Write S3 Object
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER Key
+    Object Key
 #>
 function Global:Write-S3Object {
     [CmdletBinding(DefaultParameterSetName = "Profile")]
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+            HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+            ParameterSetName = "keys",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "S3 Access Key")][String]$AccessKey,
+        [parameter(
+            ParameterSetName = "keys",
+            Mandatory = $False,
+            Position = 1,
+            HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+            ParameterSetName = "account",
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+            ParameterSetName = "config",
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
         [parameter(
             Mandatory = $False,
             Position = 2,
-            HelpMessage = "Use presigned URL")][Switch]$Presign,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
         [parameter(
             Mandatory = $False,
             Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
             Mandatory = $False,
             Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
         [parameter(
             Mandatory = $False,
             Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
         [parameter(
-            ParameterSetName = "ProfileAndFile",
             Mandatory = $False,
             Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")]
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
         [parameter(
-            ParameterSetName = "ProfileAndContent",
-            Mandatory = $False,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")]
-        [parameter(
-            ParameterSetName = "Profile",
-            Mandatory = $False,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "ProfileAndFile",
-            Mandatory = $False,
-            Position = 7,
-            HelpMessage = "AWS Profile location if different than .aws/credentials")]
-        [parameter(
-            ParameterSetName = "ProfileAndContent",
-            Mandatory = $False,
-            Position = 7,
-            HelpMessage = "AWS Profile location if different than .aws/credentials")]
-        [parameter(
-            ParameterSetName = "Profile",
-            Mandatory = $False,
-            Position = 7,
-            HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
-        [parameter(
-            ParameterSetName = "KeyAndFile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "S3 Access Key")]
-        [parameter(
-            ParameterSetName = "KeyAndContent",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "S3 Access Key")]
-        [parameter(
-            ParameterSetName = "Key",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "S3 Access Key")][String]$AccessKey,
-        [parameter(
-            ParameterSetName = "KeyAndFile",
             Mandatory = $True,
             Position = 7,
-            HelpMessage = "S3 Secret Access Key")]
-        [parameter(
-            ParameterSetName = "KeyAndContent",
-            Mandatory = $True,
-            Position = 7,
-            HelpMessage = "S3 Secret Access Key")]
-        [parameter(
-            ParameterSetName = "Key",
-            Mandatory = $True,
-            Position = 7,
-            HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
-        [parameter(
-            ParameterSetName = "AccountAndFile",
-            Mandatory = $True,
-            Position = 6,
-            ValueFromPipeline = $True,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "StorageGRID account ID to execute this command against")]
-        [parameter(
-            ParameterSetName = "AccountAndContent",
-            Mandatory = $True,
-            Position = 6,
-            ValueFromPipeline = $True,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "StorageGRID account ID to execute this command against")]
-        [parameter(
-            ParameterSetName = "Account",
-            Mandatory = $True,
-            Position = 6,
-            ValueFromPipeline = $True,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+            HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
         [parameter(
             Mandatory = $False,
             Position = 8,
@@ -9174,124 +9161,33 @@ function Global:Write-S3Object {
         [parameter(
             Mandatory = $False,
             Position = 9,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
-        [parameter(
-            Mandatory = $True,
-            Position = 10,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Bucket Name")][Alias("Name", "Bucket")][String]$BucketName,
-        [parameter(
-            Mandatory = $False,
-            Position = 11,
-            ParameterSetName = "ProfileAndFile",
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key. If not provided, filename will be used")]
-        [parameter(
-            Mandatory = $False,
-            Position = 11,
-            ParameterSetName = "KeyAndFile",
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key. If not provided, filename will be used")]
-        [parameter(
-            Mandatory = $False,
-            Position = 11,
-            ParameterSetName = "AccountAndFile",
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key. If not provided, filename will be used")]
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
-            ParameterSetName = "ProfileAndContent",
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key. If not provided, filename will be used")]
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
-            ParameterSetName = "KeyAndContent",
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key. If not provided, filename will be used")]
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
-            ParameterSetName = "AccountAndContent",
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key. If not provided, filename will be used")]
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
-            ParameterSetName = "Profile",
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key. If not provided, filename will be used")]
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
-            ParameterSetName = "Key",
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key. If not provided, filename will be used")]
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
-            ParameterSetName = "Account",
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object key. If not provided, filename will be used")][Alias("Object")][String]$Key,
         [parameter(
-            Mandatory = $True,
-            Position = 12,
-            ParameterSetName = "ProfileAndFile",
-            HelpMessage = "Path where object should be stored")]
-        [parameter(
-            Mandatory = $True,
-            Position = 12,
-            ParameterSetName = "KeyAndFile",
-            HelpMessage = "Path where object should be stored")]
-        [parameter(
-            Mandatory = $True,
-            Position = 12,
-            ParameterSetName = "AccountAndFile",
+            Mandatory = $False,
+            Position = 10,
             HelpMessage = "Path where object should be stored")][Alias("Path", "File")][System.IO.FileInfo]$InFile,
         [parameter(
             Mandatory = $False,
-            Position = 13,
-            ParameterSetName = "ProfileAndFile",
-            HelpMessage = "Content type")]
-        [parameter(
-            Mandatory = $False,
-            Position = 13,
-            ParameterSetName = "KeyAndFile",
-            HelpMessage = "Content type")]
-        [parameter(
-            Mandatory = $False,
-            Position = 13,
-            ParameterSetName = "AccountAndFile",
+            Position = 11,
             HelpMessage = "Content type")][String]$ContentType,
         [parameter(
-            Mandatory = $True,
-            Position = 14,
-            ParameterSetName = "ProfileAndContent",
-            HelpMessage = "Content of object")]
-        [parameter(
-            Mandatory = $True,
-            Position = 14,
-            ParameterSetName = "KeyAndContent",
-            HelpMessage = "Content of object")]
-        [parameter(
-            Mandatory = $True,
-            Position = 14,
-            ParameterSetName = "AccountAndContent",
+            Mandatory = $False,
+            Position = 12,
             HelpMessage = "Content of object")][Alias("InputObject")][String]$Content,
         [parameter(
             Mandatory = $False,
-            Position = 15,
+            Position = 13,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Metadata")][Hashtable]$Metadata,
         [parameter(
             Mandatory = $False,
-            Position = 16,
+            Position = 14,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Enable Payload Signing")][String]$PayloadSigning,
         [parameter(
             Mandatory = $False,
-            Position = 17,
+            Position = 15,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Specifies the algorithm to use to when encrypting the object.")][ValidateSet("aws:kms", "AES256")][String]$ServerSideEncryption
     )
@@ -9300,13 +9196,21 @@ function Global:Write-S3Object {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "PUT"
     }
 
     Process {
+        Write-Verbose "Write object data for key $Key in bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Config.AccessKey) {
+            Throw "No S3 credentials found"
         }
 
         if (!$Region) {
@@ -9360,7 +9264,7 @@ function Global:Write-S3Object {
 
             $Uri = "/$Key"
 
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers -PayloadSigning $Config.PayloadSigning
+            $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -Query $Query -BucketName $BucketName -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers -PayloadSigning $Config.PayloadSigning
 
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
