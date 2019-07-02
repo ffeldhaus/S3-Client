@@ -4675,7 +4675,10 @@ function Global:Get-S3BucketReplicationConfiguration {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message) {
+                if ($Result.Error.Message -eq "The replication configuration was not found") {
+                    # do nothing
+                }
+                elseif ($Result.Error.Message) {
                     Throw $Result.Error.Message
                 }
                 else {
@@ -4836,12 +4839,12 @@ function Global:Add-S3BucketReplicationConfigurationRule {
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object key name prefix that identifies one or more objects to which the rule applies. Maximum prefix length is 1,024 characters. Prefixes can't overlap.")][ValidateLength(1, 255)][String]$Prefix,
         [parameter(
-            Mandatory = $True,
+            Mandatory = $False,
             Position = 13,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "URN or ARN of the bucket where you want store replicas of the object identified by the rule (for AWS it is arn:aws:s3:::<destination-bucket> for StorageGRID it is urn:sgws:s3:::<destination-bucket> ).")][Alias("DestinationBucketArn")][System.UriBuilder]$DestinationBucketUrn,
         [parameter(
-            Mandatory = $True,
+            Mandatory = $False,
             Position = 14,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Destination bucket name where the objects should be replicated to. Can only be used if the Destination Bucket is in the same Object Store as the Bucket to replicate.")][Alias("DestinationBucket")][String]$DestinationBucketName,
@@ -4886,6 +4889,9 @@ function Global:Add-S3BucketReplicationConfigurationRule {
         if (!$Region) {
             $Region = $Config.Region
         }
+
+        # AWS requires that this request has Content-MD5 sum, therefore enforcing PayloadSigning
+        $Config.PayloadSigning = $True
 
         $Query = @{replication = "" }
 
@@ -4951,6 +4957,8 @@ function Global:Add-S3BucketReplicationConfigurationRule {
             $Body += "</Rule>"
         }
         $Body += "</ReplicationConfiguration>"
+
+        Write-Verbose "Body:`n$Body"
 
         $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query -RequestPayload $Body
 
