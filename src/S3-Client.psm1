@@ -1077,12 +1077,12 @@ function Global:Invoke-AwsRequest {
             Throw "Content-MD5 header specified but empty"
         }
 
-        if ($Headers["Content-Type"]) {
-            $Request.Content.Headers.ContentType = $Headers["Content-Type"]
-            $Headers.Remove("Content-Type")
+        if ($Headers["content-type"]) {
+            $Request.Content.Headers.ContentType = $Headers["content-type"]
+            $Headers.Remove("content-type")
         }
-        elseif ($Headers["Content-Type"] -ne $null) {
-            Throw "Content-Type header specified but empty"
+        elseif ($Headers["content-type"] -ne $null) {
+            Throw "content-type header specified but empty"
         }
 
         foreach ($HeaderKey in $Headers.Keys) {
@@ -8320,7 +8320,7 @@ function Global:Get-S3PresignedUrl {
             $Headers["Content-MD5"] = $ContentMd5
         }
         if ($ContentType) {
-            $Headers["Content-Type"] = $ContentType
+            $Headers["content-type"] = $ContentType
         }
         if ($ContentLength) {
             $Headers["Content-Length"] = $ContentLength
@@ -8957,9 +8957,15 @@ function Global:Read-S3Object {
 
                         $GetRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $Uri)
 
+                        Write-Verbose "Adding headers"
                         foreach ($HeaderKey in $Headers.Keys) {
                             # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
-                            $null = $GetRequest.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
+                            if ($HeaderKey -eq "Authorization") {
+                                $null = $Request.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
+                            }
+                            else {
+                                $null = $Request.Headers.Add($HeaderKey, $Headers[$HeaderKey])
+                            }
                         }
 
                         $StreamLength = $Stream.Length
@@ -9279,16 +9285,17 @@ function Global:Write-S3Object {
             $Headers = @{ }
 
             if (!$InFile -and $Content -and !$ContentType) {
-                $Headers["Content-Type"] = "text/plain"
+                $Headers["content-type"] = "text/plain"
             }
             elseif ($InFile -and !$ContentType) {
-                $Headers["Content-Type"] = $MIME_TYPES[$InFile.Extension]
+                $Headers["content-type"] = $MIME_TYPES[$InFile.Extension]
             }
             elseif ($ContentType) {
-                $Headers["Content-Type"] = $ContentType
+                $Headers["content-type"] = $ContentType
             }
-            else {
-                $Headers["Content-Type"] = "application/octet-stream"
+            
+            if (!$Headers["content-type"]) {
+                $Headers["content-type"] = "application/octet-stream"
             }
 
             if ($Metadata) {
@@ -9386,12 +9393,6 @@ function Global:Write-S3Object {
                         Write-Verbose "Creating PUT request"
                         $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put, $AwsRequest.Uri)
 
-                        Write-Verbose "Adding headers"
-                        foreach ($Key in $AwsRequest.Headers.Keys) {
-                            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
-                            $null = $PutRequest.Headers.TryAddWithoutValidation($Key, $AwsRequest.Headers[$Key])
-                        }
-
                         $StreamLength = $Stream.Length
                         $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
                         $StreamContent.Headers.ContentLength = $Stream.Length
@@ -9402,6 +9403,34 @@ function Global:Write-S3Object {
                             $StreamContent.Headers.ContentMd5 = $AwsRequest.Md5
                         }
                         $PutRequest.Content = $StreamContent
+
+                        Write-Verbose "Adding headers"
+
+                        if ($AwsRequest.Headers["Content-MD5"]) {
+                            $PutRequest.Content.Headers.ContentMD5 = [Convert]::FromBase64String($AwsRequest.Headers["Content-MD5"])
+                            $AwsRequest.Headers.Remove("Content-MD5")
+                        }
+                        elseif ($AwsRequest.Headers["Content-MD5"] -ne $null) {
+                            Throw "Content-MD5 header specified but empty"
+                        }
+                
+                        if ($AwsRequest.Headers["content-type"]) {
+                            $PutRequest.Content.Headers.ContentType = $AwsRequest.Headers["content-type"]
+                            $AwsRequest.Headers.Remove("content-type")
+                        }
+                        elseif ($AwsRequest.Headers["content-type"] -ne $null) {
+                            Throw "content-type header specified but empty"
+                        }
+
+                        foreach ($HeaderKey in $AwsRequest.Headers.Keys) {
+                            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+                            if ($HeaderKey -eq "Authorization") {
+                                $null = $PutRequest.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
+                            }
+                            else {
+                                $null = $PutRequest.Headers.Add($HeaderKey, $Headers[$HeaderKey])
+                            }
+                        }
 
                         Write-Verbose "PUT $($AwsRequest.Uri) with $($Stream.Length)-byte payload"
 
