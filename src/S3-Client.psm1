@@ -1057,6 +1057,32 @@ function Global:Invoke-AwsRequest {
 
         $Request = [System.Net.Http.HttpRequestMessage]::new($Method, $Uri)
 
+        if ($InStream) {
+            $StreamContent = [System.Net.Http.StreamContent]::new($InStream)
+            $StreamContent.Headers.ContentLength = $ContentLength
+            $Request.Content = $StreamContent
+        }
+        else {
+            $StringContent = [System.Net.Http.StringContent]::new($Body)
+            $Request.Content = $StringContent
+        }
+
+        if ($Headers["Content-MD5"]) {
+            $Request.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
+            $Headers.Remove("Content-MD5")
+        }
+        elseif ($Headers["Content-MD5"] -ne $null) {
+            Throw "Content-MD5 header specified but empty"
+        }
+
+        if ($Headers["Content-Type"]) {
+            $Request.Content.Headers.ContentType = $Headers["Content-Type"]
+            $Headers.Remove("Content-Type")
+        }
+        elseif ($Headers["Content-Type"] -ne $null) {
+            Throw "Content-Type header specified but empty"
+        }
+
         foreach ($HeaderKey in $Headers.Keys) {
             # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
             if ($HeaderKey -eq "Authorization") {
@@ -1065,16 +1091,6 @@ function Global:Invoke-AwsRequest {
             else {
                 $null = $Request.Headers.Add($HeaderKey, $Headers[$HeaderKey])
             }
-        }
-
-        if ($InStream) {
-            $StreamContent = [System.Net.Http.StreamContent]::new($InStream)
-            $StreamContent.Headers.ContentLength = $ContentLength
-            $Request.Content = $StreamContent
-        }
-        elseif ($Body) {
-            $StringContent = [System.Net.Http.StringContent]::new($Body)
-            $Request.Content = $StringContent
         }
 
         try {
@@ -9216,8 +9232,8 @@ function Global:Write-S3Object {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         if ($InFile -and !$InFile.Exists) {
@@ -9234,12 +9250,12 @@ function Global:Write-S3Object {
         # if the file size is larger than the multipart threshold, then a multipart upload should be done
         if (!$Content -and $Config.MultipartThreshold -and $InFile.Length -ge $Config.MultipartThreshold) {
             Write-Verbose "Using multipart upload as file is larger than multipart threshold of $($Config.MultipartThreshold)"
-            Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+            Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
         # if the file size is larger than 5GB multipart upload must be used as PUT Object is only allowed up to 5GB files
         elseif ($InFile.Length -gt 5GB) {
             Write-Warning "Using multipart upload as PUT uploads are only allowed for files smaller than 5GB and file is larger than 5GB."
-            Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+            Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
         else {
             $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -9282,9 +9298,47 @@ function Global:Write-S3Object {
             else {
                 try {
                     if (!$InFile -or $InFile.Length -eq 0) {
-                        $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
-                        $Etag = ($Result.Headers['ETag'] | Select-Object -First 1) -replace '"', ''
-                        Write-Output ([PSCustomObject]@{ETag = $Etag })
+                        $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $Content
+                        $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                        return $Task
+
+                        if ($Task.Result.IsSuccessStatusCode) {
+                            $Etag = ($Task.Result.Headers['ETag'] | Select-Object -First 1) -replace '"', ''
+                            Write-Output ([PSCustomObject]@{ETag = $Etag })
+                        }
+                        elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
+                            $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                            $RetryCount++
+                            Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
+                            Start-Sleep -Seconds $SleepSeconds
+                            Write-S3Object -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName -Key $Key -Content $Content
+                        }
+                        elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
+                            Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
+                        }
+                        elseif ($Task.Exception -match "Device not configured") {
+                            Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
+                        }
+                        elseif ($Task.IsFaulted) {
+                            Throw $Task.Exception
+                        }
+                        elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
+                            Write-Warning "Request was redirected as bucket does not belong to region $($Config.Region). Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                            Write-S3Object -Config $Config -Presign:$Presign -BucketName $BucketName -Region $($RedirectedRegion[0]) -Key $Key -Content $Content
+                        }
+                        elseif ($Task.Result) {
+                            $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+                            if ($Result.Error.Message) {
+                                Throw $Result.Error.Message
+                            }
+                            else {
+                                Throw $Task.Result.StatusCode
+                            }
+                        }
+                        else {
+                            Throw "Task failed with status $($Task.Status)"
+                        }
+                        return
                     }
                     else {
                         $StartTime = Get-Date
@@ -9398,7 +9452,6 @@ function Global:Write-S3Object {
                             if ($PutRequest) { $PutRequest.Dispose() }
                             if ($HttpClient) { $HttpClient.Dispose() }
                             if ($StreamContent) { $StreamContent.Dispose() }
-                            if ($Stream) { $Stream.Dispose() }
                         }
 
                         Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4)) MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
@@ -9408,7 +9461,7 @@ function Global:Write-S3Object {
                     if ($_.Exception.Response) {
                         $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                         if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
-                            Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                            Write-Warning "Request was redirected as bucket does not belong to region $($Config.Region). Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
                             if ($InFile) {
                                 Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
                             }
@@ -9425,6 +9478,8 @@ function Global:Write-S3Object {
                     }
                 }
             }
+
+            if ($Stream) { $Stream.Dispose() }
         }
     }
 }
