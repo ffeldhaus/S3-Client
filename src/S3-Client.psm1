@@ -754,26 +754,22 @@ function Global:Get-AwsRequest {
         [parameter(
             Mandatory = $False,
             Position = 7,
-            HelpMessage = "Content type")][String]$ContentType,
-        [parameter(
-            Mandatory = $False,
-            Position = 8,
             HelpMessage = "Bucket name")][String]$BucketName,
         [parameter(
             Mandatory = $False,
-            Position = 9,
+            Position = 8,
             HelpMessage = "Date")][DateTime]$Date = [DateTime]::Now,
         [parameter(
             Mandatory = $False,
-            Position = 10,
+            Position = 9,
             HelpMessage = "File to read data from")][System.IO.FileInfo]$InFile,
         [parameter(
             Mandatory = $False,
-            Position = 11,
+            Position = 10,
             HelpMessage = "Presign URL")][Switch]$Presign,
         [parameter(
             Mandatory = $False,
-            Position = 12,
+            Position = 11,
             HelpMessage = "Presign URL Expiration Date")][DateTime]$Expires = (Get-Date).AddHours(1)
     )
 
@@ -8295,7 +8291,7 @@ function Global:Get-S3PresignedUrl {
             $Headers["Content-Length"] = $ContentLength
         }
 
-        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query  -ContentType $ContentType -Expires $Expires
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query -Headers $Headers -Expires $Expires
 
         Write-Output $AwsRequest.Uri.ToString()
     }
@@ -9245,14 +9241,21 @@ function Global:Write-S3Object {
         else {
             $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
+            $Headers = @{ }
+
             if (!$InFile -and $Content -and !$ContentType) {
-                $ContentType = "text/plain"
+                $Headers["Content-Type"] = "text/plain"
             }
             elseif ($InFile -and !$ContentType) {
-                $ContentType = $MIME_TYPES[$InFile.Extension]
+                $Headers["Content-Type"] = $MIME_TYPES[$InFile.Extension]
+            }
+            elseif ($ContentType) {
+                $Headers["Content-Type"] = $ContentType
+            }
+            else {
+                $Headers["Content-Type"] = "application/octet-stream"
             }
 
-            $Headers = @{ }
             if ($Metadata) {
                 foreach ($MetadataKey in $Metadata.Keys) {
                     $MetadataKey = $MetadataKey -replace "^x-amz-meta-", ""
@@ -9268,7 +9271,7 @@ function Global:Write-S3Object {
 
             $Uri = "/$Key"
 
-            $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -Query $Query -BucketName $BucketName -InFile $InFile -RequestPayload $Content -ContentType $ContentType -Headers $Headers
+            $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -Query $Query -BucketName $BucketName -InFile $InFile -RequestPayload $Content -Headers $Headers
 
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
