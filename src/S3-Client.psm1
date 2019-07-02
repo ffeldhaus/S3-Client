@@ -340,6 +340,7 @@ function ConvertTo-Punycode {
                 Write-Output $PunycodeBucketName
             }
             else {
+                $Config = $Config.PSObject.Copy()
                 $Config.AddressingStyle = "path"
                 $BucketNameExists = Test-S3Bucket -Config $Config -Bucket $BucketName -Force
                 if ($BucketNameExists) {
@@ -8807,7 +8808,7 @@ function Global:Read-S3Object {
 
         Write-Verbose "Getting object metadata to determine file size and content type"
         $ObjectMetadata = Get-S3ObjectMetadata -Config $Config -Bucket $BucketName -Key $Key -VersionId $VersionId
-        $Size = $ObjectMetadata.ContentLength
+        $Size = $ObjectMetadata.Size
         $ContentType = $ObjectMetadata.ContentType
 
         if (!$Path -and $ContentType -match "text|xml|json") {
@@ -8967,10 +8968,10 @@ function Global:Read-S3Object {
                         foreach ($HeaderKey in $Headers.Keys) {
                             # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
                             if ($HeaderKey -eq "Authorization") {
-                                $null = $Request.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
+                                $null = $GetRequest.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
                             }
                             else {
-                                $null = $Request.Headers.Add($HeaderKey, $Headers[$HeaderKey])
+                                $null = $GetRequest.Headers.Add($HeaderKey, $Headers[$HeaderKey])
                             }
                         }
 
@@ -9018,11 +9019,12 @@ function Global:Read-S3Object {
 
                 $StartRange = ($PartNumber - 1) * $Chunksize
                 $EndRange = $StartRange + $ViewSize - 1
-                $Range = "bytes=" + $StartRange + "-" + $EndRange
 
-                Write-Verbose "Using HTTP byte range $Range"
-
-                $AwsRequest.Headers["range"] = $Range
+                if ($ViewSize -lt $Size) {
+                    $Range = "bytes=" + $StartRange + "-" + $EndRange
+                    Write-Verbose "Using HTTP byte range $Range"
+                    $AwsRequest.Headers["range"] = $Range
+                }
 
                 $Parameters = @{
                     Stream               = $Stream
