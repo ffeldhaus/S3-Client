@@ -1040,17 +1040,17 @@ Describe "Upload Object" {
             Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
         }
 
-        It "Given -BucketName $BucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio") {
-            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
+        It "Given -BucketName $UnicodeBucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio") {
+            Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey -Content $Content
 
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $UnicodeKey | Should -BeIn $Objects.Key
 
             Start-Sleep -Seconds 1
-            $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
+            $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
             $ObjectContent | Should -Be $Content
 
-            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
+            Remove-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
         }
     }
 
@@ -1071,16 +1071,16 @@ Describe "Upload Object" {
 
     Context "Upload small file with custom key $UnicodeKey" {
         It "Given file -InFile `"$SmallFile`" and -Key `"$UnicodeKey`" it is succesfully uploaded" -Skip:($ProfileName -match "minio") {
-            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile -Key $UnicodeKey
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
+            Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -InFile $SmallFile -Key $UnicodeKey
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $UnicodeBucketName
             $UnicodeKey | Should -BeIn $Objects.Key
             $TempFile = New-TemporaryFile
             Start-Sleep -Seconds 1
-            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -OutFile $TempFile.FullName
+            Read-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey -OutFile $TempFile.FullName
             $TempFileHash = $TempFile | Get-FileHash
             $TempFileHash.Hash | Should -Be $SmallFileHash.Hash
             $TempFile | Remove-Item
-            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
+            Remove-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
         }
     }
 }
