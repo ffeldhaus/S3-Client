@@ -8801,8 +8801,8 @@ function Global:Read-S3Object {
 
         Write-Verbose "Getting object metadata to determine file size and content type"
         $ObjectMetadata = Get-S3ObjectMetadata -Config $Config -Bucket $BucketName -Key $Key -VersionId $VersionId
-        $Size = $ObjectMetadata.Headers.'Content-Length' | Select-Object -First 1
-        $ContentType = $ObjectMetadata.Headers.'Content-Type' | Select-Object -First 1
+        $Size = $ObjectMetadata.ContentLength
+        $ContentType = $ObjectMetadata.ContentType
 
         if (!$Path -and $ContentType -match "text|xml|json") {
             $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
