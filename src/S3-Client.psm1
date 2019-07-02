@@ -7992,7 +7992,9 @@ function Global:Get-S3ObjectVersions {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -UseDualstackEndpoint:$UseDualstackEndpoint
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "GET"
     }
 
@@ -8001,6 +8003,10 @@ function Global:Get-S3ObjectVersions {
 
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Config.AccessKey) {
+            Throw "No S3 credentials found"
         }
 
         if ($Region) {
@@ -9272,12 +9278,12 @@ function Global:Write-S3Object {
         # if the file size is larger than the multipart threshold, then a multipart upload should be done
         if (!$Content -and $Config.MultipartThreshold -and $InFile.Length -ge $Config.MultipartThreshold) {
             Write-Verbose "Using multipart upload as file is larger than multipart threshold of $($Config.MultipartThreshold)"
-            Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+            Write-S3MultipartUpload -Config $Config -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
         # if the file size is larger than 5GB multipart upload must be used as PUT Object is only allowed up to 5GB files
         elseif ($InFile.Length -gt 5GB) {
             Write-Warning "Using multipart upload as PUT uploads are only allowed for files smaller than 5GB and file is larger than 5GB."
-            Write-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Config.Region -UrlStyle $UrlStyle -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
+            Write-S3MultipartUpload -Config $Config -BucketName $BucketName -Key $Key -InFile $InFile -Metadata $Metadata
         }
         else {
             $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -9534,16 +9540,6 @@ function Global:Write-S3Object {
     Initiate Multipart Upload
     .PARAMETER Server
     StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
-    .PARAMETER SkipCertificateCheck
-    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
-    .PARAMETER Presign
-    Use presigned URL
-    .PARAMETER DryRun
-    Do not execute request, just return request URI and Headers
-    .PARAMETER SignerType
-    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
-    .PARAMETER EndpointUrl
-    Custom S3 Endpoint URL
     .PARAMETER ProfileName
     AWS Profile to use which contains AWS sredentials and settings
     .PARAMETER ProfileLocation
@@ -9554,10 +9550,22 @@ function Global:Write-S3Object {
     S3 Secret Access Key
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
-    .PARAMETER UrlStyle
-    URL Style (Default: Auto)
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
     .PARAMETER BucketName
     Bucket Name
+    .PARAMETER Region
+    Bucket Region
     .PARAMETER Key
     Object key
     .PARAMETER Metadata
@@ -9568,95 +9576,95 @@ function Global:Start-S3MultipartUpload {
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 7,
+            Mandatory = $False,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
+            ParameterSetName = "config",
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
+        [parameter(
+            Mandatory = $False,
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
+        [parameter(
+            Mandatory = $True,
+            Position = 7,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
+        [parameter(
             Mandatory = $False,
             Position = 8,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
-        [parameter(
-            Mandatory = $False,
-            Position = 9,
-            HelpMessage = "Bucket Region")][Alias("Location", "LocationConstraint")][String]$Region,
-        [parameter(
-            Mandatory = $False,
-            Position = 10,
-            HelpMessage = "Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Bucket Name")][Alias("Name", "Bucket")][String]$BucketName,
+            HelpMessage = "Region to be used")][String]$Region,
         [parameter(
             Mandatory = $True,
-            Position = 12,
+            Position = 9,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object key")][Alias("Object")][String]$Key,
         [parameter(
             Mandatory = $False,
-            Position = 13,
+            Position = 10,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Metadata")][Hashtable]$Metadata,
         [parameter(
             Mandatory = $False,
-            Position = 14,
+            Position = 11,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Enable Payload Signing")][Switch]$PayloadSigning,
         [parameter(
             Mandatory = $False,
-            Position = 15,
+            Position = 12,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Specifies the algorithm to use to when encrypting the object.")][ValidateSet("aws:kms", "AES256")][String]$ServerSideEncryption,
         [parameter(
             Mandatory = $False,
-            Position = 16,
+            Position = 13,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Content Type.")][String]$ContentType
     )
@@ -9665,16 +9673,20 @@ function Global:Start-S3MultipartUpload {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "POST"
     }
 
     Process {
+        Write-Verbose "Start multipart upload for key $Key in bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Config) {
+        if (!$Config.AccessKey) {
             Throw "No S3 credentials found"
         }
 
@@ -9699,22 +9711,60 @@ function Global:Start-S3MultipartUpload {
             $Headers["x-amz-server-side-encryption"] = $ServerSideEncryption
         }
 
+        if ($ContentType) {
+            $Headers["content-type"] = $ContentType
+        }
+
         $Uri = "/$Key"
 
         $Query = @{uploads = "" }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload "" -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Headers $Headers -Query $Query -PayloadSigning $Config.PayloadSigning -ContentType $ContentType
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -Query $Query -BucketName $BucketName -Headers $Headers
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body "" -ContentType $ContentType -ErrorAction Stop
-            # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
-            $Xml = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
-            $Content = $Xml.InitiateMultipartUploadResult
-            $InitiateMultipartUploadResult = [PSCustomObject]@{Bucket = $Content.Bucket; Key = $Content.Key; UploadId = $Content.UploadId; Etags = [System.Collections.Generic.SortedDictionary[int, string]]::new() }
-            Write-Output $InitiateMultipartUploadResult
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
+            $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+
+            if ($Task.Result.IsSuccessStatusCode) {
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+                $InitiateMultipartUploadResult = [PSCustomObject]@{Bucket = $Content.InitiateMultipartUploadResult.Bucket; Key = $Content.InitiateMultipartUploadResult.Key; UploadId = $Content.InitiateMultipartUploadResult.UploadId; Etags = [System.Collections.Generic.SortedDictionary[int, string]]::new() }
+                Write-Output $InitiateMultipartUploadResult
+            }
+            elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $RetryCount++
+                Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
+                Start-Sleep -Seconds $SleepSeconds
+                Write-S3Object -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName -Key $Key -Content $Content
+            }
+            elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
+                Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
+            }
+            elseif ($Task.Exception -match "Device not configured") {
+                Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
+            }
+            elseif ($Task.IsFaulted) {
+                Throw $Task.Exception
+            }
+            elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
+                Write-Warning "Request was redirected as bucket does not belong to region $($Config.Region). Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                Write-S3Object -Config $Config -Presign:$Presign -BucketName $BucketName -Region $($RedirectedRegion[0]) -Key $Key -Content $Content
+            }
+            elseif ($Task.Result) {
+                $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+                if ($Result.Error.Message) {
+                    Throw $Result.Error.Message
+                }
+                else {
+                    Throw $Task.Result.StatusCode
+                }
+            }
+            else {
+                Throw "Task failed with status $($Task.Status)"
+            }
         }
     }
 }
@@ -9726,16 +9776,6 @@ function Global:Start-S3MultipartUpload {
     Abort Multipart Upload
     .PARAMETER Server
     StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
-    .PARAMETER SkipCertificateCheck
-    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
-    .PARAMETER Presign
-    Use presigned URL
-    .PARAMETER DryRun
-    Do not execute request, just return request URI and Headers
-    .PARAMETER SignerType
-    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
-    .PARAMETER EndpointUrl
-    Custom S3 Endpoint URL
     .PARAMETER ProfileName
     AWS Profile to use which contains AWS sredentials and settings
     .PARAMETER ProfileLocation
@@ -9746,10 +9786,22 @@ function Global:Start-S3MultipartUpload {
     S3 Secret Access Key
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
-    .PARAMETER UrlStyle
-    URL Style (Default: Auto)
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
     .PARAMETER BucketName
     Bucket Name
+    .PARAMETER Region
+    Bucket Region
     .PARAMETER Key
     Object key
 #>
@@ -9758,104 +9810,102 @@ function Global:Stop-S3MultipartUpload {
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 7,
+            Mandatory = $False,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
+            ParameterSetName = "config",
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
+        [parameter(
+            Mandatory = $False,
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
+        [parameter(
+            Mandatory = $True,
+            Position = 7,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
+        [parameter(
             Mandatory = $False,
             Position = 8,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
-        [parameter(
-            Mandatory = $False,
-            Position = 9,
-            HelpMessage = "Bucket Region")][Alias("Location", "LocationConstraint")][String]$Region,
-        [parameter(
-            Mandatory = $False,
-            Position = 10,
-            HelpMessage = "Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Bucket Name")][Alias("Name", "Bucket")][String]$BucketName,
+            HelpMessage = "Region to be used")][String]$Region,
         [parameter(
             Mandatory = $True,
-            Position = 12,
+            Position = 9,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object key")][Alias("Object")][String]$Key,
         [parameter(
             Mandatory = $True,
-            Position = 13,
+            Position = 10,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Multipart Upload ID")][String]$UploadId,
-        [parameter(
-            Mandatory = $False,
-            Position = 14,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Enable Payload Signing")][Switch]$PayloadSigning
+            HelpMessage = "Multipart Upload ID")][String]$UploadId
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "DELETE"
     }
 
     Process {
+        Write-Verbose "Aborting multipart upload for key $Key and bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
-
-        if (!$Config) {
+        if (!$Config.AccessKey) {
             Throw "No S3 credentials found"
         }
 
@@ -9869,13 +9919,51 @@ function Global:Stop-S3MultipartUpload {
 
         $Query = @{uploadId = $uploadId }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query -PayloadSigning $Config.PayloadSigning
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -BucketName $BucketName -Query $Query
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
+
+            $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+
+            if ($Task.Result.IsSuccessStatusCode) {
+                # do nothing
+            }
+            elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $RetryCount++
+                Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
+                Start-Sleep -Seconds $SleepSeconds
+                Stop-S3MultipartUpload -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName -Key $Key
+            }
+            elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
+                Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
+            }
+            elseif ($Task.Exception -match "Device not configured") {
+                Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
+            }
+            elseif ($Task.IsFaulted) {
+                Throw $Task.Exception
+            }
+            elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
+                Write-Warning "Request was redirected as bucket does not belong to region $($Config.Region). Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                Stop-S3MultipartUpload -Config $Config -Presign:$Presign -BucketName $BucketName -Region $($RedirectedRegion[0]) -Key $Key
+            }
+            elseif ($Task.Result) {
+                $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+                if ($Result.Error.Message) {
+                    Throw $Result.Error.Message
+                }
+                else {
+                    Throw $Task.Result.StatusCode
+                }
+            }
+            else {
+                Throw "Task failed with status $($Task.Status)"
+            }
         }
     }
 }
@@ -9887,16 +9975,6 @@ function Global:Stop-S3MultipartUpload {
     Complete Multipart Upload
     .PARAMETER Server
     StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
-    .PARAMETER SkipCertificateCheck
-    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
-    .PARAMETER Presign
-    Use presigned URL
-    .PARAMETER DryRun
-    Do not execute request, just return request URI and Headers
-    .PARAMETER SignerType
-    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
-    .PARAMETER EndpointUrl
-    Custom S3 Endpoint URL
     .PARAMETER ProfileName
     AWS Profile to use which contains AWS sredentials and settings
     .PARAMETER ProfileLocation
@@ -9907,10 +9985,22 @@ function Global:Stop-S3MultipartUpload {
     S3 Secret Access Key
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
-    .PARAMETER UrlStyle
-    URL Style (Default: Auto)
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
     .PARAMETER BucketName
     Bucket Name
+    .PARAMETER Region
+    Bucket Region
     .PARAMETER Key
     Object key
 #>
@@ -9919,108 +10009,107 @@ function Global:Complete-S3MultipartUpload {
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 7,
+            Mandatory = $False,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
+            ParameterSetName = "config",
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
+        [parameter(
+            Mandatory = $False,
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
+        [parameter(
+            Mandatory = $True,
+            Position = 7,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
+        [parameter(
             Mandatory = $False,
             Position = 8,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
-        [parameter(
-            Mandatory = $False,
-            Position = 9,
-            HelpMessage = "Bucket Region")][Alias("Location", "LocationConstraint")][String]$Region,
-        [parameter(
-            Mandatory = $False,
-            Position = 10,
-            HelpMessage = "Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.")][Switch]$UseDualstackEndpoint,
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Bucket Name")][Alias("Name", "Bucket")][String]$BucketName,
+            HelpMessage = "Region to be used")][String]$Region,
         [parameter(
             Mandatory = $True,
-            Position = 12,
+            Position = 9,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object key")][Alias("Object")][String]$Key,
         [parameter(
             Mandatory = $True,
-            Position = 13,
+            Position = 10,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Multipart Upload ID")][String]$UploadId,
         [parameter(
             Mandatory = $True,
-            Position = 13,
+            Position = 11,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Part Etags in the format partNumber=ETag")][System.Collections.Generic.SortedDictionary[int, string]]$Etags,
-        [parameter(
-            Mandatory = $False,
-            Position = 14,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Enable Payload Signing")][Switch]$PayloadSigning
+            HelpMessage = "Part Etags in the format partNumber=ETag")][System.Collections.Generic.SortedDictionary[int, string]]$Etags
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "POST"
     }
 
     Process {
+        Write-Verbose "Complete multipart upload of key $Key in bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Config) {
+        if (!$Config.AccessKey) {
             Throw "No S3 credentials found"
         }
 
@@ -10040,25 +10129,61 @@ function Global:Complete-S3MultipartUpload {
 
         $Query = @{uploadId = $uploadId }
 
-        $ContentType = "application/xml"
+        $Headers = @{"content-type" = "application/xml"}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -RequestPayload $RequestPayload -ContentType $ContentType -Region $Region -UseDualstackEndpoint:$UseDualstackEndpoint -Uri $Uri -Query $Query -PayloadSigning $Config.PayloadSigning
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -BucketName $BucketName -Query $Query -Headers $Headers -RequestPayload $RequestPayload
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ContentType $ContentType -ErrorAction Stop
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $RequestPayload
 
-            $Content = [XML]$Result.Content
+            $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
-            $CompleteMultipartUploadResult = [PSCustomObject]@{ Location = [System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Location);
-                BucketName                                               = [System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Bucket);
-                Key                                                      = [System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Key);
-                ETag                                                     = ([System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.ETag) -replace '"', '')
+            if ($Task.Result.IsSuccessStatusCode) {
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+
+                $CompleteMultipartUploadResult = [PSCustomObject]@{ Location = [System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Location);
+                    BucketName                                               = [System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Bucket);
+                    Key                                                      = [System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Key);
+                    ETag                                                     = ([System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.ETag) -replace '"', '')
+                }
+    
+                Write-Output $CompleteMultipartUploadResult
             }
-
-            Write-Output $CompleteMultipartUploadResult
+            elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $RetryCount++
+                Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
+                Start-Sleep -Seconds $SleepSeconds
+                Complete-S3MultipartUpload -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName -Key $Key -UploadId $UploadId -Etags $Etags
+            }
+            elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
+                Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
+            }
+            elseif ($Task.Exception -match "Device not configured") {
+                Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
+            }
+            elseif ($Task.IsFaulted) {
+                Throw $Task.Exception
+            }
+            elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
+                Write-Warning "Request was redirected as bucket does not belong to region $($Config.Region). Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                Complete-S3MultipartUpload -Config $Config -Presign:$Presign -BucketName $BucketName -Region $($RedirectedRegion[0]) -Key $Key -UploadId $UploadId -Etags $Etags
+            }
+            elseif ($Task.Result) {
+                $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+                if ($Result.Error.Message) {
+                    Throw $Result.Error.Message
+                }
+                else {
+                    Throw $Task.Result.StatusCode
+                }
+            }
+            else {
+                Throw "Task failed with status $($Task.Status)"
+            }
         }
     }
 }
@@ -10069,60 +10194,111 @@ Set-Alias -Name Invoke-S3MultipartUpload -Value Write-S3MultipartUpload
     Write S3 Object as Multipart Upload
     .DESCRIPTION
     Write S3 Object as Multipart Upload
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER Key
+    Object key. If not provided, filename will be used.
+    .PARAMETER InFile
+    Path where object should be stored
+    .PARAMETER Metadata
+    Metadata
+    .PARAMETER MaxConcurrentRequests
+    maximum number of concurrent requests
+    .PARAMETER Chunksize
+    Multipart Part Chunksize
 #>
 function Global:Write-S3MultipartUpload {
     [CmdletBinding(DefaultParameterSetName = "none")]
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 7,
+            Mandatory = $False,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+            ParameterSetName = "config",
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
+        [parameter(
+            Mandatory = $False,
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
+        [parameter(
+            Mandatory = $True,
+            Position = 7,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
         [parameter(
             Mandatory = $False,
             Position = 8,
@@ -10131,34 +10307,25 @@ function Global:Write-S3MultipartUpload {
         [parameter(
             Mandatory = $False,
             Position = 9,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Object key. If not provided, filename will be used.")][Alias("Object")][String]$Key,
         [parameter(
             Mandatory = $True,
             Position = 10,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Bucket Name")][Alias("Name", "Bucket")][String]$BucketName,
+            HelpMessage = "Path where object should be stored")][Alias("Path", "File")][System.IO.FileInfo]$InFile,
         [parameter(
             Mandatory = $False,
             Position = 11,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key. If not provided, filename will be used")][Alias("Object")][String]$Key,
-        [parameter(
-            Mandatory = $True,
-            Position = 12,
-            HelpMessage = "Path where object should be stored")][Alias("Path", "File")][System.IO.FileInfo]$InFile,
-        [parameter(
-            Mandatory = $False,
-            Position = 13,
-            ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Metadata")][Hashtable]$Metadata,
         [parameter(
             Mandatory = $False,
-            Position = 14,
+            Position = 12,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "The maximum number of concurrent requests")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
+            HelpMessage = "Maximum number of concurrent requests")][Alias("max_concurrent_requests")][UInt16]$MaxConcurrentRequests,
         [parameter(
             Mandatory = $False,
-            Position = 15,
+            Position = 13,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Multipart Part Chunksize")][ValidateRange(1, 5GB)][int64]$Chunksize
     )
@@ -10167,12 +10334,21 @@ function Global:Write-S3MultipartUpload {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -MaxConcurrentRequests $MaxConcurrentRequests -MultipartChunksize $Chunksize -SkipCertificateCheck:$SkipCertificateCheck
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+        $Method = "PUT"
     }
 
     Process {
+        Write-Verbose "Upload object data using multipart upload to bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -MaxConcurrentRequests $MaxConcurrentRequests -MultipartChunksize $Chunksize
+        }
+
+        if (!$Config.AccessKey) {
+            Throw "No S3 credentials found"
         }
 
         if ($Region) {
@@ -10241,7 +10417,7 @@ function Global:Write-S3MultipartUpload {
         Write-Verbose "File will be uploaded in $PartCount parts"
 
         Write-Verbose "Initiating Multipart Upload"
-        $MultipartUpload = Start-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -BucketName $BucketName -Key $Key -Metadata $Metadata -ContentType $ContentType
+        $MultipartUpload = Start-S3MultipartUpload -Config $Config -BucketName $BucketName -Key $Key -Metadata $Metadata -ContentType $ContentType
 
         Write-Verbose "Multipart Upload ID: $($MultipartUpload.UploadId)"
 
@@ -10384,7 +10560,7 @@ function Global:Write-S3MultipartUpload {
                 Write-Verbose "Creating File view from position $(($PartNumber -1) * $Chunksize) with size $ViewSize"
                 $Stream = $MemoryMappedFile.CreateViewStream(($PartNumber - 1) * $Chunksize, $ViewSize)
 
-                $AwsRequest = $MultipartUpload | Write-S3ObjectPart -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -Presign -DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -PartNumber $PartNumber -Stream $Stream
+                $AwsRequest = $MultipartUpload | Write-S3ObjectPart -Config $Config -DryRun -PartNumber $PartNumber -Stream $Stream
 
                 $Parameters = @{
                     Stream               = $Stream
@@ -10447,7 +10623,7 @@ function Global:Write-S3MultipartUpload {
         }
         catch {
             Write-Warning "Something has gone wrong, aborting Multipart Upload"
-            $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
+            $MultipartUpload | Stop-S3MultipartUpload -Config $Config
             throw $_
         }
         finally {
@@ -10459,13 +10635,13 @@ function Global:Write-S3MultipartUpload {
 
         if ($Jobs) {
             Write-Warning "Job(s) with partnumber(s) $($Jobs.PartNumber -join ',') did not complete, therfore aborting Multipart Upload"
-            $MultipartUpload | Stop-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region
+            $MultipartUpload | Stop-S3MultipartUpload -Config $Config -Region $Region
         }
         else {
             Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key completed" -Completed
             Write-Host "Uploading file $($InFile.Name) of size $([Math]::Round($InFile.Length/1MB,4))MiB to $BucketName/$Key completed in $([Math]::Round($Duration,2)) seconds with average throughput of $Throughput MiB/s"
             Write-Verbose "Completing multipart upload"
-            $MultipartUpload | Complete-S3MultipartUpload -SkipCertificateCheck:$Config.SkipCertificateCheck -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -Region $Region -Etags $Etags
+            $MultipartUpload | Complete-S3MultipartUpload -Config $Config -Etags $Etags
             Write-Verbose "Completed multipart upload"
         }
     }
@@ -10476,65 +10652,113 @@ function Global:Write-S3MultipartUpload {
     Write S3 Object Part
     .DESCRIPTION
     Write S3 Object Part
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER Key
+    Object key
+    .PARAMETER UploadId
+    Multipart Upload ID
+    .PARAMETER PartNumber
+    Multipart part number (from 1 to 10000)
+    .PARAMETER Stream
+    Content Stream
+    .PARAMETER Content
+    UTF-8 encoded content
+    .PARAMETER Etags
+    Part Etags in the format partNumber="ETag"
 #>
 function Global:Write-S3ObjectPart {
     [CmdletBinding(DefaultParameterSetName = "none")]
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL. This Cmdlet always uses presigned URLs for best performance.")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 7,
+            Mandatory = $False,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
+            ParameterSetName = "config",
             Mandatory = $False,
-            Position = 8,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
+        [parameter(
+            Mandatory = $False,
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
+        [parameter(
+            Mandatory = $True,
+            Position = 7,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
         [parameter(
             Mandatory = $False,
             Position = 8,
@@ -10542,57 +10766,55 @@ function Global:Write-S3ObjectPart {
             HelpMessage = "Region to be used")][String]$Region,
         [parameter(
             Mandatory = $True,
-            Position = 10,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Bucket Name")][Alias("Name", "Bucket")][String]$BucketName,
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
+            Position = 9,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object key")][Alias("Object")][String]$Key,
         [parameter(
             Mandatory = $True,
-            Position = 12,
+            Position = 10,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Multipart Upload ID")][String]$UploadId,
         [parameter(
             Mandatory = $True,
-            Position = 13,
+            Position = 11,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Multipart part number (from 1 to 10000)")][ValidateRange(1, 10000)][Int]$PartNumber,
         [parameter(
             Mandatory = $False,
-            Position = 14,
+            Position = 12,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Content Stream")][System.IO.Stream]$Stream,
         [parameter(
             Mandatory = $False,
-            Position = 15,
+            Position = 13,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "UTF-8 encoded content")][String]$Content,
         [parameter(
             Mandatory = $False,
-            Position = 16,
+            Position = 14,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Enable Payload Signing")][Switch]$PayloadSigning,
-        [parameter(
-            Mandatory = $False,
-            Position = 17,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Part Etags in the format partNumber=ETag")][System.Collections.Generic.SortedDictionary[int, string]]$Etags
+            HelpMessage = "Part Etags in the format partNumber=`"ETag`"")][System.Collections.Generic.SortedDictionary[int, string]]$Etags
     )
 
     Begin {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -SkipCertificateCheck:$SkipCertificateCheck -PayloadSigning $PayloadSigning
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "PUT"
     }
 
     Process {
+        Write-Verbose "Upload object part with key $Key to bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Config.AccessKey) {
+            Throw "No S3 credentials found"
         }
 
         if ($Region) {
@@ -10611,7 +10833,7 @@ function Global:Write-S3ObjectPart {
 
         $ContentLength = $Stream.Length
 
-        $Headers = @{"Content-Length" = $ContentLength }
+        $Headers = @{"content-length" = $ContentLength }
 
         # Force Presign because it allows UNSIGNED_PAYLOAD and we do not want
         # to read the Stream to calculate a signature before uploading it for performance reasons
@@ -10619,7 +10841,7 @@ function Global:Write-S3ObjectPart {
         # again for performance reasons and then compare the calculated MD5 with the returned MD5/Etag
         $Presign = [Switch]::new($true)
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Headers $Headers -PayloadSigning $Config.PayloadSigning
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -Query $Query -BucketName $BucketName -Headers $Headers -RequestPayload $Content
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -10705,7 +10927,7 @@ function Global:Write-S3ObjectPart {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
                 if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
                     Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Write-S3Object -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Key $Key -UploadId $UploadId -PartNumber $PartNumber -Stream $Stream
+                    Write-S3Object -Config $Config -Region $($RedirectedRegion[0]) -Bucket $BucketName -Key $Key -UploadId $UploadId -PartNumber $PartNumber -Stream $Stream
                 }
                 else {
                     Throw
