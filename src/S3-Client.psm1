@@ -3180,12 +3180,18 @@ function Global:Get-S3BucketEncryption {
             Write-Output $AwsRequest
         }
         else {
-            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $RequestPayload
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
 
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                #  Do nothing
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+
+                foreach ($Rule in $Content.ServerSideEncryptionConfiguration.Rule) {
+                    $Output = [PSCustomObject]@{SSEAlgorithm=$Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm;
+                                KMSMasterKeyID=$Rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID}
+                    Write-Output $Output
+                }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
                 $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
@@ -3209,7 +3215,10 @@ function Global:Get-S3BucketEncryption {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message) {
+                if ($Result.Error.Message -eq "The server side encryption configuration was not found") {
+                    # do nothing
+                }
+                elseif ($Result.Error.Message) {
                     Throw $Result.Error.Message
                 }
                 else {
