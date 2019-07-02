@@ -3404,7 +3404,7 @@ function Global:Set-S3BucketEncryption {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 foreach ($Rule in $Content.ServerSideEncryptionConfiguration.Rule) {
                     $Output = [PSCustomObject]@{SSEAlgorithm = $Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm;
@@ -3791,7 +3791,7 @@ function Global:Get-S3BucketCorsConfiguration {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 foreach ($Rule in $Content.CORSConfiguration.CORSRule) {
                     $Output = [PSCustomObject]@{
@@ -4616,7 +4616,7 @@ function Global:Get-S3BucketReplicationConfiguration {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 foreach ($Rule in $Content.ReplicationConfiguration.Rule) {
                     $Output = [PSCustomObject]@{
@@ -5467,7 +5467,7 @@ function Global:Get-S3BucketPolicy {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = $Result.Content.ReadAsStringAsync.Result
+                $Content = $Task.Result.Content.ReadAsStringAsync().Result
                 # pretty print JSON
                 $Policy = ConvertFrom-Json -InputObject $Content | ConvertTo-Json -Depth 10
                 Write-Output $Policy
@@ -5696,7 +5696,7 @@ function Global:Set-S3BucketPolicy {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = $Result.Content.ReadAsStringAsync.Result
+                $Content = $Task.Result.Content.ReadAsStringAsync().Result
                 # pretty print JSON
                 $Policy = ConvertFrom-Json -InputObject $Content | ConvertTo-Json -Depth 10
                 Write-Output $Policy
@@ -5887,7 +5887,7 @@ function Global:Remove-S3BucketPolicy {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = $Result.Content.ReadAsStringAsync.Result
+                $Content = $Task.Result.Content.ReadAsStringAsync().Result
                 # pretty print JSON
                 $Policy = ConvertFrom-Json -InputObject $Content | ConvertTo-Json -Depth 10
                 Write-Output $Policy
@@ -6078,7 +6078,7 @@ function Global:Get-S3BucketTagging {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 foreach ($Tag in $Content.Tagging.TagSet.Tag) {
                     $Output = [System.Collections.DictionaryEntry]@{Name = $Tag.Key; Value = $Tag.Value }
@@ -6283,7 +6283,7 @@ function Global:Set-S3BucketTagging {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 foreach ($Tag in $Content.Tagging.TagSet.Tag) {
                     $Output = [System.Collections.DictionaryEntry]@{Name = $Tag.Key; Value = $Tag.Value }
@@ -6473,7 +6473,7 @@ function Global:Remove-S3BucketTagging {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 foreach ($Tag in $Content.Tagging.TagSet.Tag) {
                     $Output = [System.Collections.DictionaryEntry]@{Name = $Tag.Key; Value = $Tag.Value }
@@ -6851,7 +6851,7 @@ function Global:Enable-S3BucketVersioning {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 Write-Output $Content.VersioningConfiguration.Status
             }
@@ -7040,7 +7040,7 @@ function Global:Suspend-S3BucketVersioning {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 Write-Output $Content.VersioningConfiguration.Status
             }
@@ -7453,7 +7453,7 @@ function Global:Get-S3MultipartUploads {
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
-                $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 $UnicodeBucket = ConvertFrom-Punycode -BucketName $Content.ListMultipartUploadsResult.Bucket
 
@@ -11346,7 +11346,7 @@ function Global:Copy-S3Object {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
                 if ($Task.Result.IsSuccessStatusCode) {
-                    $Content = [XML]$Result.Content.ReadAsStringAsync.Result
+                    $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                     foreach ($Rule in $Content.ServerSideEncryptionConfiguration.Rule) {
                         $Output = [PSCustomObject]@{SSEAlgorithm = $Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm;
