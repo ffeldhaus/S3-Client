@@ -6256,6 +6256,9 @@ function Global:Set-S3BucketTagging {
             $Region = $Config.Region
         }
 
+        # AWS requires that this request has Content-MD5 sum, therefore enforcing PayloadSigning
+        $Config.PayloadSigning = $True
+
         $Query = @{tagging = "" }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
