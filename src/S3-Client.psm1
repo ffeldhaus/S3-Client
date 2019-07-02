@@ -8053,7 +8053,7 @@ function Global:Get-S3ObjectVersions {
                 foreach ($Version in $Versions) {
                     $Version = [PSCustomObject]@{
                         BucketName       = $UnicodeBucket;
-                        Region           = $Region;
+                        Region           = $Config.Region;
                         Key              = [System.Net.WebUtility]::UrlDecode($Version.Key);
                         VersionId        = $Version.VersionId;
                         IsLatest         = [System.Convert]::ToBoolean($Version.IsLatest);
@@ -9316,11 +9316,9 @@ function Global:Write-S3Object {
                     if (!$InFile -or $InFile.Length -eq 0) {
                         $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $Content
                         $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
-                        return $Task
 
                         if ($Task.Result.IsSuccessStatusCode) {
-                            $Etag = ($Task.Result.Headers['ETag'] | Select-Object -First 1) -replace '"', ''
-                            Write-Output ([PSCustomObject]@{ETag = $Etag })
+                            Write-Output ([PSCustomObject]@{ETag = $Task.Result.Headers.ETag.Tag })
                         }
                         elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
                             $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
