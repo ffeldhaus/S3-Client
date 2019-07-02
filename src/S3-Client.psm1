@@ -3842,7 +3842,10 @@ function Global:Get-S3BucketCorsConfiguration {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message) {
+                if ($Result.Error.Message -eq "The CORS configuration does not exist") {
+                    # do nothing
+                }
+                elseif ($Result.Error.Message) {
                     Throw $Result.Error.Message
                 }
                 else {
@@ -4032,6 +4035,9 @@ function Global:Add-S3BucketCorsConfigurationRule {
         if (!$Region) {
             $Region = $Config.Region
         }
+
+        # AWS requires that this request uses payload signing
+        $Config.PayloadSigning = $true
 
         $Query = @{cors = "" }
 
