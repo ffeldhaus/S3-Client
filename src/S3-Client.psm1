@@ -1051,6 +1051,8 @@ function Global:Invoke-AwsRequest {
             $ContentLength = $Body.Length
         }
 
+        Write-Verbose "Invoking Request:`n$Method $Uri"
+
         Write-Verbose "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
         $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
         Write-Verbose "Timeout set to $($HttpClient.Timeout)"
@@ -3386,8 +3388,8 @@ function Global:Set-S3BucketEncryption {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{encryption = "" }
@@ -3589,8 +3591,8 @@ function Global:Remove-S3BucketEncryption {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{encryption = "" }
@@ -3784,8 +3786,8 @@ function Global:Get-S3BucketCorsConfiguration {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{cors = "" }
@@ -4032,8 +4034,8 @@ function Global:Add-S3BucketCorsConfigurationRule {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         # AWS requires that this request uses payload signing
@@ -4266,8 +4268,8 @@ function Global:Remove-S3BucketCorsConfigurationRule {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -4420,8 +4422,8 @@ function Global:Remove-S3BucketCorsConfiguration {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{cors = "" }
@@ -4615,8 +4617,8 @@ function Global:Get-S3BucketReplicationConfiguration {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{replication = "" }
@@ -4886,8 +4888,8 @@ function Global:Add-S3BucketReplicationConfigurationRule {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         # AWS requires that this request has Content-MD5 sum, therefore enforcing PayloadSigning
@@ -5135,8 +5137,8 @@ function Global:Remove-S3BucketReplicationConfigurationRule {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -5289,8 +5291,8 @@ function Global:Remove-S3BucketReplicationConfiguration {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{replication = "" }
@@ -5474,8 +5476,8 @@ function Global:Get-S3BucketPolicy {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -5691,8 +5693,8 @@ function Global:Set-S3BucketPolicy {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -5894,8 +5896,8 @@ function Global:Remove-S3BucketPolicy {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -6085,8 +6087,8 @@ function Global:Get-S3BucketTagging {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{tagging = "" }
@@ -6282,8 +6284,8 @@ function Global:Set-S3BucketTagging {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         # AWS requires that this request has Content-MD5 sum, therefore enforcing PayloadSigning
@@ -6483,8 +6485,8 @@ function Global:Remove-S3BucketTagging {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{tagging = "" }
@@ -6859,8 +6861,8 @@ function Global:Enable-S3BucketVersioning {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -7048,8 +7050,8 @@ function Global:Suspend-S3BucketVersioning {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -7451,8 +7453,8 @@ function Global:Get-S3MultipartUploads {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -8001,8 +8003,8 @@ function Global:Get-S3ObjectVersions {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{versions = "" }        
@@ -8289,8 +8291,8 @@ function Global:Get-S3PresignedUrl {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -8742,8 +8744,8 @@ function Global:Read-S3Object {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -9649,8 +9651,8 @@ function Global:Start-S3MultipartUpload {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -9830,8 +9832,8 @@ function Global:Stop-S3MultipartUpload {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -9995,8 +9997,8 @@ function Global:Complete-S3MultipartUpload {
             Throw "No S3 credentials found"
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -10146,8 +10148,8 @@ function Global:Write-S3MultipartUpload {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck -MaxConcurrentRequests $MaxConcurrentRequests -MultipartChunksize $Chunksize
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -10566,8 +10568,8 @@ function Global:Write-S3ObjectPart {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -10798,8 +10800,8 @@ function Global:Get-S3ObjectParts {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -11680,8 +11682,8 @@ function Global:Get-S3ObjectTagging {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{tagging = "" }
@@ -11858,8 +11860,8 @@ function Global:Set-S3ObjectTagging {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{tagging = "" }
@@ -12033,8 +12035,8 @@ function Global:Remove-S3ObjectTagging {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Query = @{tagging = "" }
@@ -12155,8 +12157,8 @@ function Global:Get-S3BucketConsistency {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -12279,8 +12281,8 @@ function Global:Update-S3BucketConsistency {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -12484,8 +12486,8 @@ function Global:Get-S3BucketLastAccessTime {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -12604,8 +12606,8 @@ function Global:Enable-S3BucketLastAccessTime {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -12718,8 +12720,8 @@ function Global:Disable-S3BucketLastAccessTime {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -12830,8 +12832,8 @@ function Global:Invoke-S3BucketMirroring {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
@@ -12951,8 +12953,8 @@ function Global:Test-S3Object {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
 
-        if (!$Region) {
-            $Region = $Config.Region
+        if ($Region) {
+            $Config.Region = $Region
         }
 
         $Metadata = $null
