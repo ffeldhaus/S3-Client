@@ -4678,7 +4678,7 @@ function Global:Get-S3BucketReplicationConfiguration {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message -match "The replication configuration was not found") {
+                if ($Result.Error.Message -match "The replication configuration was not found" -or $Result.Error.Message -match "The specified bucket does not have bucket replication configured") {
                     # do nothing
                 }
                 elseif ($Result.Error.Message) {
