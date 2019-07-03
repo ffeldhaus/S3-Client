@@ -2175,6 +2175,7 @@ function Global:New-AwsPolicy {
 
 ## Buckets ##
 
+New-Alias -Name Get-S3Bucket -Value Get-S3Buckets
 <#
     .SYNOPSIS
     Get S3 Buckets
