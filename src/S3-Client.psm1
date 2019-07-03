@@ -11671,13 +11671,10 @@ function Global:Copy-S3Object {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        if (!$DestinationServer) {
-            $DestinationServer = $Global:CurrentSgwServer
-        }
         if (!$Config) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
-        if (!$DestinationConfig) {
+        if (!$DestinationConfig -and ($DestinationProfileName -or $DestinationAccessKey -or $DestinationAccountId -or $DestinationServer)) {
             $DestinationConfig = Get-AwsConfig -Server $DestinationServer -EndpointUrl $DestinationEndpointUrl -ProfileName $DestinationProfileName -ProfileLocation $DestinationProfileLocation -AccessKey $DestinationAccessKey -SecretKey $DestinationSecretKey -AccountId $DestinationAccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
         $Method = "PUT"
@@ -11696,7 +11693,8 @@ function Global:Copy-S3Object {
         }
 
         if (!$DestinationConfig.AccessKey) {
-            Throw "No S3 credentials found for destination"
+            Write-Verbose "No destination config provided, assuming destination is same as source configuration"
+            $DestinationConfig = $Config
         }
 
         if ($Config.AccessKey -eq $DestinationConfig.AccessKey) {
