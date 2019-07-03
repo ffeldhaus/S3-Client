@@ -11437,6 +11437,50 @@ New-Alias -Name Copy-S3FileToObject -Value Copy-S3Object
     Bucket Name
     .PARAMETER Region
     Bucket Region
+    .PARAMETER Key
+    Object key
+    .PARAMETER VersionId
+    Object version ID
+    .PARAMETER DestinationServer
+    Destination StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER DestinationProfileName
+    Destination AWS Profile to use which contains AWS credentials and settings
+    .PARAMETER DestinationProfileLocation
+    Destination AWS Profile location if different than .aws/credentials
+    .PARAMETER DestinationAccessKey
+    Destination S3 Access Key
+    .PARAMETER DestinationSecretKey
+    Destination S3 Secret Access Key
+    .PARAMETER DestinationAccountId
+    Destination StorageGRID account ID to execute this command against
+    .PARAMETER DestinationConfig
+    Destination AWS config
+    .PARAMETER DestinationBucketName
+    Destination Bucket (if not specified will be same as source)
+    .PARAMETER DestinationRegion
+    Destination region to be used
+    .PARAMETER DestinationKey
+    Destination object key (if not specified will be same as source)
+    .PARAMETER MetadataDirective
+    Object version ID
+    .PARAMETER Metadata
+    Metadata
+    .PARAMETER Etag
+    Copies the object if its entity tag (ETag) matches the specified Etag
+    .PARAMETER NotEtag
+    Copies the object if its entity tag (ETag) is different than the specified NotETag
+    .PARAMETER UnmodifiedSince
+    Copies the object if it hasn't been modified since the specified time
+    .PARAMETER ModifiedSince
+    Copies the object if it has been modified since the specified time
+    .PARAMETER StorageClass
+    Destination S3 Storage Class
+    .PARAMETER TaggingDirective
+    Specifies whether the object tags are copied from the source object or replaced with tags provided in the request
+    .PARAMETER Tags
+    Object tags
+    .PARAMETER ServerSideEncryption
+    Server side encryption
 #>
 function Global:Copy-S3Object {
     [CmdletBinding(DefaultParameterSetName = "none")]
@@ -11503,7 +11547,7 @@ function Global:Copy-S3Object {
             Mandatory = $True,
             Position = 7,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
+            HelpMessage = "Bucket")][Alias("Name", "Bucket","SourceBucket")][String]$BucketName,
         [parameter(
             Mandatory = $False,
             Position = 8,
@@ -11513,112 +11557,112 @@ function Global:Copy-S3Object {
             Mandatory = $True,
             Position = 9,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object key")][Alias("Object")][String]$Key,
+            HelpMessage = "Object key")][Alias("Object","SourceKey")][String]$Key,
         [parameter(
             Mandatory = $False,
-            Position = 14,
+            Position = 10,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object version ID")][String]$VersionId,
         [parameter(
             ParameterSetName = "server",
             Mandatory = $False,
-            Position = 0,
-            HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$DestinationServer,
+            Position = 11,
+            HelpMessage = "Destination StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$DestinationServer,
         [parameter(
             ParameterSetName = "profile",
             Mandatory = $False,
-            Position = 0,
-            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("DestinationProfile")][String]$DestinationProfileName = "",
+            Position = 11,
+            HelpMessage = "Destination AWS Profile to use which contains AWS credentials and settings")][Alias("DestinationProfile")][String]$DestinationProfileName = "",
         [parameter(
             ParameterSetName = "profile",
             Mandatory = $False,
-            Position = 1,
-            HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$DestinationProfileLocation,
+            Position = 11,
+            HelpMessage = "Destination AWS Profile location if different than .aws/credentials")][String]$DestinationProfileLocation,
         [parameter(
             ParameterSetName = "keys",
             Mandatory = $False,
-            Position = 0,
-            HelpMessage = "S3 Access Key")][String]$DestinationAccessKey,
+            Position = 11,
+            HelpMessage = "Destination S3 Access Key")][String]$DestinationAccessKey,
         [parameter(
             ParameterSetName = "keys",
             Mandatory = $False,
-            Position = 1,
-            HelpMessage = "S3 Secret Access Key")][Alias("DestinationSecretAccessKey")][String]$DestinationSecretKey,
+            Position = 12,
+            HelpMessage = "Destination S3 Secret Access Key")][Alias("DestinationSecretAccessKey")][String]$DestinationSecretKey,
         [parameter(
             ParameterSetName = "account",
             Mandatory = $False,
-            Position = 0,
+            Position = 11,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "StorageGRID account ID to execute this command against")][Alias("DestinationOwnerId")][String]$DestinationAccountId,
+            HelpMessage = "Destination StorageGRID account ID to execute this command against")][Alias("DestinationOwnerId")][String]$DestinationAccountId,
         [parameter(
             ParameterSetName = "config",
             Mandatory = $False,
-            Position = 0,
+            Position = 11,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "AWS config")][PSCustomObject]$DestinationConfig,
-        [parameter(
-            Mandatory = $False,
-            Position = 12,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Destination Bucket (if not specified will be same as source)")][Alias("DestinationBucket")][String]$DestinationBucketName,
-        [parameter(
-            Mandatory = $False,
-            Position = 8,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Region to be used")][String]$DestinationRegion,
+            HelpMessage = "Destination AWS config")][PSCustomObject]$DestinationConfig,
         [parameter(
             Mandatory = $False,
             Position = 13,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Destination object key (if not specified will be same as source)")][String]$DestinationKey,
+            HelpMessage = "Destination Bucket (if not specified will be same as source)")][Alias("DestinationBucket")][String]$DestinationBucketName,
+        [parameter(
+            Mandatory = $False,
+            Position = 14,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Destination region to be used")][String]$DestinationRegion,
         [parameter(
             Mandatory = $False,
             Position = 15,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object version ID")][ValidateSet("COPY", "REPLACE")][String]$MetadataDirective,
+            HelpMessage = "Destination object key (if not specified will be same as source)")][String]$DestinationKey,
         [parameter(
             Mandatory = $False,
             Position = 16,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Metadata")][Hashtable]$Metadata,
+            HelpMessage = "Object version ID")][ValidateSet("COPY", "REPLACE")][String]$MetadataDirective,
         [parameter(
             Mandatory = $False,
             Position = 17,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Copies the object if its entity tag (ETag) matches the specified Etag")][String]$Etag,
+            HelpMessage = "Metadata")][Hashtable]$Metadata,
         [parameter(
             Mandatory = $False,
             Position = 18,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Copies the object if its entity tag (ETag) is different than the specified NotETag")][String]$NotEtag,
+            HelpMessage = "Copies the object if its entity tag (ETag) matches the specified Etag")][String]$Etag,
         [parameter(
             Mandatory = $False,
             Position = 19,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Copies the object if it hasn't been modified since the specified time")][String]$UnmodifiedSince,
+            HelpMessage = "Copies the object if its entity tag (ETag) is different than the specified NotETag")][String]$NotEtag,
         [parameter(
             Mandatory = $False,
             Position = 20,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Copies the object if it has been modified since the specified time")][String]$ModifiedSince,
+            HelpMessage = "Copies the object if it hasn't been modified since the specified time")][String]$UnmodifiedSince,
         [parameter(
             Mandatory = $False,
             Position = 21,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "S3 Storage Class")][ValidateSet("", "STANDARD", "STANDARD_IA", "REDUCED_REDUNDANCY")][String]$StorageClass,
+            HelpMessage = "Copies the object if it has been modified since the specified time")][String]$ModifiedSince,
         [parameter(
             Mandatory = $False,
             Position = 22,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Specifies whether the object tags are copied from the source object or replaced with tags provided in the request")][ValidateSet("", "COPY", "REPLACE")][String]$TaggingDirective,
+            HelpMessage = "Destination S3 Storage Class")][ValidateSet("", "STANDARD", "STANDARD_IA", "REDUCED_REDUNDANCY")][String]$StorageClass,
         [parameter(
             Mandatory = $False,
             Position = 23,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Object tags")][HashTable]$Tags,
+            HelpMessage = "Specifies whether the object tags are copied from the source object or replaced with tags provided in the request")][ValidateSet("", "COPY", "REPLACE")][String]$TaggingDirective,
         [parameter(
             Mandatory = $False,
             Position = 24,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Object tags")][HashTable]$Tags,
+        [parameter(
+            Mandatory = $False,
+            Position = 25,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Server side encryption")][ValidateSet("", "aws:kms", "AES256")][String]$ServerSideEncryption
     )
@@ -11648,7 +11692,11 @@ function Global:Copy-S3Object {
         }
 
         if (!$Config.AccessKey) {
-            Throw "No S3 credentials found"
+            Throw "No S3 credentials found for source"
+        }
+
+        if (!$DestinationConfig.AccessKey) {
+            Throw "No S3 credentials found for destination"
         }
 
         if ($Config.AccessKey -eq $DestinationConfig.AccessKey) {
@@ -11685,9 +11733,9 @@ function Global:Copy-S3Object {
 
         if ($Metadata) {
             foreach ($MetadataKey in $Metadata.Keys) {
-                $Key = $MetadataKey -replace "^x-amz-meta-", ""
-                $Key = $Key.ToLower()
-                $Headers["x-amz-meta-$Key"] = $Metadata[$MetadataKey]
+                $MetadataKey = $MetadataKey -replace "^x-amz-meta-", ""
+                $MetadataKey = $MetadataKey.ToLower()
+                $Headers["x-amz-meta-$MetadataKey"] = $Metadata[$MetadataKey]
                 # TODO: check that metadata is valid HTTP Header
             }
             $MetadataDirective = "REPLACE"
