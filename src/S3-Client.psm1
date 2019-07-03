@@ -8509,12 +8509,10 @@ function Global:Get-S3ObjectMetadata {
             if ($Task.Result.IsSuccessStatusCode) {
                 $Headers = $Task.Result.Headers
                 $Metadata = @{ }
-                $Metadata = @{ }
-                foreach ($HeaderKey in $Headers.Keys) {
-                    $Value = $Headers[$HeaderKey]
-                    if ($HeaderKey -match "x-amz-meta-") {
-                        $HeaderKey = $HeaderKey -replace "x-amz-meta-", ""
-                        $Metadata[$HeaderKey] = $Value -join ","
+                foreach ($Header in $Headers.GetEnumerator()) {
+                    if ($Header.Key -match "x-amz-meta-") {
+                        $MetadataKey = $Header.Key -replace "x-amz-meta-", ""
+                        $Metadata[$MetadataKey] = $Header.Value -join ","
                     }
                 }
 
