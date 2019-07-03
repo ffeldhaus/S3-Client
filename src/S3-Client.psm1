@@ -10944,65 +10944,111 @@ function Global:Write-S3ObjectPart {
     Get S3 Object Parts
     .DESCRIPTION
     Get S3 Object Parts
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER Config
+    AWS config
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER RetryCount
+    Current retry count
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER Key
+    Object key
+    .PARAMETER UploadId
+    Multipart Upload ID
+    .PARAMETER EncodingType
+    Encoding type (Only allowed value is url).
+    .PARAMETER MaxParts
+    Maximum Number of parts to return
+    .PARAMETER PartNumberMarker
+    Continuation part number marker
 #>
 function Global:Get-S3ObjectParts {
     [CmdletBinding(DefaultParameterSetName = "none")]
 
     PARAM (
         [parameter(
+            ParameterSetName = "server",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
         [parameter(
+            ParameterSetName = "profile",
+            Mandatory = $False,
+            Position = 0,
+            HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
+        [parameter(
+            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Use presigned URL. This Cmdlet always uses presigned URLs for best performance.")][Switch]$Presign,
-        [parameter(
-            Mandatory = $False,
-            Position = 3,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $True,
-            Position = 6,
-            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "",
-        [parameter(
-            ParameterSetName = "profile",
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             HelpMessage = "S3 Access Key")][String]$AccessKey,
         [parameter(
             ParameterSetName = "keys",
-            Mandatory = $True,
-            Position = 7,
+            Mandatory = $False,
+            Position = 1,
             HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
             ParameterSetName = "account",
-            Mandatory = $True,
-            Position = 6,
+            Mandatory = $False,
+            Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
+            ParameterSetName = "config",
             Mandatory = $False,
-            Position = 8,
-            HelpMessage = "Bucket URL Style (Default: Auto)")][String][ValidateSet("path", "virtual", "auto", "virtual-hosted")]$UrlStyle = "auto",
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
+        [parameter(
+            Mandatory = $False,
+            Position = 2,
+            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 3,
+            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+            Mandatory = $False,
+            Position = 4,
+            HelpMessage = "Use presigned URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 5,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
+        [parameter(
+            Mandatory = $True,
+            Position = 7,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
         [parameter(
             Mandatory = $False,
             Position = 8,
@@ -11010,30 +11056,25 @@ function Global:Get-S3ObjectParts {
             HelpMessage = "Region to be used")][String]$Region,
         [parameter(
             Mandatory = $True,
-            Position = 10,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Bucket Name")][Alias("Name", "Bucket")][String]$BucketName,
-        [parameter(
-            Mandatory = $True,
-            Position = 11,
+            Position = 9,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Object key")][Alias("Object")][String]$Key,
         [parameter(
             Mandatory = $True,
-            Position = 12,
+            Position = 10,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Multipart Upload ID")][String]$UploadId,
         [parameter(
             Mandatory = $False,
-            Position = 13,
+            Position = 11,
             HelpMessage = "Encoding type (Only allowed value is url).")][String][ValidateSet("url")]$EncodingType = "url",
         [parameter(
             Mandatory = $False,
-            Position = 14,
+            Position = 12,
             HelpMessage = "Maximum Number of parts to return")][Int][ValidateRange(0, 1000)]$MaxParts = 0,
         [parameter(
             Mandatory = $False,
-            Position = 15,
+            Position = 13,
             HelpMessage = "Continuation part number marker")][Alias("Marker")][String]$PartNumberMarker
     )
 
@@ -11041,14 +11082,21 @@ function Global:Get-S3ObjectParts {
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
-        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
-
+        if (!$Config) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
         $Method = "GET"
     }
 
     Process {
+        Write-Verbose "Get object parts for key $Key in bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Config.AccessKey) {
+            Throw "No S3 credentials found"
         }
 
         if ($Region) {
@@ -11070,16 +11118,18 @@ function Global:Get-S3ObjectParts {
             $Query["part-number-marker"] = $PartNumberMarker
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -Query $Query -BucketName $BucketName
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
         else {
-            try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
 
-                $Content = [XML]$Result.Content
+            $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+
+            if ($Task.Result.IsSuccessStatusCode) {
+                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
                 $Parts = $Content.ListPartsResult.Part | Where-Object { $_ }
 
@@ -11107,18 +11157,40 @@ function Global:Get-S3ObjectParts {
                 if ($Content.ListPartsResult.IsTruncated -eq "true" -and $MaxParts -eq 0) {
                     Write-Verbose "1000 Parts were returned and max parts was not limited so continuing to get all parts"
                     Write-Verbose "NextPartNumberMarker: $($Content.ListPartsResult.NextPartNumberMarker)"
-                    Get-S3ObjectParts -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Region -SkipCertificateCheck:$Config.SkipCertificateCheck -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxParts $MaxParts -PartNumberMarker $Content.ListPartsResult.NextPartNumberMarker
+                    Get-S3ObjectParts -Config $Config -Presign:$Presign -BucketName $BucketName -Key $Key -UploadId $UploadId -EncodingType $EncodingType -MaxParts $MaxParts -PartNumberMarker $Content.ListPartsResult.NextPartNumberMarker
                 }
             }
-            catch {
-                $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
-                if ([int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
-                    Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                    Get-S3ObjectParts -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -UseDualstackEndpoint:$UseDualstackEndpoint -Bucket $BucketName -MaxParts $MaxParts -PartNumberMarker $PartNumberMarker -EncodingType $EncodingType
+            elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $RetryCount++
+                Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
+                Start-Sleep -Seconds $SleepSeconds
+                Get-S3ObjectParts -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName -Key $Key -UploadId $UploadId -EncodingType $EncodingType -MaxParts $MaxParts -PartNumberMarker $PartNumberMarker
+            }
+            elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
+                Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
+            }
+            elseif ($Task.Exception -match "Device not configured") {
+                Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
+            }
+            elseif ($Task.IsFaulted) {
+                Throw $Task.Exception
+            }
+            elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
+                Write-Warning "Request was redirected as bucket does not belong to region $($Config.Region). Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                Get-S3ObjectParts -Config $Config -Presign:$Presign -BucketName $BucketName -Region $($RedirectedRegion[0]) -Key $Key -UploadId $UploadId -EncodingType $EncodingType -MaxParts $MaxParts -PartNumberMarker $PartNumberMarker
+            }
+            elseif ($Task.Result) {
+                $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+                if ($Result.Error.Message) {
+                    Throw $Result.Error.Message
                 }
                 else {
-                    Throw
+                    Throw $Task.Result.StatusCode
                 }
+            }
+            else {
+                Throw "Task failed with status $($Task.Status)"
             }
         }
     }
