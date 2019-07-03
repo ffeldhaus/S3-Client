@@ -11200,7 +11200,7 @@ New-Alias -Name Remove-S3ObjectVersion -Value Remove-S3Object
     Remove S3 Object
     .DESCRIPTION
     Remove S3 Object
-        .PARAMETER Server
+    .PARAMETER Server
     StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
     .PARAMETER ProfileName
     AWS Profile to use which contains AWS sredentials and settings
@@ -11327,7 +11327,7 @@ function Global:Remove-S3Object {
     }
 
     Process {
-        Write-Verbose "Delete key $Key"
+        Write-Verbose "Delete key $Key in bucket $BucketName"
 
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
