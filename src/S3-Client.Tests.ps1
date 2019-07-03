@@ -1143,11 +1143,11 @@ Describe "Copy Object" {
     }
 
     Context "Copy object to itself" {
-        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
+        It "Given -BucketName $BucketName and -Key $Key and -DestinationBucket $BucketName and -DestinationKey $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
             $OriginalObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
 
             Start-Sleep -Seconds 2
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -DestinationBucket $BucketName -DestinationKey $Key
 
             foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
@@ -1180,11 +1180,11 @@ Describe "Copy Object" {
             $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
         }
 
-        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key and additional metadata it is copied to itself" -Skip:($ProfileName -match "minio") {
+        It "Given -BucketName $BucketName and -Key $Key and additional metadata it is copied to itself" -Skip:($ProfileName -match "minio") {
             $Metadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty Metadata
             $Metadata["copytest"]="test"
 
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $Metadata
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -MetadataDirective "REPLACE" -Metadata $Metadata
 
             foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
@@ -1202,12 +1202,12 @@ Describe "Copy Object" {
     }
 
     Context "Copy object to a new object" {
-        It "Given -BucketName $BucketName and -Key $UnicodeKey and -SourceBucket $BucketName and -SourceKey $Key it is copied to a new object" -Skip:($ProfileName -match "minio") {
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key
+        It "Given -BucketName $BucketName and -Key $Key and -DestinationBucket $BucketName and -DestinationKey $UnicodeKey it is copied to a new object" -Skip:($ProfileName -match "minio") {
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -DestinationBucket $BucketName -DestinationKey $UnicodeKey
 
             foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
-                $ObjectExists = Test-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+                $ObjectExists = Test-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
                 if ($ObjectExists) {
                     break
                 }
