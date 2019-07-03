@@ -3230,7 +3230,7 @@ function Global:Get-S3BucketEncryption {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message -eq "The server side encryption configuration was not found") {
+                if ($Result.Error.Message -match "The server side encryption configuration was not found") {
                     # do nothing
                 }
                 elseif ($Result.Error.Message) {
@@ -3845,7 +3845,7 @@ function Global:Get-S3BucketCorsConfiguration {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message -eq "The CORS configuration does not exist") {
+                if ($Result.Error.Message -match "The CORS configuration does not exist") {
                     # do nothing
                 }
                 elseif ($Result.Error.Message) {
@@ -4678,7 +4678,7 @@ function Global:Get-S3BucketReplicationConfiguration {
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message -eq "The replication configuration was not found") {
+                if ($Result.Error.Message -match "The replication configuration was not found") {
                     # do nothing
                 }
                 elseif ($Result.Error.Message) {
