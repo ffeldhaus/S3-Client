@@ -1,12 +1,12 @@
 image:
 - Ubuntu1804
-- Visual Studio 2017
+#- Visual Studio 2017
 
 configuration:
 - AWS
-- WebscaleDemo
+#- WebscaleDemo
 #- WebscaleDemoNext
-- Minio
+#- Minio
 
 matrix:
   exclude:
@@ -71,8 +71,8 @@ before_test:
   - sh: if [[ "$CONFIGURATION" == "Minio" ]]; then docker pull minio/minio;fi
   - sh: if [[ "$CONFIGURATION" == "Minio" ]]; then docker run -d -p 9000:9000 -e "MINIO_ACCESS_KEY=$accesskey" -e "MINIO_SECRET_KEY=$secretkey" -e "MINIO_BROWSER=off" minio/minio server /data;fi
 # enable SSH
- # - sh: export APPVEYOR_SSH_BLOCK=true
- # - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
+  - sh: export APPVEYOR_SSH_BLOCK=true
+  - sh: curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
 # enable RDP
 #  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
