@@ -10422,11 +10422,7 @@ function Global:Write-S3MultipartUpload {
         }
 
         if (!$Chunksize) {
-            if ($FileSize -gt 1TB) {
-                # S3 only allows 1000 parts, therefore we need to ensure that the chunksize is larger than 1GB for files larger than 1TB
-                $Chunksize = [Math]::Pow(2, [Math]::Ceiling([Math]::Log($FileSize / 1000) / [Math]::Log(2)))
-            }
-            elseif ($FileSize -gt ([int64]$MaxRunspaces * 1GB)) {
+            if ($FileSize -gt ([int64]$MaxRunspaces * 1GB)) {
                 # chunksize of 1GB is optimal for fast, lossless connections which we assume
                 $Chunksize = 1GB
             }
