@@ -1065,7 +1065,7 @@ function Global:Invoke-AwsRequest {
             $StreamContent.Headers.ContentLength = $ContentLength
             $Request.Content = $StreamContent
         }
-        elseif ($Method -ne "HEAD") {
+        elseif ($Method -notmatch "HEAD|GET") {
             $StringContent = [System.Net.Http.StringContent]::new($Body)
             $Request.Content = $StringContent
         }
