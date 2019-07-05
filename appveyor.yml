@@ -1,12 +1,12 @@
 image:
-- Ubuntu1804
 - Visual Studio 2017
+- Ubuntu1804
 
 configuration:
+- Minio
 - AWS
 - WebscaleDemo
 #- WebscaleDemoNext
-- Minio
 
 matrix:
   exclude:
