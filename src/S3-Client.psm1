@@ -1065,25 +1065,27 @@ function Global:Invoke-AwsRequest {
             $StreamContent.Headers.ContentLength = $ContentLength
             $Request.Content = $StreamContent
         }
-        else {
+        elseif ($Method -ne "HEAD") {
             $StringContent = [System.Net.Http.StringContent]::new($Body)
             $Request.Content = $StringContent
         }
 
-        if ($Headers["Content-MD5"]) {
-            $Request.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
-            $Headers.Remove("Content-MD5")
-        }
-        elseif ($Headers["Content-MD5"] -ne $null) {
-            Throw "Content-MD5 header specified but empty"
-        }
-
-        if ($Headers["content-type"]) {
-            $Request.Content.Headers.ContentType = $Headers["content-type"]
-            $Headers.Remove("content-type")
-        }
-        elseif ($Headers["content-type"] -ne $null) {
-            Throw "content-type header specified but empty"
+        if ($Request.Content) {
+            if ($Headers["Content-MD5"]) {
+                $Request.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
+                $Headers.Remove("Content-MD5")
+            }
+            elseif ($Headers["Content-MD5"] -ne $null) {
+                Throw "Content-MD5 header specified but empty"
+            }
+    
+            if ($Headers["content-type"]) {
+                $Request.Content.Headers.ContentType = $Headers["content-type"]
+                $Headers.Remove("content-type")
+            }
+            elseif ($Headers["content-type"] -ne $null) {
+                Throw "content-type header specified but empty"
+            }
         }
 
         foreach ($HeaderKey in $Headers.Keys) {
