@@ -406,7 +406,12 @@ function Global:Get-AwsHash {
             Mandatory = $True,
             Position = 1,
             ParameterSetName = "file",
-            HelpMessage = "File to hash")][System.IO.FileInfo]$FileToHash
+            HelpMessage = "File to hash")][System.IO.FileInfo]$FileToHash,
+        [parameter(
+            Mandatory = $True,
+            Position = 2,
+            ParameterSetName = "stream",
+            HelpMessage = "Stream to hash")][System.IO.Stream]$StreamToHash
     )
 
     Process {
@@ -414,6 +419,11 @@ function Global:Get-AwsHash {
 
         if ($FileToHash) {
             $Hash = Get-FileHash -Algorithm SHA256 -Path $FileToHash | Select-Object -ExpandProperty Hash
+        }
+        elseif ($StreamToHash) {
+            Write-Host "Before hash"
+            $Hash = Get-FileHash -Algorithm SHA256 -InputStream $StreamToHash | Select-Object -ExpandProperty Hash
+            Write-Host "Hash complete: $Hash"
         }
         else {
             $Hash = ([BitConverter]::ToString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($StringToHash))) -replace '-', '').ToLower()
@@ -767,10 +777,14 @@ function Global:Get-AwsRequest {
         [parameter(
             Mandatory = $False,
             Position = 10,
-            HelpMessage = "Presign URL")][Switch]$Presign,
+            HelpMessage = "IO Stream")][System.IO.Stream]$Stream,
         [parameter(
             Mandatory = $False,
             Position = 11,
+            HelpMessage = "Presign URL")][Switch]$Presign,
+        [parameter(
+            Mandatory = $False,
+            Position = 12,
             HelpMessage = "Presign URL Expiration Date")][DateTime]$Expires = (Get-Date).AddHours(1)
     )
 
@@ -825,6 +839,10 @@ function Global:Get-AwsRequest {
             if ($InFile) {
                 $RequestPayloadHash = Get-AwsHash -FileToHash $InFile
             }
+            elseif ($Stream) {
+                $RequestPayloadHash = Get-AwsHash -StreamToHash $Stream
+                $Stream.Seek(0, [System.IO.SeekOrigin]::Begin)
+            }
             else {
                 $RequestPayloadHash = Get-AwsHash -StringToHash $RequestPayload
             }
@@ -833,11 +851,15 @@ function Global:Get-AwsRequest {
             $RequestPayloadHash = 'UNSIGNED-PAYLOAD'
         }
 
-        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $RequestPayload) -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl -match "http://"))) {
+        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $Stream -or $RequestPayload) -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl -match "http://"))) {
             if ($InFile) {
                 $Stream = [System.IO.FileStream]::new($InFile, [System.IO.FileMode]::Open)
                 $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash($Stream)
                 $null = $Stream.Close
+            }
+            elseif ($Stream) {
+                $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash($Stream)
+                $Stream.Seek(0, [System.IO.SeekOrigin]::Begin)
             }
             else {
                 $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($RequestPayload))
@@ -10520,12 +10542,39 @@ function Global:Write-S3MultipartUpload {
                         $StreamContent.Headers.ContentLength = $Stream.Length
                         $PutRequest.Content = $StreamContent
 
+                        if ($Headers["Content-MD5"]) {
+                            $PutRequest.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
+                            $Headers.Remove("Content-MD5")
+                        }
+                        elseif ($Headers["Content-MD5"] -ne $null) {
+                            Throw "Content-MD5 header specified but empty"
+                        }
+                
+                        if ($Headers["content-type"]) {
+                            $Content.Headers.ContentType = $AwsRequest.Headers["content-type"]
+                            $Headers.Remove("content-type")
+                        }
+                        elseif ($Headers["content-type"] -ne $null) {
+                            Throw "content-type header specified but empty"
+                        }
+        
+                        foreach ($HeaderKey in $Headers.Keys) {
+                            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+                            if ($HeaderKey -eq "Authorization") {
+                                $null = $PutRequest.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
+                            }
+                            else {
+                                $null = $PutRequest.Headers.Add($HeaderKey, $Headers[$HeaderKey])
+                            }
+                        }
+
                         try {
                             $Task = $HttpClient.SendAsync($PutRequest, $CancellationToken)
 
                             while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Task.IsCanceled -and !$Task.IsFaulted -and !$Task.IsCompleted) {
                                 Start-Sleep -Milliseconds 500
                                 $PartUploadProgress.$PartNumber = $Stream.Position
+                                Write-Host "Stream position $($Stream.Position)"
                             }
                             $PartUploadProgress.$PartNumber = $StreamLength
 
@@ -10843,13 +10892,7 @@ function Global:Write-S3ObjectPart {
 
         $Headers = @{"content-length" = $ContentLength }
 
-        # Force Presign because it allows UNSIGNED_PAYLOAD and we do not want
-        # to read the Stream to calculate a signature before uploading it for performance reasons
-        # We also do not use Content-MD5 header because we only calculate the MD5 sum during the upload
-        # again for performance reasons and then compare the calculated MD5 with the returned MD5/Etag
-        $Presign = [Switch]::new($true)
-
-        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -Uri $Uri -Query $Query -BucketName $BucketName -Headers $Headers -RequestPayload $Content
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Uri $Uri -Query $Query -BucketName $BucketName -Headers $Headers -Stream $Stream
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -10870,6 +10913,32 @@ function Global:Write-S3ObjectPart {
                 $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
                 $StreamContent.Headers.ContentLength = $ContentLength
                 $PutRequest.Content = $StreamContent
+
+                if ($AwsRequest.Headers["Content-MD5"]) {
+                    $PutRequest.Content.Headers.ContentMD5 = [Convert]::FromBase64String($AwsRequest.Headers["Content-MD5"])
+                    $AwsRequest.Headers.Remove("Content-MD5")
+                }
+                elseif ($AwsRequest.Headers["Content-MD5"] -ne $null) {
+                    Throw "Content-MD5 header specified but empty"
+                }
+        
+                if ($AwsRequest.Headers["content-type"]) {
+                    $PutRequest.Content.Headers.ContentType = $AwsRequest.Headers["content-type"]
+                    $AwsRequest.Headers.Remove("content-type")
+                }
+                elseif ($AwsRequest.Headers["content-type"] -ne $null) {
+                    Throw "content-type header specified but empty"
+                }
+
+                foreach ($HeaderKey in $AwsRequest.Headers.Keys) {
+                    # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+                    if ($HeaderKey -eq "Authorization") {
+                        $null = $PutRequest.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
+                    }
+                    else {
+                        $null = $PutRequest.Headers.Add($HeaderKey, $Headers[$HeaderKey])
+                    }
+                }
 
                 Write-Verbose "Start upload of part $PartNumber"
                 
