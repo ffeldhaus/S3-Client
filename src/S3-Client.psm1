@@ -1696,8 +1696,12 @@ function Global:Get-AwsConfig {
             HelpMessage = "Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.")][Alias("payload_signing_enabled")][String]$PayloadSigning,
         [parameter(
             Mandatory = $False,
-            Position = 1,
-            HelpMessage = "Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][String]$SkipCertificateCheck
+            Position = 17,
+            HelpMessage = "Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][String]$SkipCertificateCheck,
+        [parameter(
+            Mandatory = $False,
+            Position = 18,
+            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4"
     )
 
     Begin {
@@ -1721,7 +1725,8 @@ function Global:Get-AwsConfig {
             UseDualstackEndpoint                = $UseDualstackEndpoint;
             AddressingStyle                     = $AddressingStyle;
             PayloadSigning                      = $PayloadSigning;
-            SkipCertificateCheck                = $SkipCertificateCheck
+            SkipCertificateCheck                = $SkipCertificateCheck;
+            SignerType                          = $SignerType
         }
 
         if (!$ProfileName -and !$AccessKey -and !($Server -and ($AccountId -or $Server.AccountId))) {
