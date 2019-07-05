@@ -2799,7 +2799,7 @@ function Global:New-S3Bucket {
             $Headers["x-amz-grant-full-control"] = $l
         }
 
-        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Headers $Headers -RequestPayload $RequestPayload
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Headers $Headers
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
