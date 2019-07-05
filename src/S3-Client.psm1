@@ -821,7 +821,7 @@ function Global:Get-AwsRequest {
 
         Write-Verbose "PayloadSigning: $($Config.PayloadSigning)"
 
-        if ($Method -match 'PUT|POST|DELETE' -and $Config.SignerType -eq "AWS4" -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl.Scheme -eq "http"))) {
+        if ($Method -match 'PUT|POST|DELETE' -and $Config.SignerType -eq "AWS4" -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl -match "http://"))) {
             if ($InFile) {
                 $RequestPayloadHash = Get-AwsHash -FileToHash $InFile
             }
@@ -833,7 +833,7 @@ function Global:Get-AwsRequest {
             $RequestPayloadHash = 'UNSIGNED-PAYLOAD'
         }
 
-        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $RequestPayload) -and $Config.PayloadSigning -eq "true") {
+        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $RequestPayload) -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl -match "http://"))) {
             if ($InFile) {
                 $Stream = [System.IO.FileStream]::new($InFile, [System.IO.FileMode]::Open)
                 $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash($Stream)
