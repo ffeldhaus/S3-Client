@@ -318,6 +318,10 @@ function ConvertFrom-UnixTimestamp {
     Convert bucket name with non DNS conform characters to Punycode
     .PARAMETER BucketName
     Bucket name to convert to punycode
+    .PARAMETER SkipTest
+    Skip test if non DNS conform bucket exist
+    .PARAMETER Config
+    AWS Config
  #>
 function ConvertTo-Punycode {
     #private
@@ -399,6 +403,10 @@ function ConvertFrom-Punycode {
     Retrieve SHA256 Hash for Payload
     .DESCRIPTION
     Retrieve SHA256 Hash for Payload
+    .PARAMETER StringToHash
+    String to hash
+    .PARAMETER FileToHash
+    File to hash
 #>
 function Global:Get-AwsHash {
     #private
@@ -444,6 +452,28 @@ function Global:Get-AwsHash {
     Create AWS Authentication Signature Version 2 for Request
     .DESCRIPTION
     Create AWS Authentication Signature Version 2 for Request
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER EndpointUrl
+    Endpoint hostname and optional port
+    .PARAMETER Method
+    HTTP Request Method
+    .PARAMETER Uri
+    URI
+    .PARAMETER ContentMD5
+    Content MD5
+    .PARAMETER ContentType
+    Content Type
+    .PARAMETER DateTime
+    Date
+    .PARAMETER Headers
+    Headers
+    .PARAMETER BucketName
+    Bucket name
+    .PARAMETER QueryString
+    Query String (unencoded)
 #>
 function Global:New-AwsSignatureV2 {
     #private
@@ -487,9 +517,9 @@ function Global:New-AwsSignatureV2 {
             Position = 9,
             HelpMessage = "Headers")][Hashtable]$Headers = @{ },
         [parameter(
-            Mandatory = $False,
-            Position = 10,
-            HelpMessage = "Bucket")][String]$BucketName,
+            Mandatory=$False,
+            Position=10,
+            HelpMessage="Bucket name")][String]$BucketName,
         [parameter(
             Mandatory = $False,
             Position = 11,
@@ -565,6 +595,32 @@ function Global:New-AwsSignatureV2 {
     Create AWS Authentication Signature Version 4 for Request
     .DESCRIPTION
     Create AWS Authentication Signature Version 4 for Request
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER EndpointUrl
+    Endpoint hostname and optional port
+    .PARAMETER Method
+    HTTP Request Method
+    .PARAMETER Uri
+    URI
+    .PARAMETER CanonicalQueryString
+    Canonical query string
+    .PARAMETER DateTime
+    Date Time (yyyyMMddTHHmmssZ)
+    .PARAMETER DateString
+    Date String (yyyyMMdd)
+    .PARAMETER RequestPayloadHash
+    Request payload hash
+    .PARAMETER Region
+    Region
+    .PARAMETER Service
+    Service
+    .PARAMETER Headers
+    Headers
+    .PARAMETER ContentType
+    Content Type
 #>
 function Global:New-AwsSignatureV4 {
     #private
@@ -1038,7 +1094,7 @@ function Global:Invoke-AwsRequest {
             Mandatory = $False,
             Position = 6,
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken    
+            HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken
     )
 
     Begin {
@@ -1106,7 +1162,7 @@ function Global:Invoke-AwsRequest {
             elseif ($Headers["Content-MD5"] -ne $null) {
                 Throw "Content-MD5 header specified but empty"
             }
-    
+
             if ($Headers["content-type"]) {
                 $Request.Content.Headers.ContentType = $Headers["content-type"]
                 $Headers.Remove("content-type")
@@ -2198,7 +2254,7 @@ function Global:New-AwsPolicy {
         }
 
         $Policy.Statement += $Statement
-        
+
         # convert to JSON
         $PolicyString = ConvertTo-Json -InputObject $Policy -Depth 10
 
@@ -2351,7 +2407,7 @@ function Global:Get-S3Buckets {
 
                         $RunspacePool = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspacePool(1, $Config.MaxConcurrentRequests)
                         $RunspacePool.Open()
-                        
+
                         $Jobs = New-Object System.Collections.ArrayList
 
                         foreach ($XmlBucket in $XmlBuckets) {
@@ -2361,22 +2417,22 @@ function Global:Get-S3Buckets {
                                 $UnicodeBucketName = $XmlBucket.Name
                             }
                             $Bucket = [PSCustomObject]@{ BucketName = $UnicodeBucketName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
-                            
+
                             $Runspace = [powershell]::Create()
                             $Runspace.RunspacePool = $RunspacePool
                             [void]$Runspace.AddScript( {
                                     Param ([PSCustomObject]$Bucket, [PSCustomObject]$Config)
-                            
+
                                     try {
                                         $Bucket.Region = $Bucket | Get-S3BucketLocation -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -Presign:$Presign
                                     }
                                     catch { }
-                            
+
                                     Write-Output $Bucket
                                 })
-                            
+
                             [void]$Runspace.AddParameters(@{Bucket = $Bucket; Config = $Config })
-                            
+
                             [void]$Jobs.Add([PSCustomObject]@{Runspace = $Runspace; Status = $Runspace.BeginInvoke() })
                         }
 
@@ -2393,7 +2449,7 @@ function Global:Get-S3Buckets {
                     }
                 }
                 elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                    $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                    $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                     $RetryCount++
                     Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                     Start-Sleep -Seconds $SleepSeconds
@@ -2594,14 +2650,14 @@ function Global:Test-S3Bucket {
         }
         else {
             $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
-            
+
             $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
 
             if ($Task.Result.IsSuccessStatusCode) {
                 Write-Output $true
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -2789,7 +2845,7 @@ function Global:New-S3Bucket {
         if (!$Config) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
-        $Method = "PUT"       
+        $Method = "PUT"
     }
 
     Process {
@@ -2846,7 +2902,7 @@ function Global:New-S3Bucket {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -3009,7 +3065,7 @@ function Global:Remove-S3Bucket {
 
     Process {
         Write-Verbose "Delete bucket $BucketName"
-        
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
@@ -3051,7 +3107,7 @@ function Global:Remove-S3Bucket {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -3245,7 +3301,7 @@ function Global:Get-S3BucketEncryption {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -3465,7 +3521,7 @@ function Global:Set-S3BucketEncryption {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -3650,7 +3706,7 @@ function Global:Remove-S3BucketEncryption {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -3860,7 +3916,7 @@ function Global:Get-S3BucketCorsConfiguration {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -4136,7 +4192,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -4481,7 +4537,7 @@ function Global:Remove-S3BucketCorsConfiguration {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -4693,7 +4749,7 @@ function Global:Get-S3BucketReplicationConfiguration {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -5013,7 +5069,7 @@ function Global:Add-S3BucketReplicationConfigurationRule {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -5350,7 +5406,7 @@ function Global:Remove-S3BucketReplicationConfiguration {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -5538,7 +5594,7 @@ function Global:Get-S3BucketPolicy {
                 Write-Output $Policy
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -5767,7 +5823,7 @@ function Global:Set-S3BucketPolicy {
                 Write-Output $Policy
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -5958,7 +6014,7 @@ function Global:Remove-S3BucketPolicy {
                 Write-Output $Policy
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -6151,7 +6207,7 @@ function Global:Get-S3BucketTagging {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -6359,7 +6415,7 @@ function Global:Set-S3BucketTagging {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -6549,7 +6605,7 @@ function Global:Remove-S3BucketTagging {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -6703,7 +6759,7 @@ function Global:Get-S3BucketVersioning {
 
     Process {
         Write-Verbose "Retrieve versioning status for bucket $BucketName"
-        
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
@@ -6735,7 +6791,7 @@ function Global:Get-S3BucketVersioning {
                 Write-Output $Content.VersioningConfiguration.Status
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -6924,7 +6980,7 @@ function Global:Enable-S3BucketVersioning {
                 Write-Output $Content.VersioningConfiguration.Status
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -7113,7 +7169,7 @@ function Global:Suspend-S3BucketVersioning {
                 Write-Output $Content.VersioningConfiguration.Status
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -7301,7 +7357,7 @@ function Global:Get-S3BucketLocation {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -7548,7 +7604,7 @@ function Global:Get-S3MultipartUploads {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -7833,7 +7889,7 @@ function Global:Get-S3Objects {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -8050,7 +8106,7 @@ function Global:Get-S3ObjectVersions {
             $Config.Region = $Region
         }
 
-        $Query = @{versions = "" }        
+        $Query = @{versions = "" }
 
         if ($Delimiter) { $Query["delimiter"] = $Delimiter }
         if ($EncodingType) { $Query["encoding-type"] = $EncodingType }
@@ -8117,7 +8173,7 @@ function Global:Get-S3ObjectVersions {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -8593,7 +8649,7 @@ function Global:Get-S3ObjectMetadata {
                 Write-Output $Output
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -8856,7 +8912,7 @@ function Global:Read-S3Object {
                 Write-Output $Content
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -9335,7 +9391,7 @@ function Global:Write-S3Object {
             elseif ($ContentType) {
                 $Headers["content-type"] = $ContentType
             }
-            
+
             if (!$Headers["content-type"]) {
                 $Headers["content-type"] = "application/octet-stream"
             }
@@ -9370,7 +9426,7 @@ function Global:Write-S3Object {
                             Write-Output ([PSCustomObject]@{ETag = $Task.Result.Headers.ETag.Tag })
                         }
                         elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                            $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                            $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                             $RetryCount++
                             Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                             Start-Sleep -Seconds $SleepSeconds
@@ -9455,7 +9511,7 @@ function Global:Write-S3Object {
                         elseif ($AwsRequest.Headers["Content-MD5"] -ne $null) {
                             Throw "Content-MD5 header specified but empty"
                         }
-                
+
                         if ($AwsRequest.Headers["content-type"]) {
                             $PutRequest.Content.Headers.ContentType = $AwsRequest.Headers["content-type"]
                             $AwsRequest.Headers.Remove("content-type")
@@ -9770,7 +9826,7 @@ function Global:Start-S3MultipartUpload {
                 Write-Output $InitiateMultipartUploadResult
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -9969,7 +10025,7 @@ function Global:Stop-S3MultipartUpload {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -10185,11 +10241,11 @@ function Global:Complete-S3MultipartUpload {
                     Key                                                      = [System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.Key);
                     ETag                                                     = ([System.Net.WebUtility]::UrlDecode($Content.CompleteMultipartUploadResult.ETag) -replace '"', '')
                 }
-    
+
                 Write-Output $CompleteMultipartUploadResult
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -10551,7 +10607,7 @@ function Global:Write-S3MultipartUpload {
                         elseif ($Headers["Content-MD5"] -ne $null) {
                             Throw "Content-MD5 header specified but empty"
                         }
-                
+
                         if ($Headers["content-type"]) {
                             $Content.Headers.ContentType = $AwsRequest.Headers["content-type"]
                             $Headers.Remove("content-type")
@@ -10559,7 +10615,7 @@ function Global:Write-S3MultipartUpload {
                         elseif ($Headers["content-type"] -ne $null) {
                             Throw "content-type header specified but empty"
                         }
-        
+
                         foreach ($HeaderKey in $Headers.Keys) {
                             # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
                             if ($HeaderKey -eq "Authorization") {
@@ -10886,8 +10942,8 @@ function Global:Write-S3ObjectPart {
         $Query = @{partNumber = $PartNumber; uploadId = $UploadId }
 
         if ($Content) {
-            $Stream = [System.IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes($Content)) 
-        }     
+            $Stream = [System.IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes($Content))
+        }
 
         $ContentLength = $Stream.Length
 
@@ -10922,7 +10978,7 @@ function Global:Write-S3ObjectPart {
                 elseif ($AwsRequest.Headers["Content-MD5"] -ne $null) {
                     Throw "Content-MD5 header specified but empty"
                 }
-        
+
                 if ($AwsRequest.Headers["content-type"]) {
                     $PutRequest.Content.Headers.ContentType = $AwsRequest.Headers["content-type"]
                     $AwsRequest.Headers.Remove("content-type")
@@ -10942,7 +10998,7 @@ function Global:Write-S3ObjectPart {
                 }
 
                 Write-Verbose "Start upload of part $PartNumber"
-                
+
                 $StartTime = Get-Date
 
                 $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
@@ -11237,7 +11293,7 @@ function Global:Get-S3ObjectParts {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -11417,7 +11473,7 @@ function Global:Remove-S3Object {
 
         if ($Region) {
             $Config.Region = $Region
-        }        
+        }
 
         $Uri = "/$Key"
 
@@ -11444,7 +11500,7 @@ function Global:Remove-S3Object {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -11791,7 +11847,7 @@ function Global:Copy-S3Object {
             $DestinationConfig.Region = $DestinationRegion
         }
 
-        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName        
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if (!$DestinationBucketName) {
             $DestinationBucketName = $BucketName
@@ -11878,7 +11934,7 @@ function Global:Copy-S3Object {
                     }
                 }
                 elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                    $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                    $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                     $RetryCount++
                     Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                     Start-Sleep -Seconds $SleepSeconds
@@ -11926,14 +11982,14 @@ function Global:Copy-S3Object {
 
             if ($SourceTask.Result.IsSuccessStatusCode) {
                 $Stream = [System.IO.MemoryStream]::new([Math]::Min(8MB, $Metadata.Size))
-                $DestinationTask = $DestinationAwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$DestinationConfig.SkipCertificateCheck -InStream $Stream -Size $Metadata.Size                
+                $DestinationTask = $DestinationAwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$DestinationConfig.SkipCertificateCheck -InStream $Stream -Size $Metadata.Size
 
                 if ($DestinationTask.Result.IsSuccessStatusCode) {
                     $CopyTask = $SourceTask.Result.Content.CopyToAsync($Stream)
                     while (-not $CopyTask.AsyncWaitHandle.WaitOne(200)) { }
                 }
                 elseif ($DestinationTask.IsCanceled -or $DestinationTask.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                    $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                    $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                     $RetryCount++
                     Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                     Start-Sleep -Seconds $SleepSeconds
@@ -11966,7 +12022,7 @@ function Global:Copy-S3Object {
                 }
             }
             elseif ($SourceTask.IsCanceled -or $SourceTask.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -12163,7 +12219,7 @@ function Global:Get-S3ObjectTagging {
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -12378,7 +12434,7 @@ function Global:Set-S3ObjectTagging {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -12571,7 +12627,7 @@ function Global:Remove-S3ObjectTagging {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -12760,7 +12816,7 @@ function Global:Get-S3BucketConsistency {
                 Write-Output $BucketNameConsistency
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -12949,7 +13005,7 @@ function Global:Update-S3BucketConsistency {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -13120,7 +13176,7 @@ function Global:Get-S3StorageUsage {
                 Write-Output $UsageResult
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -13303,7 +13359,7 @@ function Global:Get-S3BucketLastAccessTime {
                 Write-Output $BucketNameLastAccessTime
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -13486,7 +13542,7 @@ function Global:Enable-S3BucketLastAccessTime {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
@@ -13669,7 +13725,7 @@ function Global:Disable-S3BucketLastAccessTime {
                 # do nothing
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)                
+                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
                 $RetryCount++
                 Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
                 Start-Sleep -Seconds $SleepSeconds
