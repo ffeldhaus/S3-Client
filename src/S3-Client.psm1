@@ -421,9 +421,7 @@ function Global:Get-AwsHash {
             $Hash = Get-FileHash -Algorithm SHA256 -Path $FileToHash | Select-Object -ExpandProperty Hash
         }
         elseif ($StreamToHash) {
-            Write-Host "Before hash"
             $Hash = Get-FileHash -Algorithm SHA256 -InputStream $StreamToHash | Select-Object -ExpandProperty Hash
-            Write-Host "Hash complete: $Hash"
         }
         else {
             $Hash = ([BitConverter]::ToString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($StringToHash))) -replace '-', '').ToLower()
@@ -10570,7 +10568,6 @@ function Global:Write-S3MultipartUpload {
                             while ($Stream.Position -ne $Stream.Length -and !$CancellationToken.IsCancellationRequested -and !$Task.IsCanceled -and !$Task.IsFaulted -and !$Task.IsCompleted) {
                                 Start-Sleep -Milliseconds 500
                                 $PartUploadProgress.$PartNumber = $Stream.Position
-                                Write-Host "Stream position $($Stream.Position)"
                             }
                             $PartUploadProgress.$PartNumber = $StreamLength
 
