@@ -7806,7 +7806,7 @@ function Global:Get-S3Objects {
                 foreach ($Object in $Objects) {
                     $Object = [PSCustomObject]@{
                         BucketName       = $UnicodeBucket;
-                        Region           = $Region;
+                        Region           = $Config.Region;
                         Key              = [System.Net.WebUtility]::UrlDecode($Object.Key);
                         LastModified     = (Get-Date $Object.LastModified);
                         ETag             = ([System.Net.WebUtility]::UrlDecode($Object.ETag) -replace '"', '');
