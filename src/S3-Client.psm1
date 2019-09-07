@@ -1832,7 +1832,7 @@ function Global:Get-AwsConfig {
             $Config.PayloadSigning = "auto"
         }
 
-        if ($SkipCertificateCheck) {
+        if (!$Config.SkipCertificateCheck -and $SkipCertificateCheck) {
             $Config.SkipCertificateCheck = ([System.Convert]::ToBoolean($SkipCertificateCheck))
         }
         elseif ($SkipCertificateCheck -eq $null) {
