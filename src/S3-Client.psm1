@@ -332,7 +332,8 @@ function ConvertTo-Punycode {
 
     PROCESS {
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
+        $IdnMapping = New-Object -TypeName "System.Globalization.IdnMapping"
+        $PunycodeBucketName = $IdnMapping.GetAscii($BucketName).ToLower()
         # check if BucketName contains uppercase letters
         if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
             if ($SkipTest.IsPresent) {
@@ -377,7 +378,8 @@ function ConvertTo-Punycode {
 
     PROCESS {
         # Convert Bucket Name to IDN mapping to support Unicode Names
-        $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode($BucketName)
+        $IdnMapping = New-Object -TypeName "System.Globalization.IdnMapping"
+        $UnicodeBucketName = $IdnMapping.GetUnicode($BucketName)
         Write-Output $UnicodeBucketName
     }
 }
@@ -2302,14 +2304,14 @@ function Global:Get-S3Buckets {
 
                 if ($Content.ListAllMyBucketsResult) {
                     if ($BucketName) {
-                        $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes | Where-Object { $_.Name -eq [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower() }
+                        $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes | Where-Object { $_.Name -eq (ConvertTo-Punycode -BucketName $BucketName) }
                     }
                     else {
                         $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes
                     }
                     foreach ($XmlBucket in $XmlBuckets) {
                         $Location = Get-S3BucketLocation -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -Bucket $XmlBucket.Name -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Presign:$Presign -SignerType $SignerType -UseDualstackEndpoint:$UseDualstackEndpoint
-                        $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
+                        $UnicodeBucketName = ConvertFrom-Punycode $XmlBucket.Name
                         # ensure that we keep uppercase letters
                         if ($UnicodeBucketName -eq $XmlBucket.Name) {
                             $UnicodeBucketName = $XmlBucket.Name
@@ -4220,12 +4222,12 @@ function Global:Get-S3BucketReplicationConfiguration {
 
                     foreach ($Rule in $Content.ReplicationConfiguration.Rule) {
                         $Output = [PSCustomObject]@{
-                            BucketName              = [System.Globalization.IdnMapping]::new().GetUnicode($BucketName)
+                            BucketName              = ConvertFrom-Punycode -BucketName $BucketName
                             Role                    = $Content.ReplicationConfiguration.Role
                             Id                      = $Rule.Id
                             Status                  = $Rule.Status
                             Prefix                  = $Rule.Prefix
-                            DestinationBucketName   = [System.Globalization.IdnMapping]::new().GetUnicode($Rule.Destination.Bucket -replace ".*:::","")
+                            DestinationBucketName   = ConvertFrom-Punycode -BucketName ($Rule.Destination.Bucket -replace ".*:::","")
                             DestinationStorageClass = $Rule.Destination.StorageClass
                             DestinationAccount      = $Rule.Destination.Account
                             DestinationOwner        = $Rule.Destination.AccessControlTranslation.Owner
@@ -4493,13 +4495,13 @@ function Global:Add-S3BucketReplicationConfigurationRule {
 
         if ($DestinationBucketName) {
             # Convert Destination Bucket Name to IDN mapping to support Unicode Names
-            $DestinationBucketName = [System.Globalization.IdnMapping]::new().GetAscii($DestinationBucketName).ToLower()
+            $DestinationBucketName = ConvertTo-Punycode -BucketName $DestinationBucketName
         }
 
         if ($DestinationBucketUrn) {
             $DestinationBucketName = $DestinationBucketUrn.Uri.ToString() -replace ".*:.*:.*:.*:.*:(.*)",'$1'
             # Convert Destination Bucket Name to IDN mapping to support Unicode Names
-            $DestinationBucketName = [System.Globalization.IdnMapping]::new().GetAscii($DestinationBucketName).ToLower()
+            $DestinationBucketName = ConvertTo-Punycode -BucketName $DestinationBucketName
             $DestinationBucketUrnPrefix = $DestinationBucketUrn.Uri.ToString() -replace "(.*:.*:.*:.*:.*:).*",'$1'
             $DestinationBucketUrn = [System.UriBuilder]"$DestinationBucketUrnPrefix$DestinationBucketName"
         }
