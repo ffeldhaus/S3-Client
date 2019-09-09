@@ -228,9 +228,11 @@ function ConvertTo-AwsConfigFile {
         if ([environment]::OSVersion.Platform -match "win") {
             # replace LF with CRLF
             $Output = $Output -replace "`n","`r`n"
+            $Output | Out-File -FilePath $AwsConfigFile
         }
-
-        $Output | Out-File -FilePath $AwsConfigFile -NoNewline
+        else {
+            $Output | Out-File -FilePath $AwsConfigFile -NoNewline
+        }
     }
 }
 
