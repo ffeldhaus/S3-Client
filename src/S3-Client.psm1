@@ -1726,7 +1726,7 @@ function Global:Get-AwsConfig {
                                     UseDualstackEndpoint = $UseDualstackEndpoint;
                                     AddressingStyle = $AddressingStyle;
                                     PayloadSigning = $PayloadSigning;
-                                    SkipCertificateCheck = $SkipCertificateCheck}
+                                    SkipCertificateCheck = [System.Convert]::ToBoolean($SkipCertificateCheck)}
 
         if (!$ProfileName -and !$AccessKey -and !($Server -and ($AccountId -or $Server.AccountId))) {
             $ProfileName = "default"
