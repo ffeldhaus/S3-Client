@@ -5094,6 +5094,8 @@ Set-Alias -Name Write-S3BucketPolicy -Value Set-S3BucketPolicy
     If set, applies a Bucket Policy making the bucket public with read-only permissions
     .PARAMETER PublicReadWritePolicy
     If set, applies a Bucket Policy making the bucket public with read-write permissions
+    .PARAMETER Consistency
+    Consistency level
 #>
 function Global:Set-S3BucketPolicy {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -5180,7 +5182,11 @@ function Global:Set-S3BucketPolicy {
         [parameter(
                 Mandatory=$False,
                 Position=14,
-                HelpMessage="If set, applies an ACL making the bucket public with read-write permissions")][Switch]$PublicReadWritePolicy
+                HelpMessage="If set, applies an ACL making the bucket public with read-write permissions")][Switch]$PublicReadWritePolicy,
+        [parameter(
+                Mandatory=$True,
+                Position=15,
+                HelpMessage="Consistency level")][ValidateSet("all","strong-global","strong-site","default","available","weak")][String]$Consistency
     )
 
     Begin {
@@ -5218,10 +5224,15 @@ function Global:Set-S3BucketPolicy {
             $Policy = New-AwsPolicy -Resource $Resource
         }
 
+        $Headers = @{}
+        if ($Consistency) {
+            $Headers."Consistency-Control" = $Consistency
+        }
+
         # pretty print JSON to simplify debugging
         $Policy = ConvertFrom-Json -InputObject $Policy | ConvertTo-Json -Depth 10
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region -RequestPayload $Policy -PayloadSigning $Config.PayloadSigning
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Headers $Headers -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region -RequestPayload $Policy -PayloadSigning $Config.PayloadSigning
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -5267,6 +5278,8 @@ function Global:Set-S3BucketPolicy {
     Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER BucketName
     Bucket Name
+    .PARAMETER Consistency
+    Consistency level
 #>
 function Global:Remove-S3BucketPolicy {
     [CmdletBinding(DefaultParameterSetName="none")]
@@ -5335,7 +5348,11 @@ function Global:Remove-S3BucketPolicy {
                 Mandatory=$True,
                 Position=10,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName
+                HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$True,
+                Position=11,
+                HelpMessage="Consistency level")][ValidateSet("all","strong-global","strong-site","default","available","weak")][String]$Consistency
     )
 
     Begin {
@@ -5359,7 +5376,12 @@ function Global:Remove-S3BucketPolicy {
 
         $Query = @{policy=""}
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
+        $Headers = @{}
+        if ($Consistency) {
+            $Headers."Consistency-Control" = $Consistency
+        }
+
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Headers $Headers -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Query $Query -Region $Region
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
@@ -10788,7 +10810,7 @@ function Global:Update-S3BucketConsistency {
         [parameter(
                 Mandatory=$True,
                 Position=11,
-                HelpMessage="Bucket")][ValidateSet("all","strong-global","strong-site","default","available","weak")][String]$Consistency,
+                HelpMessage="Consistency level")][ValidateSet("all","strong-global","strong-site","default","available","weak")][String]$Consistency,
         [parameter(
                 Mandatory=$False,
                 Position=12,
