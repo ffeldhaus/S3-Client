@@ -318,7 +318,7 @@ function ConvertTo-Punycode {
     [CmdletBinding()]
 
     PARAM (
-        [parameter(Mandatory=$True,
+        [parameter(Mandatory=$False,
                 Position=0,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName,
@@ -331,9 +331,15 @@ function ConvertTo-Punycode {
     )
 
     PROCESS {
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $IdnMapping = New-Object -TypeName "System.Globalization.IdnMapping"
-        $PunycodeBucketName = $IdnMapping.GetAscii($BucketName).ToLower()
+        if ($BucketName) {
+            # Convert Bucket Name to IDN mapping to support Unicode Names
+            $IdnMapping = New-Object -TypeName "System.Globalization.IdnMapping"
+            $PunycodeBucketName = $IdnMapping.GetAscii($BucketName).ToLower()
+        }
+        else {
+            $PunycodeBucketName = ""
+        }
+        
         # check if BucketName contains uppercase letters
         if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
             if ($SkipTest.IsPresent) {
@@ -370,17 +376,22 @@ function ConvertTo-Punycode {
     [CmdletBinding()]
 
     PARAM (
-        [parameter(Mandatory=$True,
+        [parameter(Mandatory=$False,
                 Position=0,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName
     )
 
     PROCESS {
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $IdnMapping = New-Object -TypeName "System.Globalization.IdnMapping"
-        $UnicodeBucketName = $IdnMapping.GetUnicode($BucketName)
-        Write-Output $UnicodeBucketName
+        if ($BucketName) {
+            # Convert Bucket Name to IDN mapping to support Unicode Names
+            $IdnMapping = New-Object -TypeName "System.Globalization.IdnMapping"
+            $UnicodeBucketName = $IdnMapping.GetUnicode($BucketName)
+            Write-Output $UnicodeBucketName
+        }
+        else {
+            Write-Output ""
+        }
     }
 }
 
