@@ -1128,6 +1128,8 @@ Describe "S3 Bucket CORS Configuration" {
 
 Describe "S3 Bucket Replication Configuration" {
     if ($ProfileName -eq "Minio") { continue }
+    # skip these tests for webscaledemo until Platform Services are fixed by NetApp IT
+    if ($ProfileName -eq "webscaledemo") { continue }
 
     BeforeAll {
         if ($ProfileName -eq "Minio") { continue }
