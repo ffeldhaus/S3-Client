@@ -877,7 +877,7 @@ function Global:Get-AwsRequest {
             $RequestPayloadHash = 'UNSIGNED-PAYLOAD'
         }
 
-        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $RequestPayload) -and $PayloadSigning -eq "true") {
+        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $RequestPayload) -and ($PayloadSigning -eq "true" -or ($PayloadSigning -eq "auto" -and $EndpointUrl.Scheme -eq "http"))) {
             if ($InFile) {
                 $Stream = [System.IO.FileStream]::new($InFile, [System.IO.FileMode]::Open)
                 $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash($Stream)
