@@ -821,24 +821,24 @@ function Global:Get-AwsRequest {
         if (!$EndpointUrl) {
             if ($Region -eq "us-east-1" -or !$Region) {
                 if ($UseDualstackEndpoint) {
-                    $EndpointUrl = [System.UriBuilder]::new("https://s3.dualstack.amazonaws.com")
+                    $EndpointUrl = [System.UriBuilder]"https://s3.dualstack.amazonaws.com"
                 }
                 else {
-                    $EndpointUrl = [System.UriBuilder]::new("https://s3.amazonaws.com")
+                    $EndpointUrl = [System.UriBuilder]"https://s3.amazonaws.com"
                 }
             }
             else {
                 if ($UseDualstackEndpoint) {
-                    $EndpointUrl = [System.UriBuilder]::new("https://s3.dualstack.$Region.amazonaws.com")
+                    $EndpointUrl = [System.UriBuilder]"https://s3.dualstack.$Region.amazonaws.com"
                 }
                 else {
-                    $EndpointUrl = [System.UriBuilder]::new("https://s3.$Region.amazonaws.com")
+                    $EndpointUrl = [System.UriBuilder]"https://s3.$Region.amazonaws.com"
                 }
             }
         }
         else {
             # as we are modifying the endpoint URL, make sure to work on a new object and not modify the origianl object
-            $EndpointUrl = [System.UriBuilder]::new($EndpointUrl.ToString())
+            $EndpointUrl = [System.UriBuilder]$EndpointUrl.ToString()
         }
 
         Write-Verbose "Ensure that plus sign (+), exclamation mark (!), asterisk (*) and brackets (()) are encoded in URI, otherwise AWS signing will not work"
@@ -1774,7 +1774,7 @@ function Global:Get-AwsConfig {
                 }
                 $Config.AccessKey = $Credential.AccessKey
                 $Config.SecretKey = $Credential.SecretAccessKey
-                $Config.EndpointUrl = [System.UriBuilder]::new($EndpointUrl.ToString())
+                $Config.EndpointUrl = [System.UriBuilder]$EndpointUrl.ToString()
                 $Config.SkipCertificateCheck = $Server.SkipCertificateCheck
             }
         }
