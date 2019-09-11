@@ -575,46 +575,9 @@ Describe "Copy Object" {
     }
 
     Context "Copy object to itself" {
-        It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
-            $OriginalObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-
-            Start-Sleep -Seconds 2
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $ObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-                if ($OriginalObjectMetadata.LastModified -lt $ObjectMetadata.LastModified) {
-                    break
-                }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but object is not copied to itself yet. Trying again in 1 second."
-                }
-            }
-            $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
-        }
-
-        It "Given -BucketName $BucketName and -Key $Key it is copied to itself" -Skip:($ProfileName -match "minio") {
-            $OriginalObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $ObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
-                if ($OriginalObjectMetadata.LastModified -lt $ObjectMetadata.LastModified) {
-                    break
-                }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but object is not copied to itself yet. Trying again in 1 second."
-                }
-            }
-            $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
-        }
-
         It "Given -BucketName $BucketName and -Key $Key and -SourceBucket $BucketName and -SourceKey $Key and additional metadata it is copied to itself" -Skip:($ProfileName -match "minio") {
             $Metadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty Metadata
-            $Metadata["copytest"]="test"
+            $Metadata["copytest"] = Get-Random
 
             Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key -MetadataDirective "REPLACE" -Metadata $Metadata
 
@@ -629,13 +592,33 @@ Describe "Copy Object" {
                 }
             }
             $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
-            $ObjectMetadata.Metadata.copytest | Should -Be "test"
+            $ObjectMetadata.Metadata.copytest | Should -Be $Metadata["copytest"]
+        }
+
+        It "Given -BucketName $BucketName and -Key $Key and additional metadata it is copied to itself" -Skip:($ProfileName -match "minio") {
+            $Metadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key | Select-Object -ExpandProperty Metadata
+            $Metadata["copytest"] = Get-Random
+
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Metadata $Metadata
+
+            foreach ($i in 1..$MAX_WAIT_TIME) {
+                Start-Sleep -Seconds 1
+                $ObjectMetadata = Get-S3ObjectMetadata -ProfileName $ProfileName -BucketName $BucketName -Key $Key
+                if ($OriginalObjectMetadata.LastModified -lt $ObjectMetadata.LastModified) {
+                    break
+                }
+                if ($i -lt $MAX_WAIT_TIME) {
+                    Write-Warning "Tried $i times but object is not copied to itself yet. Trying again in 1 second."
+                }
+            }
+            $OriginalObjectMetadata.LastModified | Should -BeLessThan $ObjectMetadata.LastModified
+            $ObjectMetadata.Metadata.copytest | Should -Be $Metadata["copytest"]
         }
     }
 
     Context "Copy object to a new object" {
         It "Given -BucketName $BucketName and -Key $UnicodeKey and -SourceBucket $BucketName and -SourceKey $Key it is copied to a new object" -Skip:($ProfileName -match "minio") {
-            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -SourceBucket $BucketName -SourceKey $Key
+            Copy-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -SourceBucket $BucketName -SourceKey $Key
 
             foreach ($i in 1..$MAX_WAIT_TIME) {
                 Start-Sleep -Seconds 1
