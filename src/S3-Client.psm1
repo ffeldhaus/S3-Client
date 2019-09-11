@@ -10057,9 +10057,6 @@ function Global:Copy-S3Object {
         if (!$SourceKey) {
             $SourceKey = $Key
         }
-        if (!$Metadata -and !$Tags) {
-            $Metadata = Get-S3ObjectMetadata -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $SourceBucketName -Key $SourceKey -VersionId $SourceVersionId | Select-Object -ExpandProperty Metadata
-        }
 
         $SourceBucketName = ConvertTo-Punycode -Config $Config -BucketName $SourceBucketName
 
