@@ -417,7 +417,12 @@ function Global:Get-AwsHash {
             Mandatory=$True,
             Position=1,
             ParameterSetName="file",
-            HelpMessage="File to hash")][System.IO.FileInfo]$FileToHash
+            HelpMessage="File to hash")][System.IO.FileInfo]$FileToHash,
+        [parameter(
+            Mandatory=$True,
+            Position=2,
+            ParameterSetName="stream",
+            HelpMessage="Stream to hash")][System.IO.Stream]$StreamToHash
     )
 
     Process {
@@ -425,6 +430,10 @@ function Global:Get-AwsHash {
 
         if ($FileToHash) {
             $Hash = Get-FileHash -Algorithm SHA256 -Path $FileToHash | Select-Object -ExpandProperty Hash
+        }
+        elseif ($StreamToHash) {
+            $Hash = ([BitConverter]::ToString($Hasher.ComputeHash($StreamToHash)) -replace '-','').ToLower()
+            $StreamToHash.Position = 0
         }
         else {
             $Hash = ([BitConverter]::ToString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($StringToHash))) -replace '-','').ToLower()
