@@ -1863,7 +1863,7 @@ function Global:Get-AwsConfig {
         }
 
         if ($PayloadSigning) {
-            $Config.PayloadSigning = ([System.Convert]::ToBoolean($PayloadSigning))
+            $Config.PayloadSigning = $PayloadSigning
         }
         elseif (!$Config.PayloadSigning) {
             $Config.PayloadSigning = "auto"
