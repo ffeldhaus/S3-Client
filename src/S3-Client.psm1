@@ -880,10 +880,13 @@ function Global:Get-AwsRequest {
 
         if ($Method -match 'PUT|POST|DELETE' -and $SignerType -eq "AWS4" -and ($PayloadSigning -eq "true" -or ($PayloadSigning -eq "auto" -and $EndpointUrl.Scheme -eq "http"))) {
             if ($InFile) {
-                $RequestPayloadHash=Get-AwsHash -FileToHash $InFile
+                $RequestPayloadHash = Get-AwsHash -FileToHash $InFile
+            }
+            elseif ($Stream) {
+                $RequestPayloadHash = Get-AwsHash -StreamToHash $Stream
             }
             else {
-                $RequestPayloadHash=Get-AwsHash -StringToHash $RequestPayload
+                $RequestPayloadHash = Get-AwsHash -StringToHash $RequestPayload
             }
         }
         else {
