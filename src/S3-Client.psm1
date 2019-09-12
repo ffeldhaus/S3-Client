@@ -9205,7 +9205,10 @@ function Global:Write-S3MultipartUpload {
 
                     $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$Uri)
 
-                    $PutRequest.Headers.Add("Host",$Headers["Host"])
+                    foreach ($Key in $Headers.Keys) {
+                        # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+                        $null = $PutRequest.Headers.TryAddWithoutValidation($Key,$Headers[$Key])
+                    }
 
                     $StreamLength = $Stream.Length
                     $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
