@@ -9213,6 +9213,9 @@ function Global:Write-S3MultipartUpload {
                     $StreamLength = $Stream.Length
                     $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
                     $StreamContent.Headers.ContentLength = $Stream.Length
+                    if ($Headers."Content-MD5") {
+                        $StreamContent.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
+                    }
                     $PutRequest.Content = $StreamContent
 
                     try {
@@ -9518,6 +9521,9 @@ function Global:Write-S3ObjectPart {
 
                 $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
                 $StreamContent.Headers.ContentLength = $ContentLength
+                if ($Headers."Content-MD5") {
+                    $StreamContent.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
+                }
                 $PutRequest.Content = $StreamContent
 
                 Write-Debug "Start upload of part $PartNumber"
