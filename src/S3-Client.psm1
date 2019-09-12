@@ -823,7 +823,11 @@ function Global:Get-AwsRequest {
         [parameter(
                 Mandatory=$False,
                 Position=19,
-                HelpMessage="Payload signing")][String]$PayloadSigning
+                HelpMessage="Payload signing")][String]$PayloadSigning,
+        [parameter(
+                Mandatory=$False,
+                Position=20,
+                HelpMessage="Stream")][System.IO.Stream]$Stream
     )
 
     Begin {
