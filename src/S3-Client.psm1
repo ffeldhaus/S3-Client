@@ -9495,13 +9495,7 @@ function Global:Write-S3ObjectPart {
 
         $Headers = @{"Content-Length" = $ContentLength}
 
-        # Force Presign because it allows UNSIGNED_PAYLOAD and we do not want
-        # to read the Stream to calculate a signature before uploading it for performance reasons
-        # We also do not use Content-MD5 header because we only calculate the MD5 sum during the upload
-        # again for performance reasons and then compare the calculated MD5 with the returned MD5/Etag
-        $Presign = [Switch]::new($true)
-
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Headers $Headers -PayloadSigning $Config.PayloadSigning
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -Region $Region -Headers $Headers -PayloadSigning $Config.PayloadSigning -Stream $Stream
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
