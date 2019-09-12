@@ -893,14 +893,19 @@ function Global:Get-AwsRequest {
             $RequestPayloadHash = 'UNSIGNED-PAYLOAD'
         }
 
-        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $RequestPayload) -and ($PayloadSigning -eq "true" -or ($PayloadSigning -eq "auto" -and $EndpointUrl.Scheme -eq "http"))) {
+        if ($Method -match 'PUT|POST|DELETE' -and ($Stream -or $InFile -or $RequestPayload) -and ($PayloadSigning -eq "true" -or ($PayloadSigning -eq "auto" -and $EndpointUrl.Scheme -eq "http"))) {
+            $MD5CryptoServiceProvider = [System.Security.Cryptography.MD5CryptoServiceProvider]::new()
             if ($InFile) {
                 $Stream = [System.IO.FileStream]::new($InFile, [System.IO.FileMode]::Open)
-                $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash($Stream)
+                $Md5 = $MD5CryptoServiceProvider.ComputeHash($Stream)
                 $null = $Stream.Close
             }
+            elseif ($Stream) {
+                $Md5 = $MD5CryptoServiceProvider.ComputeHash($Stream)
+                $Stream.Position = 0
+            }
             else {
-                $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($RequestPayload))
+                $Md5 = $MD5CryptoServiceProvider.ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($RequestPayload))
             }
             $ContentMd5 = [Convert]::ToBase64String($Md5)
         }
