@@ -6000,9 +6000,9 @@ function Global:Set-S3BucketPolicy {
         }
 
         # pretty print JSON to simplify debugging
-        $Policy = ConvertFrom-Json -InputObject $Policy | ConvertTo-Json -Depth 10
+        $Body = ConvertFrom-Json -InputObject $Policy | ConvertTo-Json -Depth 10
 
-        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query -RequestPayload $Policy
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Query $Query -RequestPayload $Body
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
