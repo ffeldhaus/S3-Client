@@ -901,9 +901,14 @@ Describe "S3 Bucket CORS Configuration" {
 
 Describe "S3 Bucket Replication Configuration" {
     if ($ProfileName -eq "Minio") { continue }
+    # skip these tests for webscaledemo until Platform Services are fixed by NetApp IT
+    if ($ProfileName -eq "WebscaleDemo") { continue }
 
     BeforeAll {
         if ($ProfileName -eq "Minio") { continue }
+        # skip these tests for webscaledemo until Platform Services are fixed by NetApp IT
+        if ($ProfileName -eq "WebscaleDemo") { continue }
+
         $BucketName = $BaseBucketName + "-bucket-repl"
         $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-repl"
 
@@ -931,6 +936,10 @@ Describe "S3 Bucket Replication Configuration" {
 
     AfterAll {
         if ($ProfileName -eq "Minio") { continue }
+
+        # skip these tests for webscaledemo until Platform Services are fixed by NetApp IT
+        if ($ProfileName -eq "WebscaleDemo") { continue }
+
         Cleanup -BucketName $BucketName
         Cleanup -BucketName $DestinationBucketName -Region $DestinationRegion -ProfileName AWS
 
