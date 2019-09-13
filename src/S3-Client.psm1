@@ -576,7 +576,7 @@ function ConvertTo-Punycode {
     [CmdletBinding()]
 
     PARAM (
-        [parameter(Mandatory = $True,
+        [parameter(Mandatory = $False,
             Position = 0,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Bucket name to convert to punycode")][Alias("Bucket")][String]$BucketName,
@@ -589,29 +589,31 @@ function ConvertTo-Punycode {
     )
 
     PROCESS {
-        # Convert Bucket Name to IDN mapping to support Unicode Names
-        $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
-        # check if BucketName contains uppercase letters
-        if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
-            if ($SkipTest.IsPresent) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which MUST NOT be used. Converting BucketName to lowercase $PunycodeBucketName. AWS S3 and StorageGRID since version 11.1 do not support Buckets with uppercase letters!"
-                Write-Output $PunycodeBucketName
-            }
-            else {
-                $Config = $Config.PSObject.Copy()
-                $Config.AddressingStyle = "path"
-                $BucketNameExists = Test-S3Bucket -Config $Config -Bucket $BucketName -Force
-                if ($BucketNameExists) {
-                    Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
-                    Write-Output $BucketName
-                }
-                else {
+        if ($BucketName) {
+            # Convert Bucket Name to IDN mapping to support Unicode Names
+            $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
+            # check if BucketName contains uppercase letters
+            if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
+                if ($SkipTest.IsPresent -or !$Config) {
+                    Write-Warning "BucketName $BucketName includes uppercase letters which MUST NOT be used. Converting BucketName to lowercase $PunycodeBucketName. AWS S3 and StorageGRID since version 11.1 do not support Buckets with uppercase letters!"
                     Write-Output $PunycodeBucketName
                 }
+                else {
+                    $Config = $Config.PSObject.Copy()
+                    $Config.AddressingStyle = "path"
+                    $BucketNameExists = Test-S3Bucket -Config $Config -Bucket $BucketName -Force
+                    if ($BucketNameExists) {
+                        Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+                        Write-Output $BucketName
+                    }
+                    else {
+                        Write-Output $PunycodeBucketName
+                    }
+                }
             }
-        }
-        else {
-            Write-Output $PunycodeBucketName
+            else {
+                Write-Output $PunycodeBucketName
+            }
         }
     }
 }
