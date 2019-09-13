@@ -5221,9 +5221,9 @@ function Global:Set-S3BucketPolicy {
                 Position=14,
                 HelpMessage="If set, applies an ACL making the bucket public with read-write permissions")][Switch]$PublicReadWritePolicy,
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=15,
-                HelpMessage="Consistency level")][ValidateSet("all","strong-global","strong-site","default","available","weak")][String]$Consistency
+                HelpMessage="Consistency level")][ValidateSet("all","strong-global","strong-site","read-after-new-write","available","weak")][String]$Consistency
     )
 
     Begin {
@@ -5387,9 +5387,9 @@ function Global:Remove-S3BucketPolicy {
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=11,
-                HelpMessage="Consistency level")][ValidateSet("all","strong-global","strong-site","default","available","weak")][String]$Consistency
+                HelpMessage="Consistency level")][ValidateSet("all","strong-global","strong-site","read-after-new-write","available","weak")][String]$Consistency
     )
 
     Begin {
@@ -10845,9 +10845,9 @@ function Global:Update-S3BucketConsistency {
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="Bucket Name")][Alias("Name","Bucket")][String]$BucketName,
         [parameter(
-                Mandatory=$True,
+                Mandatory=$False,
                 Position=11,
-                HelpMessage="Consistency level")][ValidateSet("all","strong-global","strong-site","default","available","weak")][String]$Consistency,
+                HelpMessage="Consistency level")][ValidateSet("all","strong-global","strong-site","read-after-new-write","available","weak")][String]$Consistency,
         [parameter(
                 Mandatory=$False,
                 Position=12,
