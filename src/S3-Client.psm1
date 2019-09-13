@@ -2074,7 +2074,7 @@ function Global:New-AwsPolicy {
         [parameter(
                 Mandatory = $False,
                 Position = 6,
-                HelpMessage = "The Condition element is optional. Conditions allow you to build expressions to determine when a policy should be applied.")][String]$Condition,
+                HelpMessage = "The Condition element is optional. Conditions allow you to build expressions to determine when a policy should be applied.")][PSObject]$Condition,
         [parameter(
                 Mandatory = $False,
                 Position = 7,
