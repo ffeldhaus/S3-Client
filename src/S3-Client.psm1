@@ -293,7 +293,7 @@ namespace System.Net.Http.Internal
         }
     }
 }
-"@
+"@ -ReferencedAssemblies "System.Net.Http"
 
 ### Helper Functions ###
 
