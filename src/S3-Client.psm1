@@ -41,7 +41,7 @@ else {
 
 function ConvertTo-SortedDictionary($HashTable) {
     #private
-    $SortedDictionary = New-Object 'System.Collections.Generic.SortedDictionary[string, string]'
+    $SortedDictionary = New-Object 'System.Collections.Generic.SortedDictionary[string, string]' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($Key in $HashTable.Keys) {
         $SortedDictionary[$Key]=$HashTable[$Key]
     }
