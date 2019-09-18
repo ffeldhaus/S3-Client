@@ -9519,12 +9519,15 @@ function Global:Write-S3ObjectPart {
 
                 $PutRequest = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Put,$AwsRequest.Uri)
 
-                $PutRequest.Headers.Add("Host",$AwsRequest.Headers["Host"])
+                foreach ($Key in $AwsRequest.Headers.Keys) {
+                    # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+                    $null = $PutRequest.Headers.TryAddWithoutValidation($Key,$AwsRequest.Headers[$Key])
+                }
 
                 $StreamContent = [System.Net.Http.StreamContent]::new($CryptoStream)
                 $StreamContent.Headers.ContentLength = $ContentLength
-                if ($Headers."Content-MD5") {
-                    $StreamContent.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
+                if ($AwsRequest.Headers["Content-MD5"]) {
+                    $StreamContent.Headers["Content-MD5"] = [Convert]::FromBase64String($AwsRequest.Headers["Content-MD5"])
                 }
                 $PutRequest.Content = $StreamContent
 
