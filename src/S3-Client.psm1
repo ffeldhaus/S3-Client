@@ -7651,6 +7651,14 @@ function Global:Read-S3Object {
 
         $Headers = @{}
         if ($Range) {
+            if ($Range -notmatch "^bytes=\d*-\d*(,\d*-\d*)*$") {
+                if ($Range -match "\d*-\d*(,\d*-\d*)*$") {
+                    $Range = "bytes=" + $Range
+                }
+                else {
+                    Throw "Byte range $Range is not a valid HTTP byte range"
+                }
+            }
             $Headers["Range"] = $Range
         }
 
@@ -7677,7 +7685,7 @@ function Global:Read-S3Object {
             }
         }
 
-        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region
+        $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Uri $Uri -Headers $Headers -Query $Query -Bucket $BucketName -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Region $Region
 
         if ($DryRun.IsPresent) {
             return $AwsRequest
