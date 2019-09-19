@@ -4377,12 +4377,12 @@ function Global:Add-S3BucketReplicationConfigurationRule {
                 HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
         [parameter(
                 ParameterSetName="profileAndUrn",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")]
             [parameter(
                 ParameterSetName="profileAndBucket",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
         [parameter(
@@ -4397,34 +4397,34 @@ function Global:Add-S3BucketReplicationConfigurationRule {
                 HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
                 ParameterSetName="keysAndUrn",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")]
         [parameter(
                 ParameterSetName="keysAndBucket",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 HelpMessage="S3 Access Key")][String]$AccessKey,
         [parameter(
                 ParameterSetName="keysAndUrn",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")]
         [parameter(
                 ParameterSetName="keysAndBucket",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=7,
                 HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
         [parameter(
                 ParameterSetName="accountAndUrn",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="StorageGRID account ID to execute this command against")]
         [parameter(
                 ParameterSetName="accountAndBucket",
-                Mandatory=$False,
+                Mandatory=$True,
                 Position=6,
                 ValueFromPipeline=$True,
                 ValueFromPipelineByPropertyName=$True,
@@ -4476,6 +4476,12 @@ function Global:Add-S3BucketReplicationConfigurationRule {
                 ValueFromPipelineByPropertyName=$True,
                 HelpMessage="URN or ARN of the bucket where you want store replicas of the object identified by the rule (for AWS it is arn:aws:s3:::<destination-bucket> for StorageGRID it is urn:sgws:s3:::<destination-bucket> ).")]
         [parameter(
+                ParameterSetName="urn",
+                Mandatory=$True,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="URN or ARN of the bucket where you want store replicas of the object identified by the rule (for AWS it is arn:aws:s3:::<destination-bucket> for StorageGRID it is urn:sgws:s3:::<destination-bucket> ).")]
+        [parameter(
                 ParameterSetName="accountAndUrn",
                 Mandatory=$True,
                 Position=15,
@@ -4489,6 +4495,12 @@ function Global:Add-S3BucketReplicationConfigurationRule {
                 HelpMessage="Destination bucket name where the objects should be replicated to. Can only be used if the Destination Bucket is in the same Object Store as the Bucket to replicate.")]
         [parameter(
                 ParameterSetName="keysAndBucket",
+                Mandatory=$True,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Destination bucket name where the objects should be replicated to. Can only be used if the Destination Bucket is in the same Object Store as the Bucket to replicate.")]
+        [parameter(
+                ParameterSetName="bucket",
                 Mandatory=$True,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
