@@ -5684,6 +5684,749 @@ function Global:Remove-S3BucketSearchConfiguration {
     }
 }
 
+Set-Alias -Name Get-S3BucketNotificationConfigurationRule -Value Get-S3BucketNotificationConfiguration
+Set-Alias -Name Get-S3NotificationConfiguration -Value Get-S3BucketNotificationConfiguration
+<#
+    .SYNOPSIS
+    Retrieve Bucket Notification Configuration
+    .DESCRIPTION
+    Retrieve Bucket Notification Configuration
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Id
+    A unique identifier for the rule.
+#>
+function Global:Get-S3BucketNotificationConfiguration {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$True,
+                Position=6,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="A unique identifier for the rule.")][ValidateLength(1,255)][String]$Id
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        $Method = "GET"
+    }
+
+    Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $Query = @{"notification"=""}
+
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
+
+        if ($Config)  {
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            if ($DryRun.IsPresent) {
+                Write-Output $AwsRequest
+            }
+            else {
+                try {
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+
+                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+                    $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
+
+                    foreach ($Rule in $Content.NotificationConfiguration.Rule) {
+                        $Output = [PSCustomObject]@{
+                            BucketName              = ConvertFrom-Punycode -BucketName $BucketName
+                            Id                      = $Rule.Id
+                            Filter                  = $Rule.Filter
+                            Topic                   = $Rule.Topic
+                            Event                   = $Rule.Event
+                        }
+                        if (!$Id -or ($Id -and $Output.Id -match $Id)) {
+                            Write-Output $Output
+                        }
+                    }
+                }
+                catch {
+                    $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                    if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                        Get-S3BucketNotificationConfiguration -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -Id $Id
+                    }
+                    elseif ($_.Exception.Response.StatusCode -ne [System.Net.HttpStatusCode]::NotFound) {
+                        Throw
+                    }
+                }
+            }
+        }
+    }
+}
+
+Set-Alias -Name Add-S3BucketNotificationConfiguration -Value Add-S3BucketNotificationConfigurationRule
+Set-Alias -Name Write-S3NotificationConfiguration -Value Add-S3BucketNotificationConfigurationRule
+Set-Alias -Name Add-S3BucketNotificationRule -Value Add-S3BucketNotificationConfigurationRule
+<#
+    .SYNOPSIS
+    Add Bucket Notification Configuration Rule
+    .DESCRIPTION
+    Add Bucket Notification Configuration Rule
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Id
+    A unique identifier for the rule.
+    .PARAMETER Status
+    The rule is ignored if status is not set to Enabled
+    .PARAMETER Prefix
+    Object key name prefix that identifies one or more objects to which the rule applies. Maximum prefix length is 1,024 characters. Prefixes can't overlap.
+    .PARAMETER Topic
+    URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).
+    .PARAMETER Event
+    Bucket event for which to send notifications.
+#>
+function Global:Add-S3BucketSearchConfigurationRule {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profileAndUrn",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")]
+            [parameter(
+                ParameterSetName="profileAndBucket",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
+        [parameter(
+                ParameterSetName="profileAndUrn",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")]
+        [parameter(
+                ParameterSetName="profileAndBucket",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keysAndUrn",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="S3 Access Key")]
+        [parameter(
+                ParameterSetName="keysAndBucket",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keysAndUrn",
+                Mandatory=$True,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")]
+        [parameter(
+                ParameterSetName="keysAndBucket",
+                Mandatory=$True,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="accountAndUrn",
+                Mandatory=$True,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")]
+        [parameter(
+                ParameterSetName="accountAndBucket",
+                Mandatory=$True,
+                Position=6,
+                ValueFromPipeline=$True,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$False,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="A unique identifier for the rule.")][ValidateLength(1,255)][String]$Id,
+        [parameter(
+                Mandatory=$False,
+                Position=13,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="The rule is ignored if status is not set to Enabled.")][ValidateSet("Enabled","Disabled")][String]$Status="Enabled",
+        [parameter(
+                Mandatory=$False,
+                Position=14,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Object key name prefix that identifies one or more objects to which the rule applies. Maximum prefix length is 1,024 characters. Prefixes can't overlap.")][ValidateLength(1,255)][String]$Prefix,
+        [parameter(
+                ParameterSetName="profileAndUrn",
+                Mandatory=$True,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).")]
+        [parameter(
+                ParameterSetName="keysAndUrn",
+                Mandatory=$True,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).")]
+        [parameter(
+                ParameterSetName="urn",
+                Mandatory=$True,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).")]
+        [parameter(
+                ParameterSetName="accountAndUrn",
+                Mandatory=$True,
+                Position=15,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).")][System.UriBuilder]$DestinationUrn,
+        [parameter(
+                Mandatory=$True,
+                Position=16,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket event for which to send notifications (e.g. s3:ObjectCreated:*).")][String]$Event
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        $Method = "PUT"
+    }
+
+    Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $Query = @{"notification"=""}
+
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
+
+        $NotificationConfigurationRules = @()
+
+        $NotificationConfigurationRules += Get-S3BucketNotificationConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+
+        $NotificationConfigurationRule = [PSCustomObject]@{
+            ID                      = $Id
+            Prefix                  = $Prefix
+            Topic                   = $Topic
+            Event                   = $Event
+        }
+
+        $NotificationConfigurationRules += $NotificationConfigurationRule
+
+        $Body = "<NotificationConfiguration>"
+        if ($Role) {
+            $Body += "<TopicConfiguration>$Role</TopicConfiguration>"
+        }
+        foreach ($NotificationConfigurationRule in $NotificationConfigurationRules) {
+            $Body += "<TopicConfiguration>"
+            if ($SearchConfigurationRule.Id) {
+                $Body += "<ID>$($SearchConfigurationRule.Id)</ID>"
+            }
+            $Body += "<FilterRule><Name>prefix</Name><Value>$($SearchConfigurationRule.Prefix)<Value></FilterRule>"
+            $Body += "<Topic>$($Topic)</Topic>"
+            $Body += "</TopicConfiguration>"
+        }
+        $Body += "</NotificationConfiguration>"
+
+        Write-Verbose "Body:`n$Body"
+
+        if ($Config)  {
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body -PayloadSigning $True
+            if ($DryRun.IsPresent) {
+                Write-Output $AwsRequest
+            }
+            else {
+                try {
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
+                }
+                catch {
+                    $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                    if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                        Set-S3BucketEncryption -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName -SSEAlgorithm $SSEAlgorithm -KMSMasterKeyID $KMSMasterKeyID
+                    }
+                    else {
+                        Throw
+                    }
+                }
+            }
+        }
+    }
+}
+
+<#
+    .SYNOPSIS
+    Remove Bucket Notification Configuration Rule
+    .DESCRIPTION
+    Remove Bucket Notification Configuration Rule
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
+    .PARAMETER Id
+    A unique identifier for the rule.
+#>
+function Global:Remove-S3BucketNotificationConfigurationRule {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$True,
+                Position=6,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName,
+        [parameter(
+                Mandatory=$True,
+                Position=11,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="A unique identifier for the rule.")][ValidateLength(1,255)][String]$Id
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+    }
+
+    Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
+
+        # get all rules
+        $NotificationConfigurationRules = Get-S3BucketNotificationConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+
+        if (!($NotificationConfigurationRules | Where-Object { $_.Id -eq $Id })) {
+            Write-Warning "Notification Configuration Rule ID $Id does not exist"
+            break
+        }
+
+        # remove the rule with the specified ID
+        $NotificationConfigurationRules = $NotificationConfigurationRules | Where-Object { $_.Id -ne $Id }
+
+        Remove-S3BucketNotificationConfiguration -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+
+        # write all rules
+        $NotificationConfigurationRules | Add-S3BucketNotificationConfigurationRule -Server $Server -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $Region -UrlStyle $UrlStyle -BucketName $BucketName
+    }
+}
+
+Set-Alias -Name Remove-S3NotificationConfiguration -Value Remove-S3BucketNotificationConfiguration
+<#
+    .SYNOPSIS
+    Remove Bucket Notification Configuration
+    .DESCRIPTION
+    Remove Bucket Notification Configuration
+    .PARAMETER Server
+    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
+    .PARAMETER SkipCertificateCheck
+    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER Presign
+    Use presigned URL
+    .PARAMETER DryRun
+    Do not execute request, just return request URI and Headers
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER EndpointUrl
+    Custom S3 Endpoint URL
+    .PARAMETER ProfileName
+    AWS Profile to use which contains AWS sredentials and settings
+    .PARAMETER ProfileLocation
+    AWS Profile location if different than .aws/credentials
+    .PARAMETER AccessKey
+    S3 Access Key
+    .PARAMETER SecretKey
+    S3 Secret Access Key
+    .PARAMETER AccountId
+    StorageGRID account ID to execute this command against
+    .PARAMETER UrlStyle
+    URL Style (Default: Auto)
+    .PARAMETER UseDualstackEndpoint
+    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
+    .PARAMETER Region
+    Bucket Region
+    .PARAMETER BucketName
+    Bucket Name
+#>
+function Global:Remove-S3BucketNotificationConfiguration {
+    [CmdletBinding(DefaultParameterSetName="none")]
+
+    PARAM (
+        [parameter(
+                Mandatory=$False,
+                Position=0,
+                HelpMessage="StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
+        [parameter(
+                Mandatory=$False,
+                Position=1,
+                HelpMessage="Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+        [parameter(
+                Mandatory=$False,
+                Position=2,
+                HelpMessage="Use presigned URL")][Switch]$Presign,
+        [parameter(
+                Mandatory=$False,
+                Position=3,
+                HelpMessage="Do not execute request, just return request URI and Headers")][Switch]$DryRun,
+        [parameter(
+                Mandatory=$False,
+                Position=4,
+                HelpMessage="AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3","AWS4")]$SignerType="AWS4",
+        [parameter(
+                Mandatory=$False,
+                Position=5,
+                HelpMessage="Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName="",
+        [parameter(
+                ParameterSetName="profile",
+                Mandatory=$False,
+                Position=7,
+                HelpMessage="AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=6,
+                HelpMessage="S3 Access Key")][String]$AccessKey,
+        [parameter(
+                ParameterSetName="keys",
+                Mandatory=$True,
+                Position=7,
+                HelpMessage="S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
+        [parameter(
+                ParameterSetName="account",
+                Mandatory=$True,
+                Position=6,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
+        [parameter(
+                Mandatory=$False,
+                Position=8,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Region to be used")][String]$Region,
+        [parameter(
+                Mandatory=$False,
+                Position=9,
+                HelpMessage="Bucket URL Style (Default: Auto)")][String][ValidateSet("path","virtual","auto","virtual-hosted")]$UrlStyle="auto",
+        [parameter(
+                Mandatory=$True,
+                Position=10,
+                ValueFromPipelineByPropertyName=$True,
+                HelpMessage="Bucket")][Alias("Name","Bucket")][String]$BucketName
+    )
+
+    Begin {
+        if (!$Server) {
+            $Server = $Global:CurrentSgwServer
+        }
+        $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        $Method = "DELETE"
+    }
+
+    Process {
+        if ($AccountId) {
+            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        }
+
+        if (!$Region) {
+            $Region = $Config.Region
+        }
+
+        $Query = @{"notification"=""}
+
+        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
+
+        if ($Config)  {
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            if ($DryRun.IsPresent) {
+                Write-Output $AwsRequest
+            }
+            else {
+                try {
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                }
+                catch {
+                    $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
+                    if ($CheckAllRegions.IsPresent -and [int]$_.Exception.Response.StatusCode -match "^3" -and $_.Exception.Response.Headers.TryGetValues("x-amz-bucket-region",[ref]$RedirectedRegion)) {
+                        Write-Warning "Request was redirected as bucket does not belong to region $Region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+                        Get-S3BucketEncryption -SkipCertificateCheck:$Config.SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $Config.EndpointUrl -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Region $($RedirectedRegion[0]) -UrlStyle $UrlStyle -Bucket $BucketName
+                    }
+                    elseif ($_.Exception.Response.StatusCode -ne [System.Net.HttpStatusCode]::NotFound) {
+                        Throw
+                    }
+                }
+            }
+        }
+    }
+}
+
 <#
     .SYNOPSIS
     Get S3 Bucket Policy
