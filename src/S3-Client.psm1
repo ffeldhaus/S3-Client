@@ -339,7 +339,7 @@ function ConvertTo-Punycode {
         else {
             $PunycodeBucketName = ""
         }
-        
+
         # check if BucketName contains uppercase letters
         if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
             if ($SkipTest.IsPresent -or !$Config) {
@@ -2342,7 +2342,7 @@ function Global:Get-S3Buckets {
                 Write-Output $AwsRequest
             }
             else {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
                 $Content = [XML]$Result.Content
 
@@ -2529,7 +2529,7 @@ function Global:Test-S3Bucket {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                     Write-Output $true
                 }
                 catch {
@@ -2724,7 +2724,7 @@ function Global:New-S3Bucket {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
         }
 
         if ($PublicReadOnlyPolicy) {
@@ -2899,7 +2899,7 @@ function Global:Remove-S3Bucket {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -3038,7 +3038,7 @@ function Global:Get-S3BucketEncryption {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -3225,7 +3225,7 @@ function Global:Set-S3BucketEncryption {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
 
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -3382,7 +3382,7 @@ function Global:Remove-S3BucketEncryption {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -3540,7 +3540,7 @@ function Global:Get-S3BucketCorsConfiguration {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -3796,7 +3796,7 @@ function Global:Add-S3BucketCorsConfigurationRule {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -4098,7 +4098,7 @@ function Global:Remove-S3BucketCorsConfiguration {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -4259,7 +4259,7 @@ function Global:Get-S3BucketReplicationConfiguration {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -4626,7 +4626,7 @@ function Global:Add-S3BucketReplicationConfigurationRule {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -4928,7 +4928,7 @@ function Global:Remove-S3BucketReplicationConfiguration {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -5088,7 +5088,7 @@ function Global:Get-S3BucketSearchConfiguration {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -5366,7 +5366,7 @@ function Global:Add-S3BucketSearchConfigurationRule {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -5667,7 +5667,7 @@ function Global:Remove-S3BucketSearchConfiguration {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -5827,7 +5827,7 @@ function Global:Get-S3BucketNotificationConfiguration {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -6109,7 +6109,7 @@ function Global:Add-S3BucketSearchConfigurationRule {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -6410,7 +6410,7 @@ function Global:Remove-S3BucketNotificationConfiguration {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -6561,7 +6561,7 @@ function Global:Get-S3BucketPolicy {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
             }
             catch {
                 if ($PSVersionTable.PSVersion.Major -lt 6) {
@@ -6780,7 +6780,7 @@ function Global:Set-S3BucketPolicy {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Policy -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Policy -ErrorAction Stop
 
             Write-Output $Result.Content
         }
@@ -6929,7 +6929,7 @@ function Global:Remove-S3BucketPolicy {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Policy -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Policy -ErrorAction Stop
 
             Write-Output $Result.Content
         }
@@ -7070,7 +7070,7 @@ function Global:Get-S3BucketTagging {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -7247,7 +7247,7 @@ function Global:Set-S3BucketTagging {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
 
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -7407,7 +7407,7 @@ function Global:Remove-S3BucketTagging {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -7559,7 +7559,7 @@ function Global:Get-S3BucketVersioning {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -7721,7 +7721,7 @@ function Global:Enable-S3BucketVersioning {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -7883,7 +7883,7 @@ function Global:Suspend-S3BucketVersioning {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ErrorAction Stop
             }
             catch {
                 $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -8032,7 +8032,7 @@ function Global:Get-S3BucketLocation {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
             $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -8231,7 +8231,7 @@ function Global:Get-S3MultipartUploads {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
                 $Content = [XML]$Result.Content
 
@@ -8444,7 +8444,7 @@ function Global:Get-S3Objects {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
                 $Content = [XML]$Result.Content
 
@@ -8637,7 +8637,7 @@ function Global:Get-S3ObjectVersions {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Content = [XML]$Result.Content
 
@@ -8972,7 +8972,7 @@ function Global:Get-S3ObjectMetadata {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Headers = $Result.Headers
             $Metadata = @{}
@@ -9202,12 +9202,12 @@ function Global:Read-S3Object {
         $ContentType = $ObjectMetadata.Headers.'Content-Type' | Select-Object -First 1
 
         if (!$Path -and $ContentType -match "text|xml|json") {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
             return $Result.Content
         }
         elseif ($Range) {
             # TODO: use download with progress status
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -OutFile $OutFile
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -OutFile $OutFile
         }
         elseif (!$Path) {
             throw "No path specified and object is not of content-type text, XML or JSON"
@@ -9769,7 +9769,7 @@ function Global:Write-S3Object {
             else {
                 try {
                     if (!$InFile -or $InFile.Length -eq 0) {
-                        $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
+                        $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -InFile $InFile -Body $Content -ContentType $ContentType
                         $Etag = ($Result.Headers['ETag'] | Select-Object -First 1) -replace '"',''
                         Write-Output ([PSCustomObject]@{ETag=$Etag})
                     }
@@ -10265,7 +10265,7 @@ function Global:Stop-S3MultipartUpload {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -10438,7 +10438,7 @@ function Global:Complete-S3MultipartUpload {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $RequestPayload -ContentType $ContentType -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $RequestPayload -ContentType $ContentType -ErrorAction Stop
 
             $Content = [XML]$Result.Content
 
@@ -11001,8 +11001,8 @@ function Global:Write-S3ObjectPart {
         $Query = @{partNumber=$PartNumber;uploadId=$UploadId}
 
         if ($Content) {
-            $Stream = [System.IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes($Content)) 
-        }     
+            $Stream = [System.IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes($Content))
+        }
 
         $ContentLength = $Stream.Length
 
@@ -11037,7 +11037,7 @@ function Global:Write-S3ObjectPart {
                 $PutRequest.Content = $StreamContent
 
                 Write-Debug "Start upload of part $PartNumber"
-                
+
                 $StartTime = Get-Date
 
                 $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
@@ -11249,7 +11249,7 @@ function Global:Get-S3ObjectParts {
         }
         else {
             try {
-                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+                $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
                 $Content = [XML]$Result.Content
 
@@ -11421,7 +11421,7 @@ function Global:Remove-S3Object {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -11655,7 +11655,7 @@ function Global:Copy-S3Object {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -11803,7 +11803,7 @@ function Global:Get-S3ObjectTagging {
             }
             else {
                 try {
-                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
 
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
@@ -11996,7 +11996,7 @@ function Global:Set-S3ObjectTagging {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -Body $Body
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -12155,7 +12155,7 @@ function Global:Remove-S3ObjectTagging {
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
@@ -12275,7 +12275,7 @@ function Global:Get-S3BucketConsistency {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Content = [XML]$Result.Content
 
@@ -12399,7 +12399,7 @@ function Global:Update-S3BucketConsistency {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -12489,7 +12489,7 @@ function Global:Get-S3StorageUsage {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Content = [XML]$Result.Content
 
@@ -12604,7 +12604,7 @@ function Global:Get-S3BucketLastAccessTime {
             Write-Output $AwsRequest
         }
         else {
-            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Result = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
 
             $Content = [XML]$Result.Content
 
@@ -12724,7 +12724,7 @@ function Global:Enable-S3BucketLastAccessTime {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
@@ -12838,7 +12838,7 @@ function Global:Disable-S3BucketLastAccessTime {
             Write-Output $AwsRequest
         }
         else {
-            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri-Headers $AwsRequest.Headers -ErrorAction Stop
+            $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -ErrorAction Stop
         }
     }
 }
