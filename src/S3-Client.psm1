@@ -5832,13 +5832,13 @@ function Global:Get-S3BucketNotificationConfiguration {
                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                     $Content = [XML][System.Text.Encoding]::UTF8.GetString($Result.RawContentStream.ToArray())
 
-                    foreach ($Rule in $Content.NotificationConfiguration.Rule) {
+                    foreach ($Topic in $Content.NotificationConfiguration.TopicConfiguration) {
                         $Output = [PSCustomObject]@{
                             BucketName              = ConvertFrom-Punycode -BucketName $BucketName
-                            Id                      = $Rule.Id
-                            Filter                  = $Rule.Filter
-                            Topic                   = $Rule.Topic
-                            Event                   = $Rule.Event
+                            Id                      = $Topic.Id
+                            Prefix                  = $Topic.Filter.S3Key.FilterRule.Value
+                            Topic                   = $Topic.Topic
+                            Event                   = $Topic.Event
                         }
                         if (!$Id -or ($Id -and $Output.Id -match $Id)) {
                             Write-Output $Output
@@ -5905,11 +5905,11 @@ Set-Alias -Name Add-S3BucketNotificationRule -Value Add-S3BucketNotificationConf
     .PARAMETER Prefix
     Object key name prefix that identifies one or more objects to which the rule applies. Maximum prefix length is 1,024 characters. Prefixes can't overlap.
     .PARAMETER Topic
-    URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).
+    URN of the SNS topic.
     .PARAMETER Event
-    Bucket event for which to send notifications.
+    Bucket event for which to send notifications (e.g. s3:ObjectCreated:* or s3:ObjectRemoved:*).
 #>
-function Global:Add-S3BucketSearchConfigurationRule {
+function Global:Add-S3BucketNotificationConfigurationRule {
     [CmdletBinding(DefaultParameterSetName="none")]
 
     PARAM (
@@ -6025,30 +6025,30 @@ function Global:Add-S3BucketSearchConfigurationRule {
                 Mandatory=$True,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).")]
+                HelpMessage="URN of the SNS topic.")]
         [parameter(
                 ParameterSetName="keysAndUrn",
                 Mandatory=$True,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).")]
+                HelpMessage="URN of the SNS topic.")]
         [parameter(
                 ParameterSetName="urn",
                 Mandatory=$True,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).")]
+                HelpMessage="URN of the SNS topic.")]
         [parameter(
                 ParameterSetName="accountAndUrn",
                 Mandatory=$True,
                 Position=15,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="URN of the ElasticSearch Instance including domain and index (for AWS ElasticSearch the format is arn:aws:es:region:account-ID:domain/mydomain/myindex/mytype else it is urn:mysite:es:::mydomain/myindex/mytype).")][System.UriBuilder]$DestinationUrn,
+                HelpMessage="URN of the SNS topic.")][Alias("DestinationUrn","TopicUrn")][System.UriBuilder]$Topic,
         [parameter(
                 Mandatory=$True,
                 Position=16,
                 ValueFromPipelineByPropertyName=$True,
-                HelpMessage="Bucket event for which to send notifications (e.g. s3:ObjectCreated:*).")][String]$Event
+                HelpMessage="Bucket event for which to send notifications (e.g. s3:ObjectCreated:* or s3:ObjectRemoved:*).")][String[]]$Event
     )
 
     Begin {
@@ -6086,16 +6086,18 @@ function Global:Add-S3BucketSearchConfigurationRule {
         $NotificationConfigurationRules += $NotificationConfigurationRule
 
         $Body = "<NotificationConfiguration>"
-        if ($Role) {
-            $Body += "<TopicConfiguration>$Role</TopicConfiguration>"
-        }
         foreach ($NotificationConfigurationRule in $NotificationConfigurationRules) {
             $Body += "<TopicConfiguration>"
             if ($SearchConfigurationRule.Id) {
-                $Body += "<ID>$($SearchConfigurationRule.Id)</ID>"
+                $Body += "<ID>$($NotificationConfigurationRule.Id)</ID>"
             }
-            $Body += "<FilterRule><Name>prefix</Name><Value>$($SearchConfigurationRule.Prefix)<Value></FilterRule>"
-            $Body += "<Topic>$($Topic)</Topic>"
+            if ($NotificationConfigurationRule.Prefix) {
+                $Body += "<FilterRule><Name>prefix</Name><Value>$($NotificationConfigurationRule.Prefix)</Value></FilterRule>"
+            }
+            $Body += "<Topic>$($NotificationConfigurationRule.Topic)</Topic>"
+            foreach ($Event in $NotificationConfigurationRule.Event) {
+                $Body += "<Event>$($Event)</Event>"
+            }
             $Body += "</TopicConfiguration>"
         }
         $Body += "</NotificationConfiguration>"
@@ -6387,7 +6389,7 @@ function Global:Remove-S3BucketNotificationConfiguration {
             $Server = $Global:CurrentSgwServer
         }
         $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
-        $Method = "DELETE"
+        $Method = "PUT"
     }
 
     Process {
@@ -6401,16 +6403,18 @@ function Global:Remove-S3BucketNotificationConfiguration {
 
         $Query = @{"notification"=""}
 
+        $Body = "<NotificationConfiguration></NotificationConfiguration>"
+
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
 
         if ($Config)  {
-            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query
+            $AwsRequest = Get-AwsRequest -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -Method $Method -EndpointUrl $Config.EndpointUrl -Presign:$Presign -SignerType $SignerType -PayloadSigning $Config.PayloadSigning -Bucket $BucketName -UrlStyle $UrlStyle -Region $Region -Query $Query -RequestPayload $Body
             if ($DryRun.IsPresent) {
                 Write-Output $AwsRequest
             }
             else {
                 try {
-                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers
+                    $Null = Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Method $AwsRequest.Method -Uri $AwsRequest.Uri -Headers $AwsRequest.Headers -Body $Body
                 }
                 catch {
                     $RedirectedRegion = New-Object 'System.Collections.Generic.List[string]'
