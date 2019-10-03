@@ -47,7 +47,7 @@ Add-Type -Path "PushStreamContent.cs" -ReferencedAssemblies "System.Net.Primitiv
 
 function ConvertTo-SortedDictionary($HashTable) {
     #private
-    $SortedDictionary = New-Object 'System.Collections.Generic.SortedDictionary[string, string]'
+    $SortedDictionary = New-Object 'System.Collections.Generic.SortedDictionary[string, string]' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($Key in $HashTable.Keys) {
         $SortedDictionary[$Key] = $HashTable[$Key]
     }
@@ -238,7 +238,6 @@ function ConvertTo-AwsConfigFile {
         else {
             $Output | Out-File -FilePath $AwsConfigFile -NoNewline
         }
-        
     }
 }
 
@@ -973,7 +972,7 @@ function Global:Get-AwsRequest {
         $CanonicalQueryString = ""
         if ($Query.Keys.Count -ge 1) {
             # using Sorted Dictionary as query need to be sorted by encoded keys
-            $SortedQuery = New-Object 'System.Collections.Generic.SortedDictionary[string, string]'
+            $SortedQuery = New-Object 'System.Collections.Generic.SortedDictionary[string, string]' -ArgumentList ([System.StringComparer]::OrdinalIgnoreCase)
 
             foreach ($Key in $Query.Keys) {
                 # Key and value need to be URL encoded separately
@@ -2167,7 +2166,6 @@ function Global:New-AwsPolicy {
             $Effect = "Allow"
             $Action = "s3:*"
         }
-
 
         if (!$PolicyString) {
             $Policy = [PSCustomObject]@{ Version = "2012-10-17"; Statement = @() }
