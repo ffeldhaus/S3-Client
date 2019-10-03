@@ -8881,11 +8881,13 @@ function Global:Read-S3Object {
 
         $Headers = @{ }
         if ($Range) {
-            if ($Range -notmatch "bytes=") {
-                $Range = "bytes=$Range"
+            if ($Range -notmatch "^bytes=\d*-\d*(,\d*-\d*)*$") {
+                if ($Range -match "\d*-\d*(,\d*-\d*)*$") {
+                    $Range = "bytes=" + $Range
+                }
+                else {
+                    Throw "Byte range $Range is not a valid HTTP byte range"
             }
-            if ($Range -notmatch "bytes=-?[0-9]+-?[0-9]*(,[0-9]+-?[0-9]+)*") {
-                throw "Range header not valid!"
             }
             $Headers["Range"] = $Range
         }
