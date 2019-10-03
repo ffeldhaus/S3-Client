@@ -2420,7 +2420,7 @@ function Global:Get-S3Buckets {
 
                     if ($Content.ListAllMyBucketsResult) {
                         if ($BucketName) {
-                            $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes | Where-Object { $_.Name -eq [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower() }
+                            $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes | Where-Object { $_.Name -eq (ConvertTo-Punycode -Config $Config -BucketName $BucketName) }
                         }
                         else {
                             $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes
@@ -2432,7 +2432,7 @@ function Global:Get-S3Buckets {
                         $Jobs = New-Object System.Collections.ArrayList
 
                         foreach ($XmlBucket in $XmlBuckets) {
-                            $UnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode($XmlBucket.Name)
+                            $UnicodeBucketName = ConvertFrom-Punycode -BucketName $XmlBucket.Name
                             # ensure that we keep uppercase letters
                             if ($UnicodeBucketName -eq $XmlBucket.Name) {
                                 $UnicodeBucketName = $XmlBucket.Name
@@ -4754,12 +4754,12 @@ function Global:Get-S3BucketReplicationConfiguration {
 
                 foreach ($Rule in $Content.ReplicationConfiguration.Rule) {
                     $Output = [PSCustomObject]@{
-                        BucketName              = [System.Globalization.IdnMapping]::new().GetUnicode($BucketName)
+                        BucketName              = ConvertFrom-Punycode -BucketName $BucketName
                         Role                    = $Content.ReplicationConfiguration.Role
                         Id                      = $Rule.Id
                         Status                  = $Rule.Status
                         Prefix                  = $Rule.Prefix
-                        DestinationBucketName   = [System.Globalization.IdnMapping]::new().GetUnicode($Rule.Destination.Bucket -replace ".*:::", "")
+                        DestinationBucketName   = ConvertFrom-Punycode -BucketName ($Rule.Destination.Bucket -replace ".*:::", "")
                         DestinationStorageClass = $Rule.Destination.StorageClass
                         DestinationAccount      = $Rule.Destination.Account
                         DestinationOwner        = $Rule.Destination.AccessControlTranslation.Owner
@@ -5015,13 +5015,13 @@ function Global:Add-S3BucketReplicationConfigurationRule {
 
         if ($DestinationBucketName) {
             # Convert Destination Bucket Name to IDN mapping to support Unicode Names
-            $DestinationBucketName = [System.Globalization.IdnMapping]::new().GetAscii($DestinationBucketName).ToLower()
+            $DestinationBucketName = ConvertTo-Punycode -Config $Config -BucketName $DestinationBucketName
         }
 
         if ($DestinationBucketUrn) {
             $DestinationBucketName = $DestinationBucketUrn.Uri.ToString() -replace ".*:.*:.*:.*:.*:(.*)", '$1'
             # Convert Destination Bucket Name to IDN mapping to support Unicode Names
-            $DestinationBucketName = [System.Globalization.IdnMapping]::new().GetAscii($DestinationBucketName).ToLower()
+            $DestinationBucketName = ConvertTo-Punycode -Config $Config -BucketName $DestinationBucketName
             $DestinationBucketUrnPrefix = $DestinationBucketUrn.Uri.ToString() -replace "(.*:.*:.*:.*:.*:).*", '$1'
             $DestinationBucketUrn = [System.UriBuilder]"$DestinationBucketUrnPrefix$DestinationBucketName"
         }
