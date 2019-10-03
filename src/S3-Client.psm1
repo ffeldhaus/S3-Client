@@ -1837,6 +1837,7 @@ function Global:Get-AwsConfig {
         }
         elseif ($AccessKey) {
             Write-Verbose "Access Key $AccessKey and Secret Access Key specified, therefore returning AWS config for the keys"
+            $PayloadSigning = "auto"
         }
         else {
             # if an explicit endpoint URL is provided, use instead of the one from provided server
@@ -1925,7 +1926,7 @@ function Global:Get-AwsConfig {
         }
 
         if ($PayloadSigning) {
-            $Config.PayloadSigning = ([System.Convert]::ToBoolean($PayloadSigning))
+            $Config.PayloadSigning = $PayloadSigning
         }
         elseif (!$Config.PayloadSigning) {
             $Config.PayloadSigning = "auto"
