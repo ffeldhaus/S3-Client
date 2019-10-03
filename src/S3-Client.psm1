@@ -4787,7 +4787,7 @@ function Global:Get-S3BucketReplicationConfiguration {
             }
             elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
                 Write-Warning "Request was redirected as bucket does not belong to region $($Config.Region). Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
-                Get-S3BucketReplicationConfiguration -Config $Config -Presign:$Presign -Region $($RedirectedRegion[0]) -BucketName $BucketName  -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins -AllowedHeaders $AllowedHeaders -MaxAgeSeconds $MaxAgeSeconds -ExposeHeaders $ExposeHeaders
+                Get-S3BucketReplicationConfiguration -Config $Config -Presign:$Presign -Region $($RedirectedRegion[0]) -BucketName $BucketName  -Id $Id
             }
             elseif ($Task.Result) {
                 $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
