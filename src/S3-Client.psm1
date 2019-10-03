@@ -11880,9 +11880,6 @@ function Global:Copy-S3Object {
         if (!$DestinationKey) {
             $DestinationKey = $Key
         }
-        if (!$Metadata -and !$Tags) {
-            $Metadata = Get-S3ObjectMetadata -Config $Config -BucketName $BucketName -Key $Key -VersionId $VersionId | Select-Object -ExpandProperty Metadata
-        }
 
         $DestinationBucketName = ConvertTo-Punycode -Config $Config -BucketName $DestinationBucketName
 
