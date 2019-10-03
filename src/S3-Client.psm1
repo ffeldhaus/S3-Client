@@ -342,7 +342,12 @@ function ConvertTo-Punycode {
     PROCESS {
         if ($BucketName) {
             # Convert Bucket Name to IDN mapping to support Unicode Names
-            $PunycodeBucketName = [System.Globalization.IdnMapping]::new().GetAscii($BucketName).ToLower()
+            $IdnMapping = New-Object -TypeName "System.Globalization.IdnMapping"
+            $PunycodeBucketName = $IdnMapping.GetAscii($BucketName).ToLower()
+        }
+        else {
+            $PunycodeBucketName = ""
+        }
             # check if BucketName contains uppercase letters
             if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
                 if ($SkipTest.IsPresent -or !$Config) {
@@ -367,7 +372,6 @@ function ConvertTo-Punycode {
             }
         }
     }
-}
 
 <#
     .SYNOPSIS
