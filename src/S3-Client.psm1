@@ -5247,6 +5247,8 @@ function Global:Remove-S3BucketReplicationConfigurationRule {
     }
 
     Process {
+        Write-Verbose "Remove bucket replication configuration rule for bucket $BucketName"
+
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
         }
