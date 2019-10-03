@@ -863,7 +863,7 @@ function Global:Get-AwsRequest {
     Begin {
         # as we are modifying the endpoint URL, make sure to work on a new object and not modify the original object
         $Config = $Config.PSObject.Copy()
-        $Config.EndpointUrl = [System.UriBuilder]::new($Config.EndpointUrl.ToString())
+        $Config.EndpointUrl = [System.UriBuilder]$Config.EndpointUrl.ToString()
         if (!$Config.EndpointUrl -or $Config.EndpointUrl -match "amazonaws.com") {
             if ($Config.Region -eq "us-east-1" -or !$Config.Region) {
                 if ($Config.UseDualstackEndpoint) {
@@ -923,17 +923,18 @@ function Global:Get-AwsRequest {
         }
 
         if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $Stream -or $RequestPayload) -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl -match "http://"))) {
+            $MD5CryptoServiceProvider = [System.Security.Cryptography.MD5CryptoServiceProvider]::new()
             if ($InFile) {
                 $Stream = [System.IO.FileStream]::new($InFile, [System.IO.FileMode]::Open)
-                $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash($Stream)
+                $Md5 = $MD5CryptoServiceProvider.ComputeHash($Stream)
                 $null = $Stream.Close
             }
             elseif ($Stream) {
-                $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash($Stream)
+                $Md5 = $MD5CryptoServiceProvider.ComputeHash($Stream)
                 $Stream.Seek(0, [System.IO.SeekOrigin]::Begin)
             }
             else {
-                $Md5 = [System.Security.Cryptography.MD5CryptoServiceProvider]::new().ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($RequestPayload))
+                $Md5 = $Md5 = $MD5CryptoServiceProvider.ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($RequestPayload))
             }
             $ContentMd5 = [Convert]::ToBase64String($Md5)
         }
@@ -1857,7 +1858,7 @@ function Global:Get-AwsConfig {
                 }
                 $Config.AccessKey = $Credential.AccessKey
                 $Config.SecretKey = $Credential.SecretAccessKey
-                $Config.EndpointUrl = [System.UriBuilder]::new($EndpointUrl.ToString())
+                $Config.EndpointUrl = [System.UriBuilder]$EndpointUrl.ToString()
                 $Config.SkipCertificateCheck = $Server.SkipCertificateCheck
             }
         }
