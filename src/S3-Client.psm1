@@ -446,7 +446,8 @@ function Global:Get-AwsHash {
             $Hash = Get-FileHash -Algorithm SHA256 -Path $FileToHash | Select-Object -ExpandProperty Hash
         }
         elseif ($StreamToHash) {
-            $Hash = Get-FileHash -Algorithm SHA256 -InputStream $StreamToHash | Select-Object -ExpandProperty Hash
+            $Hash = ([BitConverter]::ToString($Hasher.ComputeHash($StreamToHash)) -replace '-','').ToLower()
+            $Stream.Seek(0, [System.IO.SeekOrigin]::Begin)
         }
         else {
             $Hash = ([BitConverter]::ToString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($StringToHash))) -replace '-', '').ToLower()
@@ -912,7 +913,6 @@ function Global:Get-AwsRequest {
             }
             elseif ($Stream) {
                 $RequestPayloadHash = Get-AwsHash -StreamToHash $Stream
-                $Stream.Seek(0, [System.IO.SeekOrigin]::Begin)
             }
             else {
                 $RequestPayloadHash = Get-AwsHash -StringToHash $RequestPayload
