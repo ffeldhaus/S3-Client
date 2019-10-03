@@ -12983,7 +12983,7 @@ function Global:Update-S3BucketConsistency {
         [parameter(
             Mandatory = $True,
             Position = 9,
-            HelpMessage = "Bucket consistency")][ValidateSet("all", "strong-global", "strong-site", "default", "available", "weak")][String]$Consistency
+            HelpMessage = "Bucket consistency")][ValidateSet("all", "strong-global", "strong-site", "read-after-new-write", "available", "weak")][String]$Consistency
     )
 
     Begin {
