@@ -1819,7 +1819,7 @@ function Global:Get-AwsConfig {
             UseDualstackEndpoint                = $UseDualstackEndpoint;
             AddressingStyle                     = $AddressingStyle;
             PayloadSigning                      = $PayloadSigning;
-            SkipCertificateCheck                = $[System.Convert]::ToBoolean($SkipCertificateCheck -eq $true);
+            SkipCertificateCheck                = [System.Convert]::ToBoolean($SkipCertificateCheck -eq $true);
             SignerType                          = $SignerType
         }
 
