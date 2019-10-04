@@ -447,7 +447,7 @@ function Global:Get-AwsHash {
         }
         elseif ($StreamToHash) {
             $Hash = ([BitConverter]::ToString($Hasher.ComputeHash($StreamToHash)) -replace '-','').ToLower()
-            $Stream.Seek(0, [System.IO.SeekOrigin]::Begin)
+            $StreamToHash.Seek(0, [System.IO.SeekOrigin]::Begin)
         }
         else {
             $Hash = ([BitConverter]::ToString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($StringToHash))) -replace '-', '').ToLower()
