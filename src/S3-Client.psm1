@@ -447,7 +447,7 @@ function Global:Get-AwsHash {
         }
         elseif ($StreamToHash) {
             $Hash = ([BitConverter]::ToString($Hasher.ComputeHash($StreamToHash)) -replace '-','').ToLower()
-            $StreamToHash.Seek(0, [System.IO.SeekOrigin]::Begin)
+            $null = $StreamToHash.Seek(0, [System.IO.SeekOrigin]::Begin)
         }
         else {
             $Hash = ([BitConverter]::ToString($Hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($StringToHash))) -replace '-', '').ToLower()
@@ -11195,7 +11195,7 @@ function Global:Write-S3Object {
                             }
 
                             if ($Task.IsCanceled) {
-                                Write-Warning "Upload was canceled with result $($Task.Result)"
+                                throw "Upload was canceled with result $($Task.Result)"
                             }
 
                             $Etag = New-Object 'System.Collections.Generic.List[string]'
