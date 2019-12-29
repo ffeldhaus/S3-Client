@@ -901,9 +901,11 @@ Describe "S3 Bucket CORS Configuration" {
 
 Describe "S3 Bucket Replication Configuration" {
     if ($ProfileName -eq "Minio") { continue }
+    if ($ProfileName -eq "webscaledemo") { continue } # required until webscaledemo problems are fixed
 
     BeforeAll {
         if ($ProfileName -eq "Minio") { continue }
+        if ($ProfileName -eq "webscaledemo") { continue } # required until webscaledemo problems are fixed
 
         $BucketName = $BaseBucketName + "-bucket-repl"
         $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-repl"
@@ -932,6 +934,7 @@ Describe "S3 Bucket Replication Configuration" {
 
     AfterAll {
         if ($ProfileName -eq "Minio") { continue }
+        if ($ProfileName -eq "webscaledemo") { continue } # required until webscaledemo problems are fixed
 
         Cleanup -BucketName $BucketName
         Cleanup -BucketName $DestinationBucketName -Region $DestinationRegion -ProfileName AWS
