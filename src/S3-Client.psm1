@@ -2194,7 +2194,7 @@ function Global:New-AwsPolicy {
         }
         else {
             $Policy = ConvertFrom-Json -InputObject $PolicyString
-            $Statement = $Policy.Statement | Select-Object -First 1
+            $Statement = $Policy.Statement | Select-Object -First 1
             $Policy.Statement = $Policy.Statement | Select-Object -Skip 1
         }
 
@@ -7438,10 +7438,10 @@ function Global:Set-S3BucketPolicy {
         $Resource = @("arn:aws:s3:::$BucketName", "arn:aws:s3:::$BucketName/*")
 
         if (!$Policy -and $PublicReadOnlyPolicy.IsPresent) {
-            $Policy = New-AwsPolicy -Resource $Resource -ReadOnlyAccess
+            $Policy = New-AwsPolicy -Resource $Resource -ReadOnlyAccess -Principal "*"
         }
         if (!$Policy -and $PublicReadWritePolicy.IsPresent) {
-            $Policy = New-AwsPolicy -Resource $Resource
+            $Policy = New-AwsPolicy -Resource $Resource -Action "*" -Principal "*"
         }
 
         # pretty print JSON to simplify debugging
