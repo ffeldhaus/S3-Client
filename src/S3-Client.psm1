@@ -1168,7 +1168,7 @@ function Global:Invoke-AwsRequest {
             $StreamContent.Headers.ContentLength = $ContentLength
             $Request.Content = $StreamContent
         }
-        else {
+        elseif ($Body) {
             Write-Verbose "Body:`n$Body"
             $StringContent = [System.Net.Http.StringContent]::new($Body)
             $Request.Content = $StringContent
