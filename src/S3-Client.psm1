@@ -1102,6 +1102,12 @@ function Global:Invoke-AwsRequest {
             HelpMessage = "Content size")][Int64]$Size,
         [parameter(
             Mandatory = $False,
+            Position = 4,
+            ParameterSetName = "HttpContent",
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "HTTP Content")][System.Net.Http.HttpContent]$HttpContent,
+        [parameter(
+            Mandatory = $False,
             Position = 6,
             ValueFromPipelineByPropertyName,
             HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken
@@ -1154,12 +1160,16 @@ function Global:Invoke-AwsRequest {
 
         $Request = [System.Net.Http.HttpRequestMessage]::new($Method, $Uri)
 
-        if ($InStream) {
+        if ($HttpContent) {
+            $Request.Content = $HttpContent
+        }
+        elseif ($InStream) {
             $StreamContent = [System.Net.Http.StreamContent]::new($InStream)
             $StreamContent.Headers.ContentLength = $ContentLength
             $Request.Content = $StreamContent
         }
-        elseif ($Method -notmatch "HEAD|GET") {
+        else {
+            Write-Verbose "Body:`n$Body"
             $StringContent = [System.Net.Http.StringContent]::new($Body)
             $Request.Content = $StringContent
         }
