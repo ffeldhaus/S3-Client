@@ -1,4 +1,4 @@
-/* 
+/*
 Copyright (c) .NET Foundation. All rights reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License"); you may not use
@@ -10,7 +10,7 @@ http://www.apache.org/licenses/LICENSE-2.0
 Unless required by applicable law or agreed to in writing, software distributed
 under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 CONDITIONS OF ANY KIND, either express or implied. See the License for the
-specific language governing permissions and limitations under the License. 
+specific language governing permissions and limitations under the License.
 */
 
 using System;
@@ -24,9 +24,23 @@ using System.Threading.Tasks;
 
 namespace System.Net.Http
 {
+    public class HttpCopyClient: HttpClient {
+        public Task CopyAsync(HttpResponseMessage getResponse, HttpRequestMessage putRequest, CancellationToken cancellationToken) {
+            putRequest.Content = new PushStreamContent(async (stream, httpContent, transportContext) =>
+                {
+                    Task copyTask = getResponse.Content.CopyToAsync(stream);
+                    await copyTask;
+                    stream.Dispose();
+                });
+            putRequest.Content.Headers.ContentLength = getResponse.Content.Headers.ContentLength;
+            this.Timeout = new TimeSpan(0, 0, Math.Max((Int32)(getResponse.Content.Headers.ContentLength / (60 * 1024)), (Int32)60));
+            return this.SendAsync(putRequest, cancellationToken);
+        }
+    }
+
     /// <summary>
     /// Provides an <see cref="HttpContent"/> implementation that exposes an output <see cref="Stream"/>
-    /// which can be written to directly. The ability to push data to the output stream differs from the 
+    /// which can be written to directly. The ability to push data to the output stream differs from the
     /// <see cref="StreamContent"/> where data is pulled and not pushed.
     /// </summary>
     public class PushStreamContent : HttpContent
@@ -34,7 +48,7 @@ namespace System.Net.Http
         private readonly Func<Stream, HttpContent, System.Net.TransportContext, Task> _onStreamAvailable;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PushStreamContent"/> class. 
+        /// Initializes a new instance of the <see cref="PushStreamContent"/> class.
         /// </summary>
         /// <param name="onStreamAvailable">The action to call when an output stream is available. The stream is automatically
         /// closed when the return task is completed.</param>
@@ -44,13 +58,12 @@ namespace System.Net.Http
             {
                 throw new ArgumentNullException("onStreamAvailable");
             }
-
             _onStreamAvailable = onStreamAvailable;
         }
 
         /// <summary>
-        /// When this method is called, it calls the action provided in the constructor with the output 
-        /// stream to write to. Once the action has completed its work it closes the stream which will 
+        /// When this method is called, it calls the action provided in the constructor with the output
+        /// stream to write to. Once the action has completed its work it closes the stream which will
         /// close this content instance and complete the HTTP request or response.
         /// </summary>
         /// <param name="stream">The <see cref="Stream"/> to which to write.</param>
