@@ -11243,6 +11243,10 @@ function Global:Write-S3Object {
                             throw $_
                         }
                         finally {
+                            if (!$Task.IsCompleted) {
+                                Write-Verbose "Cancel upload task"
+                                $CancellationTokenSource.Cancel()
+                            }
                             Write-Verbose "Dispose used resources"
                             if ($Task) { $Task.Dispose() }
                             if ($PutRequest) { $PutRequest.Dispose() }
