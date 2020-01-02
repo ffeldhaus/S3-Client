@@ -11116,7 +11116,9 @@ function Global:Write-S3Object {
                     else {
                         $StartTime = Get-Date
 
-                        Write-Progress -Activity "Uploading file $($InFile.Name) to $BucketName/$Key" -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
+                        $Activity = "Uploading file $($InFile.Name) to $BucketName/$Key"
+
+                        Write-Progress -Activity $Activity -Status "0 MiB written (0% Complete) / 0 MiB/s / estimated time to completion: 0" -PercentComplete 0
 
                         Write-Verbose "Creating HTTP Client Handler"
                         $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
@@ -11205,7 +11207,6 @@ function Global:Write-S3Object {
                                 else {
                                     $EstimatedTimeToCompletion = 0
                                 }
-                                $Activity = "Uploading file $($InFile.Name) to $BucketName/$Key"
                                 $Status = "{0:F2} MiB written | {1:F2}% Complete | {2:F2} MiB/s  | estimated time to completion: {3:g}" -f ($WrittenBytes / 1MB), $PercentCompleted, $Throughput, $EstimatedTimeToCompletion
                                 Write-Progress -Activity $Activity -Status $Status -PercentComplete $PercentCompleted
                             }
