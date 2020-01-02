@@ -24,6 +24,10 @@ using System.Threading.Tasks;
 
 namespace System.Net.Http
 {
+    /// <summary>
+    /// Provides an <see cref="HttpCopyClient"/> implementation that extends <see cref="HttpClient"/>
+    /// with a new method CopyAsync which copies the response stream from a GET response to a PUT request
+    /// </summary>
     public class HttpCopyClient: HttpClient {
         public Task CopyAsync(HttpResponseMessage getResponse, HttpRequestMessage putRequest, CancellationToken cancellationToken) {
             putRequest.Content = new PushStreamContent(async (stream, httpContent, transportContext) =>

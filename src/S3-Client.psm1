@@ -40,8 +40,8 @@ else {
     $PSDefaultParameterValues.Add("Invoke-WebRequest:SkipHeaderValidation", $true)
 }
 
-# adding missing PushStreamContent class based on ASP.NET implementation
-Add-Type -Path (Join-Path -Path $PSScriptRoot -ChildPath "PushStreamContent.cs" ) -ReferencedAssemblies "System.Runtime.Extensions","System.Net.Primitives","System.Net.Http","System.Threading.Tasks","System.Diagnostics.Contracts"
+# adding HttpCopyClient and PushStreamContent class to provide async copy from GET response to PUT request
+Add-Type -Path (Join-Path -Path $PSScriptRoot -ChildPath "HttpCopyClient.cs" ) -ReferencedAssemblies "System.Runtime.Extensions","System.Net.Primitives","System.Net.Http","System.Threading.Tasks","System.Diagnostics.Contracts"
 
 ### Helper Functions ###
 
