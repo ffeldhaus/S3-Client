@@ -861,6 +861,10 @@ function Global:Get-AwsRequest {
     )
 
     Begin {
+        if ($InFile -match "^./|^.\\" -or $InFile -notmatch "^/|^\\") {
+            $InFile = Join-Path -Path $PWD -ChildPath ($InFile -replace "^./|^.\\","")
+        }
+
         # as we are modifying the endpoint URL, make sure to work on a new object and not modify the original object
         $Config = $Config.PSObject.Copy()
         $Config.EndpointUrl = [System.UriBuilder]$Config.EndpointUrl.ToString()
@@ -10522,6 +10526,9 @@ function Global:Read-S3Object {
         }
 
         if ($Path) {
+            if ($Path -match "^./|^.\\" -or $Path -notmatch "^/|^\\") {
+                $Path = Join-Path -Path $PWD -ChildPath ($Path -replace "^./|^.\\","")
+            }
             $DirectoryPath = [System.IO.DirectoryInfo]$Path
             if ($DirectoryPath.Exists) {
                 $Item = Get-Item $DirectoryPath
@@ -11008,6 +11015,10 @@ function Global:Write-S3Object {
 
         if ($Region) {
             $Config.Region = $Region
+        }
+
+        if ($InFile -match "^./|^.\\" -or $InFile -notmatch "^/|^\\") {
+            $InFile = Join-Path -Path $PWD -ChildPath ($InFile -replace "^./|^.\\","")
         }
 
         if ($InFile -and !$InFile.Exists) {
@@ -12107,6 +12118,10 @@ function Global:Write-S3MultipartUpload {
         }
 
         $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName
+
+        if ($InFile -match "^./|^.\\" -or $InFile -notmatch "^/|^\\") {
+            $InFile = Join-Path -Path $PWD -ChildPath ($InFile -replace "^./|^.\\","")
+        }
 
         if ($InFile -and !$InFile.Exists) {
             Throw "File $InFile does not exist"
