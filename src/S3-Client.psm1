@@ -1208,25 +1208,25 @@ function Global:Invoke-AwsRequest {
             $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
             Write-Verbose "Timeout set to $($HttpClient.Timeout)"
 
-        try {
-            if ($CancellationToken) {
-                $Task = $HttpClient.SendAsync($Request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
-            }
-            else {
-                $Task = $HttpClient.SendAsync($Request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
-            }
+            try {
+                if ($CancellationToken) {
+                    $Task = $HttpClient.SendAsync($Request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
+                }
+                else {
+                    $Task = $HttpClient.SendAsync($Request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+                }
 
-            Write-Output $Task
-        }
-        catch {
-            throw $_
-        }
-        finally {
-            if ($Config.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
-                [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
+                Write-Output $Task
+            }
+            catch {
+                throw $_
+            }
+            finally {
+                if ($Config.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
+                    [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
+                }
             }
         }
-    }
         else {
             Write-Verbose "Dry run, not executing http request"
             Write-Output $Request
@@ -13457,7 +13457,12 @@ function Global:Copy-S3Object {
             Mandatory = $False,
             Position = 25,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Server side encryption")][ValidateSet("", "aws:kms", "AES256")][String]$ServerSideEncryption
+            HelpMessage = "Server side encryption")][ValidateSet("", "aws:kms", "AES256")][String]$ServerSideEncryption,
+        [parameter(
+            Mandatory = $False,
+            Position = 25,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Force client side copy")][System.Management.Automation.SwitchParameter]$ClientSideCopy
     )
 
     Begin {
@@ -13490,7 +13495,7 @@ function Global:Copy-S3Object {
             $DestinationConfig = $Config
         }
 
-        if ($Config.AccessKey -eq $DestinationConfig.AccessKey) {
+        if ($Config.AccessKey -eq $DestinationConfig.AccessKey -and -not $ClientSideCopy.IsPresent) {
             Write-Verbose "Using server side copy (PUT Object Copy)"
             $ServerSideCopy = $true
         }
@@ -13637,12 +13642,30 @@ function Global:Copy-S3Object {
             $SourceTask = $SourceAwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
 
             if ($SourceTask.Result.IsSuccessStatusCode) {
-                $Stream = [System.IO.MemoryStream]::new([Math]::Min(8MB, $Metadata.Size))
-                $DestinationTask = $DestinationAwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$DestinationConfig.SkipCertificateCheck -InStream $Stream -Size $Metadata.Size
+                Write-Verbose "Source request was successfull"
+                $httpCopyClient = [System.Net.Http.HttpCopyClient]::new();
+                $putRequest = $DestinationAwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -DryRun
 
+                # TODO: copy S3 metadata from GET response to PUT request
+
+                # TODO: Move cancellation to beginning of cmdlet
+                $CancellationTokenSource = [System.Threading.CancellationTokenSource]::new()
+                $CancellationToken = $CancellationTokenSource.Token
+                $CancellationTokenVariable = [System.Management.Automation.Runspaces.SessionStateVariableEntry]::new('CancellationToken', $CancellationToken, $Null)
+
+                $DestinationTask = $httpCopyClient.CopyAsync($SourceTask.Result,$putRequest, $CancellationToken);
+                try {
+                    $DestinationTask.Result.EnsureSuccessStatusCode
+                }
+                finally {
+                    if (!$DestinationTask.IsCompleted) {
+                        $CancellationTokenSource.Cancel()
+                    }
+                }
+
+                # TODO: properly implement retries and dispose GET and PUT requests properly
                 if ($DestinationTask.Result.IsSuccessStatusCode) {
-                    $CopyTask = $SourceTask.Result.Content.CopyToAsync($Stream)
-                    while (-not $CopyTask.AsyncWaitHandle.WaitOne(200)) { }
+                    Write-Host "success"
                 }
                 elseif ($DestinationTask.IsCanceled -or $DestinationTask.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
                     $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
@@ -13658,6 +13681,7 @@ function Global:Copy-S3Object {
                     Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
                 }
                 elseif ($DestinationTask.IsFaulted) {
+                    return $DestinationTask
                     Throw $DestinationTask.Exception
                 }
                 elseif ($DestinationTask.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
