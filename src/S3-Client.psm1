@@ -1110,7 +1110,12 @@ function Global:Invoke-AwsRequest {
             Mandatory = $False,
             Position = 6,
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken
+            HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken,
+        [parameter(
+            Mandatory = $False,
+            Position = 7,
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "Do not execute request, just return request URI and Headers")][System.Management.Automation.SwitchParameter]$DryRun
     )
 
     Begin {
@@ -1128,20 +1133,6 @@ function Global:Invoke-AwsRequest {
     }
 
     Process {
-        # check if untrusted SSL certificates should be ignored
-        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
-        if ($Config.SkipCertificateCheck) {
-            if ($PSVersionTable.PSVersion.Major -lt 6) {
-                # PowerShell 5 and early cannot skip certificate validation per request therefore we need to use a workaround
-                $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
-                [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-            }
-            else {
-                $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
-            }
-        }
-        $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
-
         if ($Size) {
             $ContentLength = $Size
         }
@@ -1151,12 +1142,6 @@ function Global:Invoke-AwsRequest {
         else {
             $ContentLength = $Body.Length
         }
-
-        Write-Verbose "Invoking Request:`n$Method $Uri"
-
-        Write-Verbose "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
-        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
-        Write-Verbose "Timeout set to $($HttpClient.Timeout)"
 
         $Request = [System.Net.Http.HttpRequestMessage]::new($Method, $Uri)
 
@@ -1202,6 +1187,27 @@ function Global:Invoke-AwsRequest {
             }
         }
 
+        if (!$DryRun) {
+            Write-Verbose "Invoking Request:`n$Method $Uri"
+
+            # check if untrusted SSL certificates should be ignored
+            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
+            if ($Config.SkipCertificateCheck) {
+                if ($PSVersionTable.PSVersion.Major -lt 6) {
+                    # PowerShell 5 and early cannot skip certificate validation per request therefore we need to use a workaround
+                    $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
+                    [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+                }
+                else {
+                    $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+                }
+            }
+            $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
+
+            Write-Verbose "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
+            $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
+            Write-Verbose "Timeout set to $($HttpClient.Timeout)"
+
         try {
             if ($CancellationToken) {
                 $Task = $HttpClient.SendAsync($Request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
@@ -1219,6 +1225,11 @@ function Global:Invoke-AwsRequest {
             if ($Config.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
                 [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
             }
+        }
+    }
+        else {
+            Write-Verbose "Dry run, not executing http request"
+            Write-Output $Request
         }
     }
 }
