@@ -1051,9 +1051,63 @@ function Global:Get-AwsRequest {
         Write-Verbose "Request URI:`n$($Config.EndpointUrl.Uri)"
         Write-Verbose "Request Headers:`n$($Headers | ConvertTo-Json)"
 
-        $Request = [PSCustomObject]@{Method = $Method; Uri = $Config.EndpointUrl.Uri; Headers = $Headers; Md5 = $Md5 }
+        if ($Size) {
+            $ContentLength = $Size
+        }
+        if ($InStream) {
+            $ContentLength = $InStream.Length
+        }
+        else {
+            $ContentLength = $Body.Length
+        }
 
-        Write-Output $Request
+        $HttpRequestMessage = [System.Net.Http.HttpRequestMessage]::new($Method, $Config.EndpointUrl)
+
+        if ($HttpContent) {
+            $HttpRequestMessage.Content = $HttpContent
+        }
+        elseif ($InStream) {
+            $StreamContent = [System.Net.Http.StreamContent]::new($InStream)
+            $StreamContent.Headers.ContentLength = $ContentLength
+            $HttpRequestMessage.Content = $StreamContent
+        }
+        elseif ($Body) {
+            Write-Verbose "Body:`n$Body"
+            $StringContent = [System.Net.Http.StringContent]::new($Body)
+            $HttpRequestMessage.Content = $StringContent
+        }
+
+        if ($HttpRequestMessage.Content) {
+            if ($Headers["Content-MD5"]) {
+                $HttpRequestMessage.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
+                $Headers.Remove("Content-MD5")
+            }
+            elseif ($Headers["Content-MD5"] -ne $null) {
+                Throw "Content-MD5 header specified but empty"
+            }
+
+            if ($Headers["content-type"]) {
+                $HttpRequestMessage.Content.Headers.ContentType = $Headers["content-type"]
+                $Headers.Remove("content-type")
+            }
+            elseif ($Headers["content-type"] -ne $null) {
+                Throw "content-type header specified but empty"
+            }
+        }
+
+        foreach ($HeaderKey in $Headers.Keys) {
+            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+            if ($HeaderKey -eq "Authorization") {
+                $null = $HttpRequestMessage.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
+            }
+            else {
+                $null = $HttpRequestMessage.Headers.Add($HeaderKey, $Headers[$HeaderKey])
+            }
+        }
+
+        $HttpRequestMessage | Add-Member -MemberType AliasProperty -Name Uri -Value RequestUri
+
+        Write-Output $HttpRequestMessage
     }
 }
 
@@ -1064,7 +1118,7 @@ function Global:Get-AwsRequest {
     Invoke AWS Request
 #>
 function Global:Invoke-AwsRequest {
-    [CmdletBinding(DefaultParameterSetName = "Body")]
+    [CmdletBinding()]
 
     PARAM (
         [parameter(
@@ -1080,160 +1134,87 @@ function Global:Invoke-AwsRequest {
             Mandatory = $False,
             Position = 2,
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Endpoint URI")][Uri]$Uri,
+            HelpMessage = "Request URI")][Alias("Uri")][Uri]$RequestUri,
         [parameter(
             Mandatory = $False,
             Position = 3,
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Headers")][Hashtable]$Headers = @{ },
+            HelpMessage = "Headers")][System.Net.Http.Headers.HttpRequestHeaders]$Headers,
         [parameter(
             Mandatory = $False,
             Position = 4,
-            ParameterSetName = "Body",
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Request payload")][String]$Body = "",
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            ParameterSetName = "InStream",
-            ValueFromPipelineByPropertyName,
-            HelpMessage = "Stream to read request payload from")][System.IO.Stream]$InStream,
+            HelpMessage = "HTTP Content")][System.Net.Http.HttpContent]$Content,
         [parameter(
             Mandatory = $False,
             Position = 5,
-            ParameterSetName = "InStream",
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Content size")][Int64]$Size,
-        [parameter(
-            Mandatory = $False,
-            Position = 4,
-            ParameterSetName = "HttpContent",
-            ValueFromPipelineByPropertyName,
-            HelpMessage = "HTTP Content")][System.Net.Http.HttpContent]$HttpContent,
-        [parameter(
-            Mandatory = $False,
-            Position = 6,
-            ValueFromPipelineByPropertyName,
-            HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken,
-        [parameter(
-            Mandatory = $False,
-            Position = 7,
-            ValueFromPipelineByPropertyName,
-            HelpMessage = "Do not execute request, just return request URI and Headers")][System.Management.Automation.SwitchParameter]$DryRun
+            HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken
     )
 
-    Begin {
-        if ([environment]::OSVersion.Platform -match "Win") {
-            # check if proxy is used
-            $ProxyRegistry = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-            $ProxySettings = Get-ItemProperty -Path $ProxyRegistry
-            if ($ProxySettings.ProxyEnable) {
-                Write-Warning "Proxy Server $($ProxySettings.ProxyServer) configured in Internet Explorer may be used to connect to the endpoint!"
-            }
-            if ($ProxySettings.AutoConfigURL) {
-                Write-Warning "Proxy Server defined in automatic proxy configuration script $($ProxySettings.AutoConfigURL) configured in Internet Explorer may be used to connect to the endpoint!"
-            }
+    Write-Verbose "Invoking Request:`n$Method $RequestUri"
+
+    $HttpRequestMessage = [System.Net.Http.HttpRequestMessage]::new($Method, $RequestUri)
+    $HttpRequestMessage.Content = $Content
+
+    Write-Verbose "Adding headers"
+    foreach ($HeaderKey in $Headers.Keys) {
+        # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+        Write-Host $HeaderKey
+        if ($HeaderKey -eq "Authorization") {
+            $null = $HttpRequestMessage.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
+        }
+        else {
+            $null = $HttpRequestMessage.Headers.Add($HeaderKey, $Headers[$HeaderKey])
         }
     }
 
-    Process {
-        if ($Size) {
-            $ContentLength = $Size
+    if ([environment]::OSVersion.Platform -match "Win") {
+        # check if proxy is used
+        $ProxyRegistry = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+        $ProxySettings = Get-ItemProperty -Path $ProxyRegistry
+        if ($ProxySettings.ProxyEnable) {
+            Write-Warning "Proxy Server $($ProxySettings.ProxyServer) configured in Internet Explorer may be used to connect to the endpoint!"
         }
-        if ($InStream) {
-            $ContentLength = $InStream.Length
+        if ($ProxySettings.AutoConfigURL) {
+            Write-Warning "Proxy Server defined in automatic proxy configuration script $($ProxySettings.AutoConfigURL) configured in Internet Explorer may be used to connect to the endpoint!"
         }
-        else {
-            $ContentLength = $Body.Length
-        }
+    }
 
-        $Request = [System.Net.Http.HttpRequestMessage]::new($Method, $Uri)
-
-        if ($HttpContent) {
-            $Request.Content = $HttpContent
-        }
-        elseif ($InStream) {
-            $StreamContent = [System.Net.Http.StreamContent]::new($InStream)
-            $StreamContent.Headers.ContentLength = $ContentLength
-            $Request.Content = $StreamContent
-        }
-        elseif ($Body) {
-            Write-Verbose "Body:`n$Body"
-            $StringContent = [System.Net.Http.StringContent]::new($Body)
-            $Request.Content = $StringContent
-        }
-
-        if ($Request.Content) {
-            if ($Headers["Content-MD5"]) {
-                $Request.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
-                $Headers.Remove("Content-MD5")
-            }
-            elseif ($Headers["Content-MD5"] -ne $null) {
-                Throw "Content-MD5 header specified but empty"
-            }
-
-            if ($Headers["content-type"]) {
-                $Request.Content.Headers.ContentType = $Headers["content-type"]
-                $Headers.Remove("content-type")
-            }
-            elseif ($Headers["content-type"] -ne $null) {
-                Throw "content-type header specified but empty"
-            }
-        }
-
-        foreach ($HeaderKey in $Headers.Keys) {
-            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
-            if ($HeaderKey -eq "Authorization") {
-                $null = $Request.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
-            }
-            else {
-                $null = $Request.Headers.Add($HeaderKey, $Headers[$HeaderKey])
-            }
-        }
-
-        if (!$DryRun) {
-            Write-Verbose "Invoking Request:`n$Method $Uri"
-
-            # check if untrusted SSL certificates should be ignored
-            $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
-            if ($Config.SkipCertificateCheck) {
-                if ($PSVersionTable.PSVersion.Major -lt 6) {
-                    # PowerShell 5 and early cannot skip certificate validation per request therefore we need to use a workaround
-                    $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
-                    [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-                }
-                else {
-                    $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
-                }
-            }
-            $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
-
-            Write-Verbose "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
-            $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
-            Write-Verbose "Timeout set to $($HttpClient.Timeout)"
-
-            try {
-                if ($CancellationToken) {
-                    $Task = $HttpClient.SendAsync($Request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
-                }
-                else {
-                    $Task = $HttpClient.SendAsync($Request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
-                }
-
-                Write-Output $Task
-            }
-            catch {
-                throw $_
-            }
-            finally {
-                if ($Config.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
-                    [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
-                }
-            }
+    # check if untrusted SSL certificates should be ignored
+    $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
+    if ($Config.SkipCertificateCheck) {
+        if ($PSVersionTable.PSVersion.Major -lt 6) {
+            # PowerShell 5 and early cannot skip certificate validation per request therefore we need to use a workaround
+            $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
         }
         else {
-            Write-Verbose "Dry run, not executing http request"
-            Write-Output $Request
+            $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+        }
+    }
+    $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
+
+    Write-Verbose "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
+    $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
+    Write-Verbose "Timeout set to $($HttpClient.Timeout)"
+
+    try {
+        if ($CancellationToken) {
+            $Task = $HttpClient.SendAsync($HttpRequestMessage, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
+        }
+        else {
+            $Task = $HttpClient.SendAsync($HttpRequestMessage, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+        }
+
+        Write-Output $Task
+    }
+    catch {
+        throw $_
+    }
+    finally {
+        if ($Config.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
+            [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
         }
     }
 }
