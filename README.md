@@ -46,7 +46,7 @@ Install-Module -Name S3-Client
 
 The S3 Client PowerShell Cmdlets require at least PowerShell 5.0 and .NET 4.5.
 
-If the Module can't be installed via `Install-Module` then the latest version can be downloaded from the [GitHub Release page](https://github.com/ffeldhaus/S3-Client/releases/latest) for manual installation. For manual installation, the S3-Client.zip file needs to be extracted to the preferred PowerShell Module location. For the current user the S3-Client folder needs to be copied to
+If the Module can't be installed via `Install-Module` then the latest version can be downloaded from the [GitHub Release page](https://github.com/NetApp-StorageGRID/S3-Client/releases/latest) for manual installation. For manual installation, the S3-Client.zip file needs to be extracted to the preferred PowerShell Module location. For the current user the S3-Client folder needs to be copied to
 
     $HOME\Documents\WindowsPowerShell\Modules
 

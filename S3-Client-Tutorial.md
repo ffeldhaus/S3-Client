@@ -7,7 +7,7 @@ If you are using the Cmdlets together with StorageGRID, proceed with the next se
 
 ## StorageGRID specific simplifications
 
-If a StorageGRID administrator is connected using the [StorageGRID-Webscale PowerShell Cmdlets](https://github.com/ffeldhaus/StorageGRID-Webscale), then the Cmdlets automatically create temporary AWS Access Key and Secret Access Key for all tenants where an operation is performed. If a StorageGRID tenant user is connected, the temporary S3 credentials will be automatically created for the tenant user. All temporary credentials have an expiry time of 60 minutes by default.
+If a StorageGRID administrator is connected using the [StorageGRID-Webscale PowerShell Cmdlets](https://github.com/NetApp-StorageGRID/StorageGRID-PowerShell-Module), then the Cmdlets automatically create temporary AWS Access Key and Secret Access Key for all tenants where an operation is performed. If a StorageGRID tenant user is connected, the temporary S3 credentials will be automatically created for the tenant user. All temporary credentials have an expiry time of 60 minutes by default.
 
 For grid administrators the Cmdlets automatically query the configured domain endpoints and check if connections via S3 are possible. The endpoints are then stored in the S3EndpointUrl parameter of the server object (e.g. `$CurrentSgwServer.S3EndpointUrl`). As the domain endpoints cannot be queried as tenant user, you must provide the `-S3EndpointUrl` parameter when connecting to the StorageGRID server or you can add the `-EndpointUrl` parameter when executing S3 commands.
 
