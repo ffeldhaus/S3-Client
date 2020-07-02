@@ -772,23 +772,23 @@ function Global:Get-AwsRequest {
         [parameter(
             Mandatory = $False,
             Position = 4,
-            HelpMessage = "Request payload")][String]$RequestPayload = "",
-        [parameter(
-            Mandatory = $False,
-            Position = 5,
             HelpMessage = "Service (e.g. S3)")][String]$Service = "s3",
         [parameter(
             Mandatory = $False,
-            Position = 6,
+            Position = 5,
             HelpMessage = "Headers")][Hashtable]$Headers = @{ },
         [parameter(
             Mandatory = $False,
-            Position = 7,
+            Position = 6,
             HelpMessage = "Bucket name")][String]$BucketName,
         [parameter(
             Mandatory = $False,
-            Position = 8,
+            Position = 7,
             HelpMessage = "Date")][DateTime]$Date = [DateTime]::Now,
+        [parameter(
+            Mandatory = $False,
+            Position = 8,
+            HelpMessage = "Request payload")][String]$RequestPayload = "",
         [parameter(
             Mandatory = $False,
             Position = 9,
@@ -796,7 +796,7 @@ function Global:Get-AwsRequest {
         [parameter(
             Mandatory = $False,
             Position = 10,
-            HelpMessage = "IO Stream")][System.IO.Stream]$Stream,
+            HelpMessage = "IO Stream")][System.IO.Stream]$InStream,
         [parameter(
             Mandatory = $False,
             Position = 11,
@@ -1005,7 +1005,7 @@ function Global:Get-AwsRequest {
             $ContentLength = $InStream.Length
         }
         else {
-            $ContentLength = $Body.Length
+            $ContentLength = $RequestPayload.Length
         }
 
         $HttpRequestMessage = [System.Net.Http.HttpRequestMessage]::new($Method, $Config.EndpointUrl)
@@ -1018,9 +1018,9 @@ function Global:Get-AwsRequest {
             $StreamContent.Headers.ContentLength = $ContentLength
             $HttpRequestMessage.Content = $StreamContent
         }
-        elseif ($Body) {
-            Write-Verbose "Body:`n$Body"
-            $StringContent = [System.Net.Http.StringContent]::new($Body)
+        elseif ($RequestPayload) {
+            Write-Verbose "RequestPayload:`n$RequestPayload"
+            $StringContent = [System.Net.Http.StringContent]::new($RequestPayload)
             $HttpRequestMessage.Content = $StringContent
         }
 
