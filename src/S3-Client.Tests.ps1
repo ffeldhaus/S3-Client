@@ -11,7 +11,6 @@ $UnicodeString = [System.Web.HttpUtility]::UrlDecode("%40%c5%93%c3%a6%c3%b6%c3%b
 $Tags = @(@{Key=$UnicodeString;Value="valuewithunicodekey"},@{Key="keywithunicodevalue";Value=$UnicodeString})
 
 $BaseBucketName = (Get-Date -Format "yyyyMMddHHmm") + "B"
-$BaseUnicodeBucketName = [System.Globalization.IdnMapping]::new().GetUnicode("xn--9csy79e60h") + "$BaseBucketName"
 $Key = "dir/dir/dir/dir/dir/dir/Key"
 if ($PSVersionTable.PSVersion.Major -eq 5) {
     $UnicodeKey = [System.Web.HttpUtility]::UrlDecode("%u842c%u570b%u78bc%2BTesting+%u00ab%u03c4%u03b1%u0411%u042c%u2113%u03c3%u00bb+1%3c2%2B%2B41%3e3%2Bnow%2B20%25%2Boff")
@@ -285,12 +284,10 @@ Describe "Create Bucket" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-create-bucket"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-create-bucket"
     }
 
     AfterEach {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Create new bucket with default parameters" {
@@ -310,23 +307,7 @@ Describe "Create Bucket" {
             }
             $BucketExists | Should -BeTrue
         }
-
-        It "Given -BucketName $UnicodeBucketName it is succesfully created" {
-            New-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
-
-            $BucketExists = foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketExists = Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                if ($BucketExists) {
-                    return $BucketExists
                 }
-                if ($i -lt $MAX_WAIT_TIME) {
-                    Write-Warning "Tried $i times but bucket does not exist yet. Retrying in 1 second."
-                }
-            }
-            $BucketExists | Should -BeTrue
-        }
-    }
 
     Context "Create new bucket with addressing style" {
         if ($ProfileName -eq "Minio") { continue }
@@ -379,22 +360,17 @@ Describe "List Buckets" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-list-buckets"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-list-buckets"
-
         Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Retrieve buckets with default parameters" {
         It "Retrieving buckets returns a list of all buckets" {
             $Buckets = Get-S3Buckets -ProfileName $ProfileName
             $Buckets.BucketName | Should -Contain $BucketName
-            $Buckets.BucketName | Should -Contain $UnicodeBucketName
         }
     }
 
@@ -403,38 +379,25 @@ Describe "List Buckets" {
             $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
             $Bucket.BucketName | Should -Be $BucketName
         }
-
-        It "Retrieving a specific, existing bucket with parameter -BucketName $UnicodeBucketName returns only that bucket" {
-            $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            $Bucket.BucketName | Should -Be $UnicodeBucketName
         }
     }
-}
 
 Describe "Test Bucket existence" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-test-bucket"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-test-bucket"
-
         Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Test bucket existence with parameter -BucketName" {
         It "Given existing bucket -BucketName $BucketName `$true is returned" {
             Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName | Should -BeTrue
         }
-
-        It "Given existing bucket -BucketName $UnicodeBucketName `$true is returned" {
-            Test-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName | Should -BeTrue
         }
-    }
 
     Context "Test bucket nonexistence with parameter -BucketName" {
         It "Given non existing bucket -BucketName non-existing-bucket `$false is returned" {
@@ -447,15 +410,11 @@ Describe "Remove Bucket" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-remove-bucket"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-remove-bucket"
-
         Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Remove bucket with default parameters" {
@@ -464,28 +423,18 @@ Describe "Remove Bucket" {
             $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
             $Bucket | Should -BeNullOrEmpty
         }
-
-        It "Given existing -BucketName $UnicodeBucketName it is succesfully removed" {
-            Remove-S3Bucket -ProfileName $ProfileName -BucketName $UnicodeBucketName -Force
-            $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            $Bucket | Should -BeNullOrEmpty
         }
     }
-}
 
 Describe "S3 Bucket Encryption" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-encryption"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-encryption"
-
         Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Set Bucket encryption" {
@@ -514,48 +463,18 @@ Describe "S3 Bucket Encryption" {
             }
             $BucketEncryption | Should -BeNullOrEmpty
         }
-
-        It "Given -BucketName $UnicodeBucketName and -SSEAlgorithm AES256 server side encryption is enabled" -Skip:($ProfileName -match "minio|webscaledemo") {
-            Set-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName -SSEAlgorithm AES256
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                if ($BucketEncryption.SSEAlgorithm -eq "AES256") {
-                    break
                 }
-                Write-Warning "Tried $i times, but bucket encryption not yet active. Retrying in 1 second."
             }
-            $BucketEncryption.SSEAlgorithm | Should -Be "AES256"
-
-            Remove-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketEncryption = Get-S3BucketEncryption -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                if (!$BucketEncryption) {
-                    break
-                }
-                Write-Warning "Tried $i times, but bucket encryption still active. Retrying in 1 second."
-            }
-            $BucketEncryption | Should -BeNullOrEmpty
-        }
-    }
-}
 
 Describe "S3 Bucket Tagging" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-tagging"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-tagging"
-
         Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Set Bucket tagging" {
@@ -574,21 +493,6 @@ Describe "S3 Bucket Tagging" {
             $BucketTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
             $BucketTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
-
-        It "Given -BucketName $UnicodeBucketName and -Tags $(ConvertTo-Json -InputObject $Tags -Compress) tags should be added to bucket" -Skip:($ProfileName -match "minio|webscaledemo") {
-            Set-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Tags $Tags
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketTagging = Get-S3BucketTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                if ($BucketTagging) {
-                    break
-                }
-                Write-Warning "Tried $i times but bucket has not been tagged yet. Retrying in 1 second."
-            }
-            $BucketTagging | Sort-Object -Property Key | Select-Object -First 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[0])
-            $BucketTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
-        }
     }
 }
 
@@ -596,15 +500,11 @@ Describe "S3 Bucket Versioning" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-versioning"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-versioning"
-
         Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Enable and Suspend Bucket Versioning" {
@@ -634,33 +534,7 @@ Describe "S3 Bucket Versioning" {
             }
             $BucketVersioning | Should -Be "Suspended"
         }
-
-        It "Given -BucketName $UnicodeBucketName versioning is enabled and then suspended" -Skip:($ProfileName -match "minio") {
-            Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketVersioning = Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                if ($BucketVersioning -eq "Enabled") {
-                    break
-                }
-                Write-Warning "Tried $i times but bucket versioning not yet enabled. Retrying in 1 second."
             }
-            $BucketVersioning | Should -Be "Enabled"
-
-            Suspend-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketVersioning = Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                if ($BucketVersioning -eq "Suspended") {
-                    break
-                }
-                Write-Warning "Tried $i times but bucket versioning not yet enabled. Retrying in 1 second."
-            }
-            $BucketVersioning | Should -Be "Suspended"
-        }
-    }
 
     Context "Create, list and delete 10 Object Versions and Delete Markers in Versioning enabled Bucket" {
 
@@ -723,88 +597,24 @@ Describe "S3 Bucket Versioning" {
             $ObjectVersions = Get-S3ObjectVersions -ProfileName $ProfileName -BucketName $BucketName
             $ObjectVersions | Should -BeNullOrEmpty
         }
-
-        It "Given -BucketName $UnicodeBucketName and different keys, object versions and delete markers are created, listed and deleted successfully" -Skip:($ProfileName -match "minio") {
-            Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $UnicodeBucketName
-
-            foreach ($i in 1..$MAX_WAIT_TIME) {
-                Start-Sleep -Seconds 1
-                $BucketVersioning = Get-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName
-                if ($BucketVersioning -eq "Enabled") {
-                    break
                 }
-                Write-Warning "Tried $i times but bucket versioning not yet enabled. Retrying in 1 second."
             }
-            $BucketVersioning | Should -Be "Enabled"
-
-            foreach ($Key in 1..10) {
-                # create object version
-                Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
-                # create delete marker for previously created object version
-                Remove-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $Key
-            }
-
-            $ObjectVersions = Get-S3ObjectVersions -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            $Versions = $ObjectVersions | Where-Object { $_.Type -eq "Version" }
-            $Versions.Count | Should -Be 10
-            foreach ($Version in $Versions) {
-                $Version.BucketName | Should -Be $UnicodeBucketName
-                $Version.Region | Should -Not -BeNullOrEmpty
-                $Version.Key | Should -Not -BeNullOrEmpty
-                $Version.VersionId | Should -Not -BeNullOrEmpty
-                $Version.IsLatest | Should -BeFalse
-                $Version.Type | Should -Be "Version"
-                $Version.LastModified | Should -BeOfType DateTime
-                $Version.ETag | Should -Not -BeNullOrEmpty
-                $Version.Size | Should -BeGreaterOrEqual 0
-                $Version.OwnerId | Should -Not -BeNullOrEmpty
-                # $Version.OwnerDisplayName may be empty as AWS only retuns this for a few regions
-                $Version.StorageClass | Should -Not -BeNullOrEmpty
-            }
-            $DeleteMarkers = $ObjectVersions | Where-Object { $_.Type -eq "DeleteMarker" }
-            $DeleteMarkers.Count | Should -Be 10
-            foreach ($DeleteMarker in $DeleteMarkers) {
-                $DeleteMarker.BucketName | Should -Be $UnicodeBucketName
-                $DeleteMarker.Region | Should -Not -BeNullOrEmpty
-                $DeleteMarker.Key | Should -Not -BeNullOrEmpty
-                $DeleteMarker.VersionId | Should -Not -BeNullOrEmpty
-                $DeleteMarker.IsLatest | Should -BeTrue
-                $DeleteMarker.Type | Should -Be "DeleteMarker"
-                $DeleteMarker.LastModified | Should -BeOfType DateTime
-                # $DeleteMarker.ETag is usually empty
-                $DeleteMarker.Size | Should -BeGreaterOrEqual 0
-                $DeleteMarker.OwnerId | Should -Not -BeNullOrEmpty
-                # $DeleteMarker.OwnerDisplayName may be empty as AWS only retuns this for a few regions
-                # $DeleteMarker.StorageClass is usually empty
-            }
-
-            $ObjectVersions | Remove-S3ObjectVersion -ProfileName $ProfileName
-
-            $ObjectVersions = Get-S3ObjectVersions -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            $ObjectVersions | Should -BeNullOrEmpty
-        }
-    }
-}
 
 Describe "S3 Bucket CORS Configuration" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-bucket-cors"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-cors"
+        Setup -BucketName $BucketName
 
         $AllowedMethods = "GET","PUT","POST","DELETE"
         $AllowedOrigins = "netapp.com","*.example.org"
         $AllowedHeaders = "x-amz-meta-1","x-amz-meta-2"
         $MaxAgeSeconds = 3000
         $ExposeHeaders = "x-amz-server-side-encryption"
-
-        Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Set Bucket CORS Configuration" {
@@ -826,23 +636,6 @@ Describe "S3 Bucket CORS Configuration" {
             $CorsConfiguration.AllowedHeader | Should -Be $AllowedHeaders
             $CorsConfiguration.MaxAgeSeconds | Should -Be $MaxAgeSeconds
             $CorsConfiguration.ExposeHeader | Should -Be $ExposeHeaders
-        }
-
-        It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins a CORS configuration rule is added" -Skip:($ProfileName -match "minio") {
-            $Id = "UnicodeBucketName"
-            Add-S3BucketCorsConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName -Id $Id -AllowedMethods $AllowedMethods -AllowedOrigins $AllowedOrigins
-
-            foreach ($i in 1..120) {
-                Start-Sleep -Seconds 1
-                $CorsConfiguration = Get-S3BucketCorsConfiguration -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                if ($CorsConfiguration) {
-                    break
-                }
-                Write-Warning "Tried $i times but CORS configuration does not exist yet. Retrying in 1 second."
-            }
-            $CorsConfiguration.Id | Should -Be $Id
-            $CorsConfiguration.AllowedMethod | Should -Be $AllowedMethods
-            $CorsConfiguration.AllowedOrigin | Should -Be $AllowedOrigins
         }
 
         It "Given -BucketName $BucketName -Id `"remove`" a CORS configuration rule is removed" -Skip:($ProfileName -match "minio") {
@@ -908,10 +701,8 @@ Describe "S3 Bucket Replication Configuration" {
         if ($ProfileName -eq "webscaledemo") { continue } # required until webscaledemo problems are fixed
 
         $BucketName = $BaseBucketName + "-bucket-repl"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-bucket-repl"
 
         $DestinationBucketName = $BucketName + "-dst"
-        $DestinationUnicodeBucketName = $UnicodeBucketName +  "-dst"
         $DestinationRegion = "us-east-2"
         $AwsProfile = Get-AwsConfig -ProfileName "AWS"
         $Role = "arn:aws:iam::953312134057:role/S3-Full-Access"
@@ -922,12 +713,8 @@ Describe "S3 Bucket Replication Configuration" {
         Setup -BucketName $BucketName -Versioning
         Setup -BucketName $DestinationBucketName -Versioning -Region $DestinationRegion -ProfileName AWS
 
-        Setup -BucketName $UnicodeBucketName -Versioning
-        Setup -BucketName $DestinationUnicodeBucketName -Versioning -Region $DestinationRegion -ProfileName AWS
-
         if ($ProfileName -match "webscaledemo") {
             $EndpointConfiguration = Add-SgwEndpoint -ProfileName $ProfileName -DisplayName $DestinationBucketName -EndpointUri "https://s3.us-east-2.amazonaws.com" -EndpointUrn "arn:aws:s3:::$DestinationBucketName" -AccessKey $AwsProfile.AccessKey -SecretAccessKey $AwsProfile.SecretKey -ErrorAction Stop
-            $UnicodeEndpointConfiguration = Add-SgwEndpoint -ProfileName $ProfileName -DisplayName $DestinationUnicodeBucketName -EndpointUri "https://s3.us-east-2.amazonaws.com" -EndpointUrn "arn:aws:s3:::$DestinationUnicodeBucketName" -AccessKey $AwsProfile.AccessKey -SecretAccessKey $AwsProfile.SecretKey -ErrorAction Stop
             sleep 5
         }
     }
@@ -939,12 +726,8 @@ Describe "S3 Bucket Replication Configuration" {
         Cleanup -BucketName $BucketName
         Cleanup -BucketName $DestinationBucketName -Region $DestinationRegion -ProfileName AWS
 
-        Cleanup -BucketName $UnicodeBucketName
-        Cleanup -BucketName $DestinationUnicodeBucketName -Region $DestinationRegion -ProfileName "AWS"
-
         if ($ProfileName -match "webscaledemo") {
             $EndpointConfiguration | Remove-SgwEndpoint -ProfileName $ProfileName
-            $UnicodeEndpointConfiguration | Remove-SgwEndpoint -ProfileName $ProfileName
         }
     }
 
@@ -979,40 +762,7 @@ Describe "S3 Bucket Replication Configuration" {
             $DestinationObject.Key | Should -Be $Key
         }
     }
-
-    Context "Set Bucket Replication Configuration for bucket with unicode characters"  {
-        It "Given -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketName arn:aws:s3:::$DestinationUnicodeBucketName -Role $Role a replication rule should be added" -Skip:($ProfileName -match "minio") {
-            Add-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName -Id $UnicodeBucketName -DestinationBucketUrn "arn:aws:s3:::$DestinationUnicodeBucketName" -Role $Role
-
-            foreach ($i in 1..120) {
-                Start-Sleep -Seconds 1
-                $BucketReplication = Get-S3BucketReplicationConfigurationRule -ProfileName $ProfileName -BucketName $UnicodeBucketName
-                if ($BucketReplication) {
-                    break
                 }
-                Write-Host "Tried $i times but bucket replication does not exist yet. Retrying in 1 second."
-            }
-
-            $BucketReplication.BucketName | Should -Be $UnicodeBucketName
-            $BucketReplication.Role | Should -Be $Role
-            $BucketReplication.Id | Should -Be $UnicodeBucketName
-            $BucketReplication.Status | Should -Be "Enabled"
-            $BucketReplication.DestinationBucketName | Should -Be $DestinationUnicodeBucketName
-
-            Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
-
-            foreach ($i in 1..120) {
-                Start-Sleep -Seconds 1
-                $DestinationObject = Get-S3Objects -ProfileName "AWS" -BucketName $DestinationUnicodeBucketName -Region $DestinationRegion -Key $UnicodeKey
-                if ($DestinationObject) {
-                    break
-                }
-            }
-
-            $DestinationObject.Key | Should -Be $UnicodeKey
-        }
-    }
-}
 
 ### Object Tests
 
@@ -1020,15 +770,11 @@ Describe "Upload Object" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-upload"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-upload"
-
         Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Upload text" {
@@ -1045,17 +791,17 @@ Describe "Upload Object" {
             Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key
         }
 
-        It "Given -BucketName $UnicodeBucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio") {
-            Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey -Content $Content
+        It "Given -BucketName $BucketName -Key $UnicodeKey -Content `"$Content`" it is succesfully created" -Skip:($ProfileName -match "minio") {
+            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Content $Content
 
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
             $UnicodeKey | Should -BeIn $Objects.Key
 
             Start-Sleep -Seconds 1
-            $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
+            $ObjectContent = Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
             $ObjectContent | Should -Be $Content
 
-            Remove-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
+            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
         }
     }
 
@@ -1076,16 +822,16 @@ Describe "Upload Object" {
 
     Context "Upload small file with custom key $UnicodeKey" {
         It "Given file -InFile `"$SmallFile`" and -Key `"$UnicodeKey`" it is succesfully uploaded" -Skip:($ProfileName -match "minio") {
-            Write-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -InFile $SmallFile -Key $UnicodeKey
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $UnicodeBucketName
+            Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -InFile $SmallFile -Key $UnicodeKey
+            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $BucketName
             $UnicodeKey | Should -BeIn $Objects.Key
             $TempFile = New-TemporaryFile
             Start-Sleep -Seconds 1
-            Read-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey -OutFile $TempFile.FullName
+            Read-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -OutFile $TempFile.FullName
             $TempFileHash = $TempFile | Get-FileHash
             $TempFileHash.Hash | Should -Be $SmallFileHash.Hash
             $TempFile | Remove-Item
-            Remove-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
+            Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
         }
     }
 }
@@ -1094,15 +840,11 @@ Describe "Multipart Upload of Object" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-multipart-upload"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-multipart-upload"
-
         Setup -BucketName $BucketName
-        Setup -BucketName $UnicodeBucketName
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Upload large file" {
@@ -1119,21 +861,8 @@ Describe "Multipart Upload of Object" {
             $TempFile | Remove-Item
             Remove-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $LargeFile.Name
         }
-
-        It "Given file -InFile `"$LargeFile`" it is succesfully uploaded to Bucket $UnicodeBucketName" {
-            Write-S3MultipartUpload -ProfileName $ProfileName -BucketName $UnicodeBucketName -InFile $LargeFile
-            $Objects = Get-S3Objects -ProfileName $ProfileName -BucketName $UnicodeBucketName
-            $LargeFile.Name | Should -BeIn $Objects.Key
-            $TempFile = New-TemporaryFile
-            Start-Sleep -Seconds 1
-            Read-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $LargeFile.Name -OutFile $TempFile.FullName
-            $TempFileHash = $TempFile | Get-FileHash
-            $TempFileHash.Hash | Should -Be $LargeFileHash.Hash
-            $TempFile | Remove-Item
-            Remove-S3Object -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $LargeFile.Name
         }
     }
-}
 
 Describe "Copy Object" {
 
@@ -1212,15 +941,11 @@ Describe "S3 Object Tagging" {
 
     BeforeAll {
         $BucketName = $BaseBucketName + "-object-tagging"
-        $UnicodeBucketName = $BaseUnicodeBucketName + "-object-tagging"
-
         Setup -BucketName $BucketName -Key $Key
-        Setup -BucketName $UnicodeBucketName -Key $UnicodeKey
     }
 
     AfterAll {
         Cleanup -BucketName $BucketName
-        Cleanup -BucketName $UnicodeBucketName
     }
 
     Context "Set Object tagging" {
@@ -1239,11 +964,11 @@ Describe "S3 Object Tagging" {
             $ObjectTagging | Sort-Object -Property Key | Select-Object -Last 1 | Should -Be ([System.Collections.DictionaryEntry]$Tags[1])
         }
 
-        It "Given -BucketName $UnicodeBucketName -Key $UnicodeKey and -Tags $Tags tags should be added to bucket" -Skip:($ProfileName -match "minio") {
-            Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey -Tags $Tags
+        It "Given -BucketName $BucketName -Key $UnicodeKey and -Tags $Tags tags should be added to bucket" -Skip:($ProfileName -match "minio") {
+            Set-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey -Tags $Tags
 
             foreach ($i in 1..$MAX_WAIT_TIME) {
-                $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $UnicodeBucketName -Key $UnicodeKey
+                $ObjectTagging = Get-S3ObjectTagging -ProfileName $ProfileName -BucketName $BucketName -Key $UnicodeKey
                 if ($ObjectTagging) {
                     break
                 }
