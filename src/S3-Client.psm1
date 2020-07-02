@@ -1081,12 +1081,12 @@ function Global:Invoke-AwsRequest {
             Mandatory = $False,
             Position = 2,
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Request URI")][Alias("Uri")][Uri]$RequestUri,
+            HelpMessage = "Request URI")][Alias("Uri")][System.Uri]$RequestUri,
         [parameter(
             Mandatory = $False,
             Position = 3,
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Headers")][System.Net.Http.Headers.HttpRequestHeaders]$Headers,
+            HelpMessage = "Headers")][System.Collections.IEnumerable]$Headers,
         [parameter(
             Mandatory = $False,
             Position = 4,
@@ -1105,14 +1105,13 @@ function Global:Invoke-AwsRequest {
     $HttpRequestMessage.Content = $Content
 
     Write-Verbose "Adding headers"
-    foreach ($HeaderKey in $Headers.Keys) {
+    foreach ($Header in $Headers.GetEnumerator()) {
         # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
-        Write-Host $HeaderKey
-        if ($HeaderKey -eq "Authorization") {
-            $null = $HttpRequestMessage.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
+        if ($Header.Key -eq "Authorization") {
+            $null = $HttpRequestMessage.Headers.TryAddWithoutValidation($Header.Key, $Header.Value)
         }
         else {
-            $null = $HttpRequestMessage.Headers.Add($HeaderKey, $Headers[$HeaderKey])
+            $null = $HttpRequestMessage.Headers.Add($Header.Key, $Header.Value)
         }
     }
 
