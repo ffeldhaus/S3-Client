@@ -2863,13 +2863,13 @@ function Global:New-S3Bucket {
             $Headers["x-amz-grant-full-control"] = $l
         }
 
-        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Headers $Headers
+        $AwsRequest = Get-AwsRequest -Config $Config -Method $Method -Presign:$Presign -BucketName $BucketName -Headers $Headers -RequestPayload $RequestPayload
 
         if ($DryRun.IsPresent) {
             Write-Output $AwsRequest
         }
         else {
-            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck -Body $RequestPayload
+            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
 
             if ($Task.Result.IsSuccessStatusCode) {
                 # do nothing
