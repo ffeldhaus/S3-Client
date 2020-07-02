@@ -2381,7 +2381,7 @@ function Global:Get-S3Buckets {
                         $RunspacePool = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspacePool(1, $Config.MaxConcurrentRequests)
                         $RunspacePool.Open()
 
-                        $Jobs = New-Object System.Collections.ArrayList
+                        $Tasks = New-Object System.Collections.ArrayList
 
                         foreach ($XmlBucket in $XmlBuckets) {
                             $UnicodeBucketName = ConvertFrom-Punycode -BucketName $XmlBucket.Name
@@ -2391,32 +2391,32 @@ function Global:Get-S3Buckets {
                             }
                             $Bucket = [PSCustomObject]@{ BucketName = $UnicodeBucketName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
 
-                            $Runspace = [powershell]::Create()
-                            $Runspace.RunspacePool = $RunspacePool
-                            [void]$Runspace.AddScript( {
-                                    Param ([PSCustomObject]$Bucket, [PSCustomObject]$Config)
-
-                                    try {
-                                        $Bucket.Region = $Bucket | Get-S3BucketLocation -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -SkipCertificateCheck:$Config.SkipCertificateCheck -EndpointUrl $Config.EndpointUrl -Presign:$Presign
+                            $Task = $Bucket | Get-S3BucketLocation -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -DryRun | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
+                            $Task | Add-Member -MemberType NoteProperty -Name Bucket -Value $Bucket
+                            $null = $Tasks.Add($Task)
                                     }
-                                    catch { }
 
-                                    Write-Output $Bucket
-                                })
-
-                            [void]$Runspace.AddParameters(@{Bucket = $Bucket; Config = $Config })
-
-                            [void]$Jobs.Add([PSCustomObject]@{Runspace = $Runspace; Status = $Runspace.BeginInvoke() })
-                        }
-
-                        while ($Jobs) {
+                        while ($Tasks) {
                             Start-Sleep -Milliseconds 100
-                            $CompletedJobs = $Jobs | Where-Object { $_.Status.IsCompleted -eq $true }
-                            foreach ($Job in $CompletedJobs) {
-                                $Output = $Job.Runspace.EndInvoke($Job.Status)
-                                Write-Output $Output
-                                $Job.Runspace.Dispose()
-                                $Jobs.Remove($Job)
+                            $CompletedTasks = $Tasks | Where-Object { $_.IsCompleted }
+                            foreach ($Task in $CompletedTasks) {
+                                if ($Task.Result.IsSuccessStatusCode) {
+                                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+                                    $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+
+                                    if (!$Content.LocationConstraint.InnerText) {
+                                        # if no location is returned, bucket is in default region us-east-1
+                                        $Task.Bucket.Region = "us-east-1"
+                                    }
+                                    else {
+                                        $Task.Bucket.Region = $Content.LocationConstraint.InnerText
+                                    }
+                                }
+
+                                # TODO: consider adding error handling or decide that location/region is returned on best effort
+                                Write-Output $Task.Bucket
+
+                                $null = $Tasks.Remove($Task)
                             }
                         }
                     }
