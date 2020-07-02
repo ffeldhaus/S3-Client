@@ -257,41 +257,6 @@ function ConvertTo-UnixTimestamp {
     }
 }
 
-# helper function to convert unix timestamp to datetime
-function ConvertFrom-UnixTimestamp {
-    #private
-    [CmdletBinding()]
-
-    PARAM (
-        [parameter(Mandatory = $True,
-            Position = 0,
-            ValueFromPipeline = $True,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Timestamp to be converted.")][String]$Timestamp,
-        [parameter(Mandatory = $False,
-            Position = 0,
-            ValueFromPipeline = $True,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Unit of timestamp.")][ValidateSet("Seconds", "Milliseconds")][String]$Unit = "Milliseconds",
-        [parameter(Mandatory = $False,
-            Position = 1,
-            HelpMessage = "Optional Timezone to be used as basis for Timestamp. Default is system Timezone.")][System.TimeZoneInfo]$Timezone = [System.TimeZoneInfo]::Local
-    )
-
-    PROCESS {
-        $Timestamp = @($Timestamp)
-        foreach ($Timestamp in $Timestamp) {
-            if ($Unit -eq "Seconds") {
-                $Date = [System.TimeZoneInfo]::ConvertTimeFromUtc(([datetime]'1/1/1970').AddSeconds($Timestamp), $Timezone)
-            }
-            else {
-                $Date = [System.TimeZoneInfo]::ConvertTimeFromUtc(([datetime]'1/1/1970').AddMilliseconds($Timestamp), $Timezone)
-            }
-            Write-Output $Date
-        }
-    }
-}
-
 <#
     .SYNOPSIS
     Convert bucket name with non DNS conform characters to Punycode
