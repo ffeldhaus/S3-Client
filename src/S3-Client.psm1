@@ -2404,12 +2404,12 @@ function Global:Get-S3Buckets {
                                     # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                                     $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
-                                    if (!$Content.LocationConstraint.InnerText) {
+                                    if (!$Content.GetElementsByTagName("LocationConstraint").InnerText) {
                                         # if no location is returned, bucket is in default region us-east-1
                                         $Task.Bucket.Region = "us-east-1"
                                     }
                                     else {
-                                        $Task.Bucket.Region = $Content.LocationConstraint.InnerText
+                                        $Task.Bucket.Region = $Content.GetElementsByTagName("LocationConstraint").InnerText
                                     }
                                 }
 
@@ -8929,14 +8929,12 @@ function Global:Get-S3BucketLocation {
                 # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
                 $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
 
-                $Location = $Content.LocationConstraint.InnerText
-
-                if (!$Location) {
+                if (!$Content.GetElementsByTagName("LocationConstraint").InnerText) {
                     # if no location is returned, bucket is in default region us-east-1
                     Write-Output "us-east-1"
                 }
                 else {
-                    Write-Output $Content.LocationConstraint.InnerText
+                    Write-Output $Content.GetElementsByTagName("LocationConstraint").InnerText
                 }
             }
             elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
