@@ -3,6 +3,8 @@ $AWS_CREDENTIALS_FILE = $AWS_PROFILE_PATH + "credentials"
 $DEFAULT_AWS_ENDPOINT = "https://s3.amazonaws.com"
 $DEFAULT_TIMEOUT_SECONDS = 60
 $MAX_RETRIES = 5
+$LOG_LEVELS = @{"CRITICAL"=0;"ERROR"=1;"WARNING"=2;"INFORMATION"=3;"VERBOSE"=4;"DEBUG"=5;"DEFAULT"=-1}
+$LOG_COLORS = @{"ERROR"=[System.ConsoleColor]::Red;"WARNING"=[System.ConsoleColor]::Yellow;"INFORMATION"=[System.ConsoleColor]::Green;"VERBOSE"=[System.ConsoleColor]::Blue;"DEBUG"=[System.ConsoleColor]::DarkGray;"DEFAULT"=[System.ConsoleColor]::Gray}
 
 $MIME_TYPES = @{ }
 Import-Csv -Delimiter ',' -Path (Join-Path -Path $PSScriptRoot -ChildPath 'mimetypes.txt') -Header 'Extension', 'MimeType' | ForEach-Object { $MIME_TYPES[$_.Extension] = $_.MimeType }
@@ -348,6 +350,136 @@ function ConvertFrom-Punycode {
         }
         else {
             Write-Output ""
+        }
+    }
+}
+
+<#
+    .SYNOPSIS
+    Write log
+    .DESCRIPTION
+    Write log
+    .PARAMETER Level
+    Log level
+    .PARAMETER Config
+    AWS Config
+    .PARAMETER Message
+    Log message
+ #>
+ function Write-Log {
+    #private
+    [CmdletBinding()]
+
+    PARAM (
+        [parameter(Mandatory = $True,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Log Level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$Level,
+        [parameter(Mandatory = $False,
+            Position = 1,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Config")][PSCustomObject]$Config,
+        [parameter(Mandatory = $True,
+            Position = 2,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Log message")][PSCustomObject]$Message
+    )
+
+    PROCESS {
+        $PSCallStack = Get-PSCallStack
+        $InvocationFunctionName = $PSCallStack[1].FunctionName -replace "Global:","" -replace "<Process>",""
+        $DateTime = Get-Date -Format o
+
+        if ($Config.LogLevel -and $Config.LogLevel -ne "DEFAULT") {
+            $MaxLogLevel = $Config.LogLevel
+        }
+        else {
+            $MaxLogLevel = "INFORMATION"
+        }
+
+        $Message = "$DateTime $($Level.ToUpper().PadRight(7," ")) $InvocationFunctionName $Message"
+
+        if ($Config.LogPath -and $LOG_LEVELS[$Level] -le $LOG_LEVELS[$MaxLogLevel]) {
+            if (Test-Path -Path $Config.LogPath -PathType Container) {
+                $FileName = "$(Get-Date -Format FileDate)-$($Config.ProfileName).log"
+                $LogFile = Join-Path -Path $Config.LogPath -ChildPath $FileName
+                $Message | Out-File -Append -FilePath $LogFile
+            }
+            elseif (Test-Path -Path $Config.LogPath.Parent -PathType Container) {
+                $Message | Out-File -Append -FilePath $Config.LogPath
+            }
+            else {
+                Write-Warning "Cannot write to log path $LogPath as the directory does not exists"
+            }
+        }
+
+        switch ($Level) {
+            "ERROR" { Write-Error $Message }
+            "WARNING" { Write-Warning $Message }
+            "INFORMATION" { Write-Host $Message }
+            "VERBOSE" { Write-Verbose $Message }
+            "DEBUG" { Write-Debug $Message }
+        }
+    }
+}
+
+<#
+    .SYNOPSIS
+    Read log file
+    .DESCRIPTION
+    Read log file
+    .PARAMETER Config
+    AWS Config
+    .PARAMETER Path
+    Path to log file
+ #>
+ function Read-LogFile {
+    #private
+    [CmdletBinding(DefaultParameterSetName="Config")]
+
+    PARAM (
+        [parameter(Mandatory = $False,
+            ParameterSetName="Config",
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Config")][PSCustomObject]$Config,
+        [parameter(Mandatory = $True,
+            ParameterSetName="Path",
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Path to log file")][String]$Path
+    )
+
+    BEGIN {
+        if (!$Config) {
+            $Config = Get-AwsConfig -LogPath $Path
+        }
+    }
+
+    PROCESS {
+        if (Test-Path -Path $Config.LogPath -PathType Container) {
+            $FileName = "$(Get-Date -Format FileDate)-$($Config.ProfileName).log"
+            $LogFile = [System.IO.DirectoryInfo](Join-Path -Path $Config.LogPath -ChildPath $FileName)
+        }
+        elseif (Test-Path -Path $Config.LogPath -PathType Leaf) {
+            $LogFile = [System.IO.FileInfo]$Config.LogPath.FullName
+        }
+
+        Write-Host $LogFile.GetType()
+
+        if ($LogFile.Exists) {
+            $ConsoleColors = [System.ConsoleColor].GetEnumValues()
+            $LogColor = [ConsoleColor]"Gray"
+            Get-Content -Path $LogFile | foreach {
+                $Level = $_.split(' ') | Select-Object -First 1 -Skip 1
+                if ($Level -and $ConsoleColors.Contains($LOG_COLORS[$Level])) {
+                    $LogColor = $LOG_COLORS[$Level]
+                }
+                Write-Host -ForegroundColor $LogColor -Message $_
+            }
+        }
+        else {
+            Write-Log -Level Warning -Message "Log file $LogFile does not exist"
         }
     }
 }
@@ -1362,7 +1494,15 @@ function Global:Add-AwsConfig {
         [parameter(
             Mandatory = $False,
             Position = 17,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4"
+            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
+        [parameter(
+            Mandatory = $False,
+            Position = 18,
+            HelpMessage = "Log path")][System.IO.DirectoryInfo]$LogPath,
+        [parameter(
+            Mandatory = $False,
+            Position = 19,
+            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel
     )
 
     Process {
@@ -1508,6 +1648,17 @@ function Global:Add-AwsConfig {
         }
         elseif ($Config.S3.signer_type -and $SignerType -match "AWS4") {
             $Config.S3.PSObject.Properties.Remove("signer_type")
+        }
+
+        if ($LogPath) {
+            $Config | Add-Member -MemberType NoteProperty -Name log_path -Value $LogPath -Force
+        }
+
+        if ($LogLevel -and $LogLevel -ne "DEFAULT") {
+            $Config | Add-Member -MemberType NoteProperty -Name log_level -Value $LogLevel -Force
+        }
+        elseif ($Config.log_level -and $LogLevel -eq "DEFAULT") {
+            $Config.PSObject.Properties.Remove("log_level")
         }
 
         $Configs = (@($Configs | Where-Object { $_.ProfileName -ne $ProfileName }) + $Config) | Where-Object { $_.ProfileName }
@@ -1693,6 +1844,18 @@ function Global:Get-AwsConfigs {
             else {
                 $Output | Add-Member -MemberType NoteProperty -Name SignerType -Value "AWS4"
             }
+            if ($Config.S3.log_path) {
+                $Output | Add-Member -MemberType NoteProperty -Name LogPath -Value ([System.IO.DirectoryInfo]$Config.S3.log_path)
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name LogPath -Value ([System.IO.DirectoryInfo]$Config.log_path)
+            }
+            if ($Config.log_level) {
+                $Output | Add-Member -MemberType NoteProperty -Name LogLevel -Value $Config.log_level
+            }
+            else {
+                $Output | Add-Member -MemberType NoteProperty -Name LogLevel -Value "DEFAULT"
+            }
             Write-Output $Output
         }
     }
@@ -1822,7 +1985,15 @@ function Global:Get-AwsConfig {
         [parameter(
             Mandatory = $False,
             Position = 18,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4"
+            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
+        [parameter(
+            Mandatory = $False,
+            Position = 19,
+            HelpMessage = "Log path")][String]$LogPath,
+        [parameter(
+            Mandatory = $False,
+            Position = 20,
+            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel = "DEFAULT"
     )
 
     Begin {
@@ -1848,6 +2019,8 @@ function Global:Get-AwsConfig {
             PayloadSigning                      = $PayloadSigning;
             SkipCertificateCheck                = [System.Convert]::ToBoolean($SkipCertificateCheck -eq $true);
             SignerType                          = $SignerType
+            LogPath                             = $LogPath
+            LogLevel                            = $LogLevel
         }
 
         if (!$ProfileName -and !$AccessKey -and !($Server -and ($AccountId -or $Server.AccountId))) {
@@ -1964,6 +2137,14 @@ function Global:Get-AwsConfig {
         }
         elseif ($SkipCertificateCheck -eq $null) {
             $Config.SkipCertificateCheck = $false
+        }
+
+        if ($LogPath) {
+            $Config.LogPath = [System.IO.DirectoryInfo]$LogPath
+        }
+
+        if ($LogLevel) {
+            $Config.LogLevel = $LogLevel
         }
 
         if ($Config.AccessKey -and $Config.SecretKey) {
