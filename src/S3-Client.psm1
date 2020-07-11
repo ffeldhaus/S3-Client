@@ -4,7 +4,7 @@ $DEFAULT_AWS_ENDPOINT = "https://s3.amazonaws.com"
 $DEFAULT_TIMEOUT_SECONDS = 60
 $MAX_RETRIES = 5
 $LOG_LEVELS = @{"CRITICAL"=0;"ERROR"=1;"WARNING"=2;"INFORMATION"=3;"VERBOSE"=4;"DEBUG"=5;"DEFAULT"=-1}
-$LOG_COLORS = @{"ERROR"=[System.ConsoleColor]::Red;"WARNING"=[System.ConsoleColor]::Yellow;"INFORMATION"=[System.ConsoleColor]::Green;"VERBOSE"=[System.ConsoleColor]::Blue;"DEBUG"=[System.ConsoleColor]::DarkGray;"DEFAULT"=[System.ConsoleColor]::Gray}
+$LOG_COLORS = @{"CRITICAL"=[System.ConsoleColor]::DarkRed;"ERROR"=[System.ConsoleColor]::Red;"WARNING"=[System.ConsoleColor]::Yellow;"INFORMATION"=[System.ConsoleColor]::Green;"VERBOSE"=[System.ConsoleColor]::Blue;"DEBUG"=[System.ConsoleColor]::DarkGray;"DEFAULT"=[System.ConsoleColor]::Gray}
 
 $MIME_TYPES = @{ }
 Import-Csv -Delimiter ',' -Path (Join-Path -Path $PSScriptRoot -ChildPath 'mimetypes.txt') -Header 'Extension', 'MimeType' | ForEach-Object { $MIME_TYPES[$_.Extension] = $_.MimeType }
@@ -365,10 +365,12 @@ function ConvertFrom-Punycode {
     AWS Config
     .PARAMETER Message
     Log message
+    .PARAMETER ErrorRecord
+    Error record
  #>
  function Write-Log {
     #private
-    [CmdletBinding()]
+    [CmdletBinding(DefaultParameterSetName="Message")]
 
     PARAM (
         [parameter(Mandatory = $True,
@@ -380,14 +382,22 @@ function ConvertFrom-Punycode {
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "AWS Config")][PSCustomObject]$Config,
         [parameter(Mandatory = $True,
+            ParameterSetName = "Message",
             Position = 2,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Log message")][PSCustomObject]$Message
+            HelpMessage = "Log message")][PSCustomObject]$Message,
+        [parameter(Mandatory = $True,
+            ParameterSetName = "ErrorRecord",
+            Position = 3,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Error record")][System.Management.Automation.ErrorRecord]$ErrorRecord
     )
 
     PROCESS {
         $PSCallStack = Get-PSCallStack
-        $InvocationFunctionName = $PSCallStack[1].FunctionName -replace "Global:","" -replace "<Process>",""
+        $InvocationFunctionName = $PSCallStack[1].FunctionName -replace "Global:","" -replace "<[^>]*>",""
+        $InvocationScriptName = $PSCallStack[1].ScriptName
+        $InvocationScriptLineNumber = $PSCallStack[1].ScriptLineNumber
         $DateTime = Get-Date -Format o
 
         if ($Config.LogLevel -and $Config.LogLevel -ne "DEFAULT") {
@@ -397,12 +407,18 @@ function ConvertFrom-Punycode {
             $MaxLogLevel = "INFORMATION"
         }
 
-        $Message = "$DateTime $($Level.ToUpper().PadRight(7," ")) $InvocationFunctionName $Message"
+        if ($Message) {
+            $Message = "$DateTime $($Level.ToUpper().PadRight(7," ")) $InvocationFunctionName $($InvocationScriptName):$InvocationScriptLineNumber $Message"
+        }
+        if ($ErrorRecord) {
+            $Message = "$DateTime $($Level.ToUpper().PadRight(7," ")) $($ErrorRecord.InvocationInfo.MyCommand) $($ErrorRecord.InvocationInfo.ScriptName):$($($ErrorRecord.InvocationInfo.ScriptLineNumber)) $($ErrorRecord.Exception.Message)"
+        }
 
         if ($Config.LogPath -and $LOG_LEVELS[$Level] -le $LOG_LEVELS[$MaxLogLevel]) {
             if (Test-Path -Path $Config.LogPath -PathType Container) {
                 $FileName = "$(Get-Date -Format FileDate)-$($Config.ProfileName).log"
                 $LogFile = Join-Path -Path $Config.LogPath -ChildPath $FileName
+                Write-Host $LogFile
                 $Message | Out-File -Append -FilePath $LogFile
             }
             elseif (Test-Path -Path $Config.LogPath.Parent -PathType Container) {
@@ -438,34 +454,37 @@ function ConvertFrom-Punycode {
     [CmdletBinding(DefaultParameterSetName="Config")]
 
     PARAM (
+        [parameter(
+            Mandatory = $False,
+            Position = 0,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Profile to use which contains AWS sredentials and settings")][Alias("Profile")][String]$ProfileName = "default",
         [parameter(Mandatory = $False,
             ParameterSetName="Config",
-            Position = 0,
+            Position = 1,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "AWS Config")][PSCustomObject]$Config,
         [parameter(Mandatory = $True,
             ParameterSetName="Path",
-            Position = 0,
+            Position = 2,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Path to log file")][String]$Path
     )
 
     BEGIN {
         if (!$Config) {
-            $Config = Get-AwsConfig -LogPath $Path
+            $Config = Get-AwsConfig -ProfileName $ProfileName -LogPath $Path
         }
     }
 
     PROCESS {
         if (Test-Path -Path $Config.LogPath -PathType Container) {
             $FileName = "$(Get-Date -Format FileDate)-$($Config.ProfileName).log"
-            $LogFile = [System.IO.DirectoryInfo](Join-Path -Path $Config.LogPath -ChildPath $FileName)
+            $LogFile = [System.IO.FileInfo](Join-Path -Path $Config.LogPath -ChildPath $FileName)
         }
         elseif (Test-Path -Path $Config.LogPath -PathType Leaf) {
             $LogFile = [System.IO.FileInfo]$Config.LogPath.FullName
         }
-
-        Write-Host $LogFile.GetType()
 
         if ($LogFile.Exists) {
             $ConsoleColors = [System.ConsoleColor].GetEnumValues()
