@@ -9,7 +9,7 @@ $LOG_COLORS = @{"CRITICAL"=[System.ConsoleColor]::DarkRed;"ERROR"=[System.Consol
 $MIME_TYPES = @{ }
 Import-Csv -Delimiter ',' -Path (Join-Path -Path $PSScriptRoot -ChildPath 'mimetypes.txt') -Header 'Extension', 'MimeType' | ForEach-Object { $MIME_TYPES[$_.Extension] = $_.MimeType }
 
-# workarounds for PowerShell issues
+# PowerShell 5 and earlier cannot skip certificate validation per request therefore we need to use a workaround
 if ($PSVersionTable.PSVersion.Major -lt 6) {
     Add-Type @"
         using System.Net;
@@ -86,6 +86,14 @@ function GetSignatureKey($Key, $Date, $Region, $Service) {
     sign $SignedService "aws4_request"
 }
 
+<#
+    .SYNOPSIS
+    Convert data from AWS config file to config object
+    .DESCRIPTION
+    Convert data from AWS config file to config object
+    .PARAMETER AwsConfigFile
+    AWS Config File
+#>
 function ConvertFrom-AwsConfigFile {
     #private
     [CmdletBinding()]
@@ -102,7 +110,7 @@ function ConvertFrom-AwsConfigFile {
             throw "Config file $AwsConfigFile does not exist!"
         }
 
-        Write-Verbose "Reading AWS Configuration from $AwsConfigFile"
+        Write-Log -Level Verbose -Config $Config -Message "Reading AWS Configuration from $AwsConfigFile"
 
         $Content = Get-Content -Path $AwsConfigFile -Raw
         # convert to JSON structure
