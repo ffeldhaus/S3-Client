@@ -88,9 +88,9 @@ function GetSignatureKey($Key, $Date, $Region, $Service) {
 
 <#
     .SYNOPSIS
-    Convert data from AWS config file to config object
+    Convert data from AWS config file to config objects
     .DESCRIPTION
-    Convert data from AWS config file to config object
+    Convert data from AWS config file to config objects
     .PARAMETER AwsConfigFile
     AWS Config File
 #>
@@ -244,7 +244,16 @@ function ConvertTo-AwsConfigFile {
     }
 }
 
-# helper function to convert datetime to unix timestamp
+<#
+    .SYNOPSIS
+    Convert DateTime object to unix timestamp either in seconds or milliseconds
+    .DESCRIPTION
+    Convert DateTime object to unix timestamp either in seconds or milliseconds
+    .PARAMETER Date
+    Date to be converted.
+    .PARAMETER Unit
+    Unit of timestamp, either milliseconds (default) or seconds.
+#>
 function ConvertTo-UnixTimestamp {
     #private
     [CmdletBinding()]
@@ -261,7 +270,7 @@ function ConvertTo-UnixTimestamp {
             Position = 1,
             ValueFromPipeline = $True,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Unit of timestamp.")][ValidateSet("Seconds", "Milliseconds")][String]$Unit = "Milliseconds"
+            HelpMessage = "Unit of timestamp, either milliseconds (default) or seconds.")][ValidateSet("Seconds", "Milliseconds")][String]$Unit = "Milliseconds"
     )
 
     BEGIN {
