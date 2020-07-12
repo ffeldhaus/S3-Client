@@ -144,6 +144,16 @@ function ConvertFrom-AwsConfigFile {
     }
 }
 
+<#
+    .SYNOPSIS
+    Convert data from config objects to AWS config file
+    .DESCRIPTION
+    Convert data from config objects to AWS config file
+    .PARAMETER Configs
+    Configs to store in config file
+    .PARAMETER AwsConfigFile
+    AWS Config File
+#>
 function ConvertTo-AwsConfigFile {
     #private
     [CmdletBinding()]
@@ -160,6 +170,8 @@ function ConvertTo-AwsConfigFile {
     )
 
     Process {
+        Write-Log -Level Verbose -Config $Config -Message "Writing AWS Configuration to $AwsConfigFile"
+
         if (!(Test-Path $AwsConfigFile)) {
             New-Item -Path $AwsConfigFile -ItemType File -Force
         }
@@ -186,10 +198,8 @@ function ConvertTo-AwsConfigFile {
             }
         }
         catch {
-            Write-Verbose "Couldn't restrict access to directory $AwsConfigDirectory"
+            Write-Log -Level Verbose -Config $Config -Message "Couldn't restrict access to directory $AwsConfigDirectory"
         }
-
-        Write-Verbose "Writing AWS Configuration to $AwsConfigFile"
 
         if ($AwsConfigFile -match "credentials$") {
             foreach ($Config in $Configs) {
@@ -220,7 +230,8 @@ function ConvertTo-AwsConfigFile {
                 }
             }
         }
-        Write-Verbose "Output:`n$Output"
+        $LogOutput = $Output -replace "aws_secret_access_key = (.*)\n","aws_secret_access_key = ***`n"
+        Write-Log -Level Debug -Config $Config -Message "Content to be written to $($AwsConfigFile):`n$LogOutput"
 
         if ([environment]::OSVersion.Platform -match "win") {
             # replace LF with CRLF
