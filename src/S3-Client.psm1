@@ -328,7 +328,7 @@ function ConvertTo-Punycode {
         # check if BucketName contains uppercase letters
         if ($PunycodeBucketName -match $BucketName -and $PunycodeBucketName -cnotmatch $BucketName) {
             if ($SkipTest.IsPresent -or !$Config) {
-                Write-Warning "BucketName $BucketName includes uppercase letters which MUST NOT be used. Converting BucketName to lowercase $PunycodeBucketName. AWS S3 and StorageGRID since version 11.1 do not support Buckets with uppercase letters!"
+                Write-Log -Level Warning -Config $Config -Message "BucketName $BucketName includes uppercase letters which MUST NOT be used. Converting BucketName to lowercase $PunycodeBucketName. AWS S3 and StorageGRID since version 11.1 do not support Buckets with uppercase letters!"
                 Write-Output $PunycodeBucketName
             }
             else {
@@ -336,7 +336,7 @@ function ConvertTo-Punycode {
                 $Config.AddressingStyle = "path"
                 $BucketNameExists = Test-S3Bucket -Config $Config -Bucket $BucketName -Force
                 if ($BucketNameExists) {
-                    Write-Warning "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
+                    Write-Log -Level Warning -Config $Config -Message "BucketName $BucketName includes uppercase letters which SHOULD NOT be used!"
                     Write-Output $BucketName
                 }
                 else {
