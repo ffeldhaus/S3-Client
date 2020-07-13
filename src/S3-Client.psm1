@@ -607,7 +607,7 @@ function Global:Get-AwsHash {
     .PARAMETER DateTime
     Date
     .PARAMETER Headers
-    Headers
+    HTTP Headers
     .PARAMETER BucketName
     Bucket name
     .PARAMETER QueryString
@@ -653,7 +653,7 @@ function Global:New-AwsSignatureV2 {
         [parameter(
             Mandatory = $False,
             Position = 9,
-            HelpMessage = "Headers")][Hashtable]$Headers = @{ },
+            HelpMessage = "HTTP Headers")][Hashtable]$Headers = @{ },
         [parameter(
             Mandatory=$False,
             Position=10,
@@ -755,7 +755,7 @@ function Global:New-AwsSignatureV2 {
     .PARAMETER Service
     Service
     .PARAMETER Headers
-    Headers
+    HTTP Headers
     .PARAMETER ContentType
     Content Type
 #>
@@ -811,7 +811,7 @@ function Global:New-AwsSignatureV4 {
         [parameter(
             Mandatory = $False,
             Position = 11,
-            HelpMessage = "Headers")][Hashtable]$Headers = @{ },
+            HelpMessage = "HTTP Headers")][Hashtable]$Headers = @{ },
         [parameter(
             Mandatory = $False,
             Position = 12,
@@ -903,7 +903,7 @@ function Global:New-AwsSignatureV4 {
     .PARAMETER Service
     Service (e.g. S3)
     .PARAMETER Headers
-    Headers
+    HTTP Headers
     .PARAMETER BucketName
     Bucket name
     .PARAMETER Date
@@ -946,7 +946,7 @@ function Global:Get-AwsRequest {
         [parameter(
             Mandatory = $False,
             Position = 5,
-            HelpMessage = "Headers")][Hashtable]$Headers = @{ },
+            HelpMessage = "HTTP Headers")][Hashtable]$Headers = @{ },
         [parameter(
             Mandatory = $False,
             Position = 6,
