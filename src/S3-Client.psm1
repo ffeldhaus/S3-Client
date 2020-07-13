@@ -542,6 +542,8 @@ function ConvertFrom-Punycode {
     String to hash
     .PARAMETER FileToHash
     File to hash
+    .PARAMETER StreamToHash
+    Stream to hash
 #>
 function Global:Get-AwsHash {
     #private
@@ -663,64 +665,63 @@ function Global:New-AwsSignatureV2 {
     )
 
     Process {
+        Write-Log -Level Verbose -Config $Config -Message "Create AWS Authentication Signature Version 2 for Request"
+
         # this Cmdlet follows the steps outlined in https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
 
-        # initialization
+        # date initialization in required format
         if (!$DateTime) {
             $DateTime = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
         }
 
-        Write-Verbose "Task 1: Constructing the CanonicalizedResource Element "
+        Write-Log -Level Debug -Config $Config -Message "Task 1: Constructing the CanonicalizedResource Element"
 
         $CanonicalizedResource = ""
-        Write-Verbose "1. Start with an empty string:`n$CanonicalizedResource"
+        Write-Log -Level Debug -Config $Config -Message "Task 1 Step 1: Start with an empty string:`n$CanonicalizedResource"
 
         if ($BucketName -and $EndpointUrl.Host -match "^$BucketName") {
             $CanonicalizedResource += "/$BucketName"
-            Write-Verbose "2. Add the bucketname for virtual host style:`n$CanonicalizedResource"
+            Write-Log -Level Debug -Config $Config -Message "Task 1 Step 2: Add the bucket name for virtual host style:`n$CanonicalizedResource"
         }
         else {
-            Write-Verbose "2. Bucketname already part of Url for path style therefore skipping this step"
+            Write-Log -Level Debug -Config $Config -Message "Task 1 Step 2: bucket name already part of Url for path style therefore skipping this step"
         }
 
-
         $CanonicalURI = [Uri]::new($Uri).AbsolutePath
-
         $CanonicalizedResource += $CanonicalURI
-        Write-Verbose "3. Append the path part of the un-decoded HTTP Request-URI, up-to but not including the query string:`n$CanonicalizedResource"
+        Write-Log -Level Debug -Config $Config -Message "Task 1 Step 3: Append the path part of the un-decoded HTTP Request-URI, up-to but not including the query string:`n$CanonicalizedResource"
 
         if ($QueryString) {
             $CanonicalizedResource += "?$QueryString"
         }
-        Write-Verbose "4. Append the query string unencoded for signing:`n$CanonicalizedResource"
+        Write-Log -Level Debug -Config $Config -Message "Task 1 Step 4: Append the query string unencoded for signing:`n$CanonicalizedResource"
 
-        Write-Verbose "Task 2: Constructing the CanonicalizedAmzHeaders Element"
+        Write-Log -Level Debug -Config $Config -Message "Task 2: Constructing the CanonicalizedAmzHeaders Element"
 
-        Write-Verbose "1. Filter for all headers starting with x-amz and are not x-amz-date"
+        Write-Log -Level Debug -Config $Config -Message "Task 2 Step 1: Filter for all headers starting with x-amz and are not x-amz-date"
         $AmzHeaders = $Headers.Clone()
         # remove all headers which do not start with x-amz
         $Headers.Keys | ForEach-Object { if ($_ -notmatch "x-amz" -or $_ -eq "x-amz-date") { $AmzHeaders.Remove($_) } }
 
-        Write-Verbose "2. Sort headers lexicographically"
+        Write-Log -Level Debug -Config $Config -Message "Task 2 Step 2: Sort headers lexicographically"
         $SortedAmzHeaders = ConvertTo-SortedDictionary $AmzHeaders
+
         $CanonicalizedAmzHeaders = ($SortedAmzHeaders.GetEnumerator() | ForEach-Object { "$($_.Key.ToLower()):$($_.Value)" }) -join "`n"
         if ($CanonicalizedAmzHeaders) {
             $CanonicalizedAmzHeaders = $CanonicalizedAmzHeaders + "`n"
         }
-        Write-Verbose "3. CanonicalizedAmzHeaders headers:`n$CanonicalizedAmzHeaders"
+        Write-Log -Level Debug -Config $Config -Message "Task 2 Step 3: CanonicalizedAmzHeaders headers:`n$CanonicalizedAmzHeaders"
 
-        Write-Verbose "Task 3: String to sign"
+        Write-Log -Level Debug -Config $Config -Message "Task 3: String to sign"
 
         $StringToSign = "$Method`n$ContentMD5`n$ContentType`n$DateTime`n$CanonicalizedAmzHeaders$CanonicalizedResource"
+        Write-Log -Level Debug -Config $Config -Message "Task 3 Step 1: StringToSign:`n$StringToSign"
 
-        Write-Verbose "1. StringToSign:`n$StringToSign"
-
-        Write-Verbose "Task 4: Signature"
+        Write-Log -Level Debug -Config $Config -Message "Task 4: Signature"
 
         $SignedString = Get-SignedString -Key ([Text.Encoding]::UTF8.GetBytes($SecretKey)) -Message $StringToSign -Algorithm SHA1
         $Signature = [Convert]::ToBase64String($SignedString)
-
-        Write-Verbose "1. Signature:`n$Signature"
+        Write-Log -Level Debug -Config $Config -Message "Task 4 Step 1: Signature:`n$Signature"
 
         Write-Output $Signature
     }
