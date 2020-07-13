@@ -1467,7 +1467,7 @@ function Global:Test-AwsResponse {
             HelpMessage = "Current retry count")][Int]$RetryCount = $MAX_RETRIES
     )
 
-    Write-Verbose "Testing AWS Response"
+    Write-Log -Level Verbose -Config $Config -Message "Testing AWS Response"
 
     $RedirectedRegion = New-Object -TypeName 'System.Collections.Generic.List[string]'
 
