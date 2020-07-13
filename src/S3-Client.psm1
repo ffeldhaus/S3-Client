@@ -892,40 +892,28 @@ function Global:New-AwsSignatureV4 {
     Get AWS Request
     .DESCRIPTION
     Get AWS Request
-    .PARAMETER AccessKey
-    S3 Access Key
-    .PARAMETER SecretKey
-    S3 Secret Access Key
+    .PARAMETER Config
+    AWS Config
     .PARAMETER Method
     HTTP Request Method
-    .PARAMETER EndpointUrl
-    Endpoint URL
-    .PARAMETER AddressingStyle
-    Addressing Style
     .PARAMETER Uri
     URI (e.g. / or /key)
     .PARAMETER Query
     Query
-    .PARAMETER RequestPayload
-    Request payload
-    .PARAMETER Region
-    Region
-    .PARAMETER UseDualstackEndpoint
-    Use the dualstack endpoint of the specified region. S3 supports dualstack endpoints which return both IPv6 and IPv4 values.
     .PARAMETER Service
     Service (e.g. S3)
-    .PARAMETER SignerType
-    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
     .PARAMETER Headers
     Headers
-    .PARAMETER ContentType
-    Content type
     .PARAMETER BucketName
     Bucket name
     .PARAMETER Date
     Date
+    .PARAMETER RequestPayload
+    Request payload
     .PARAMETER InFile
     File to read data from
+    .PARAMETER InStream
+    IO Stream to read data from
     .PARAMETER Presign
     Presign URL
     .PARAMETER Expires
@@ -978,7 +966,7 @@ function Global:Get-AwsRequest {
         [parameter(
             Mandatory = $False,
             Position = 10,
-            HelpMessage = "IO Stream")][System.IO.Stream]$InStream,
+            HelpMessage = "IO Stream to read data from")][System.IO.Stream]$InStream,
         [parameter(
             Mandatory = $False,
             Position = 11,
@@ -990,6 +978,9 @@ function Global:Get-AwsRequest {
     )
 
     Begin {
+        Write-Log -Level Verbose -Config $Config -Message "Create AWS Authentication Signature Version 4 for AWS Request"
+
+        # convert relative paths to absolute paths for InFile
         if ($InFile -match "^./|^.\\" -or $InFile -notmatch "^/|^\\") {
             $InFile = Join-Path -Path $PWD -ChildPath ($InFile -replace "^./|^.\\","")
         }
@@ -1015,37 +1006,34 @@ function Global:Get-AwsRequest {
                 }
             }
         }
+        Write-Log -Level Verbose -Config $Config -Message "Modified endpoint URL based on options: $($Config.EndpointUrl)"
 
-        Write-Verbose "Ensure that plus sign (+), exclamation mark (!), asterisk (*) and brackets (()) are encoded in URI, otherwise AWS signing will not work"
+        Write-Log -Level Verbose -Config $Config -Message "Ensure that plus sign (+), exclamation mark (!), asterisk (*) and brackets (()) are encoded in URI, otherwise AWS signing will not work"
         $Uri = $Uri -replace '\+', '%2B' -replace '!', '%21' -replace '\*', '%2A' -replace '\(', '%28' -replace '\)', '%29'
-        Write-Verbose "Encoded URI: $Uri"
+        Write-Log -Level Verbose -Config $Config -Message "Encoded URI: $Uri"
 
-        if ($Config.AddressingStyle -match "virtual" -and $BucketName) {
-            Write-Verbose "Using virtual-hosted style URL"
+        if (($Config.AddressingStyle -match "virtual" -and $BucketName) -or ($Config.AddressingStyle -eq "auto" -and $Config.EndpointUrl -match "amazonaws.com" -and $BucketName)) {
             $Config.EndpointUrl.Host = $BucketName + '.' + $Config.EndpointUrl.Host
-        }
-        elseif ($Config.AddressingStyle -eq "auto" -and $Config.EndpointUrl -match "amazonaws.com" -and $BucketName) {
-            Write-Verbose "Using virtual-hosted style URL"
-            $Config.EndpointUrl.Host = $BucketName + '.' + $Config.EndpointUrl.Host
+            Write-Log -Level Verbose -Config $Config -Message "Using virtual-hosted style URL $($Config.EndpointUrl)"
         }
         elseif ($BucketName) {
-            Write-Verbose "Using path style URL"
+            Write-Log -Level Verbose -Config $Config -Message "Using path style URL $($Config.EndpointUrl)"
             $Uri = "/$BucketName" + $Uri
         }
     }
 
     Process {
+        # convert date to expected format
         $DateTime = $Date.ToUniversalTime().ToString("yyyyMMddTHHmmssZ")
         $DateString = $Date.ToUniversalTime().ToString('yyyyMMdd')
 
-        Write-Verbose "PayloadSigning: $($Config.PayloadSigning)"
-
+        # AWS expects a request payload hash for signer type AWS4 when changing an object (e.g. HTTP methods PUT, POST, DELETE) and also for unsecure connections via http instead of https
         if ($Method -match 'PUT|POST|DELETE' -and $Config.SignerType -eq "AWS4" -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl -match "http://"))) {
             if ($InFile) {
                 $RequestPayloadHash = Get-AwsHash -FileToHash $InFile
             }
-            elseif ($Stream) {
-                $RequestPayloadHash = Get-AwsHash -StreamToHash $Stream
+            elseif ($InStream) {
+                $RequestPayloadHash = Get-AwsHash -StreamToHash $InStream
             }
             else {
                 $RequestPayloadHash = Get-AwsHash -StringToHash $RequestPayload
@@ -1054,17 +1042,20 @@ function Global:Get-AwsRequest {
         else {
             $RequestPayloadHash = 'UNSIGNED-PAYLOAD'
         }
+        Write-Log -Level Verbose -Config $Config -Message "RequestPayloadHash: $RequestPayloadHash"
 
-        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $Stream -or $RequestPayload) -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl -match "http://"))) {
+        # AWS expects the ContentMD5 header when changing an object (e.g. HTTP methods PUT, POST, DELETE) via an insecure connection
+        # the payload MD5 sum is also used in creating a unique ID when recording the response
+        if ($Method -match 'PUT|POST|DELETE' -and ($InFile -or $InStream -or $RequestPayload) -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl -match "http://")) -or $Config.RecordMode) {
             $MD5CryptoServiceProvider = [System.Security.Cryptography.MD5CryptoServiceProvider]::new()
-            if ($InFile) {
-                $Stream = [System.IO.FileStream]::new($InFile, [System.IO.FileMode]::Open)
-                $Md5 = $MD5CryptoServiceProvider.ComputeHash($Stream)
+            if ($InFile.Exists) {
+                $InStream = [System.IO.FileStream]::new($InFile, [System.IO.FileMode]::Open)
+                $Md5 = $MD5CryptoServiceProvider.ComputeHash($InStream)
                 $null = $Stream.Close
             }
-            elseif ($Stream) {
-                $Md5 = $MD5CryptoServiceProvider.ComputeHash($Stream)
-                $Stream.Seek(0, [System.IO.SeekOrigin]::Begin)
+            elseif ($InStream) {
+                $Md5 = $MD5CryptoServiceProvider.ComputeHash($InStream)
+                $InStream.Seek(0, [System.IO.SeekOrigin]::Begin)
             }
             else {
                 $Md5 = $Md5 = $MD5CryptoServiceProvider.ComputeHash([System.Text.UTF8Encoding]::new().GetBytes($RequestPayload))
@@ -1077,6 +1068,7 @@ function Global:Get-AwsRequest {
 
         if (!$Headers["host"]) { $Headers["host"] = $Config.EndpointUrl.Uri.Authority }
 
+        # for requests which are not presigned, AWS requires few headers
         if (!$Presign.IsPresent) {
             if ($Config.SignerType -eq "AWS4") {
                 if (!$Headers["x-amz-date"]) { $Headers["x-amz-date"] = $DateTime }
@@ -1086,12 +1078,13 @@ function Global:Get-AwsRequest {
                 if (!$Headers["date"]) { $Headers["date"] = $Date.ToUniversalTime().ToString("r") }
             }
             if (!$Headers["content-type"] -and $ContentType) { $Headers["content-type"] = $ContentType }
-            if (!$Headers["content-md5"] -and $ContentMd5) { $Headers["content-md5"] = $ContentMd5 }
+            if (!$Headers["content-md5"] -and $ContentMd5 -and !$Config.RecordMode ) { $Headers["content-md5"] = $ContentMd5 }
         }
 
         $SortedHeaders = ConvertTo-SortedDictionary $Headers
         $SignedHeaders = $SortedHeaders.Keys.ToLower() -join ";"
 
+        # if a request should be presigned, then the query parameter needs to be constructed in a specific way depending on signer type AWS4 or S3
         if ($Presign.IsPresent) {
             if ($Config.SignerType -eq "AWS4") {
                 $RequestPayloadHash = "UNSIGNED-PAYLOAD"
@@ -1144,26 +1137,27 @@ function Global:Get-AwsRequest {
             $QueryString = $QueryString -replace "&`$", ""
             $CanonicalQueryString = $CanonicalQueryString -replace "&`$", ""
         }
-        Write-Verbose "Query String with selected Query components for S3 Signer: $QueryString"
-        Write-Verbose "Canonical Query String with all Query components for AWS Signer: $CanonicalQueryString"
+        Write-Log -Level Verbose -Config $Config -Message "Query String with selected Query components for S3 Signer: $QueryString"
+        Write-Log -Level Verbose -Config $Config -Message "Canonical Query String with all Query components for AWS Signer: $CanonicalQueryString"
 
         if ($Config.SignerType -eq "AWS4") {
-            Write-Verbose "Using AWS Signature Version 4"
+            Write-Log -Level Verbose -Config $Config -Message "Using AWS Signature Version 4"
             $Signature = New-AwsSignatureV4 -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Config.Region -Uri $Uri -CanonicalQueryString $CanonicalQueryString -Method $Method -RequestPayloadHash $RequestPayloadHash -DateTime $DateTime -DateString $DateString -Headers $Headers
-            Write-Verbose "Task 4: Add the Signing Information to the Request"
+            Write-Log -Level Verbose -Config $Config -Message "Task 4: Add the Signing Information to the Request"
             # http://docs.aws.amazon.com/general/latest/gr/sigv4-add-signature-to-request.html
             if (!$Presign.IsPresent) {
                 $Headers["Authorization"] = "AWS4-HMAC-SHA256 Credential=$($Config.AccessKey)/$DateString/$($Config.Region)/$Service/aws4_request,SignedHeaders=$SignedHeaders,Signature=$Signature"
             }
         }
         else {
-            Write-Verbose "Using AWS Signature Version 2"
-            $Signature = New-AwsSignatureV2 -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Uri $Uri -Method $Method -ContentMD5 $ContentMd5 -ContentType $ContentType -DateTime $Date.ToUniversalTime().ToString("r") -Bucket $BucketName -QueryString $QueryString -Headers $Headers
+            Write-Log -Level Verbose -Config $Config -Message "Using AWS Signature Version 2"
+            $Signature = New-AwsSignatureV2 -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Uri $Uri -Method $Method -ContentMD5 $Headers["content-md5"] -ContentType $ContentType -DateTime $Date.ToUniversalTime().ToString("r") -Bucket $BucketName -QueryString $QueryString -Headers $Headers
             if (!$Presign.IsPresent) {
                 $Headers["Authorization"] = "AWS $($Config.AccessKey):$($Signature)"
             }
         }
 
+        # if the request is presigned, then the signature has to be added to the end of the query string
         if ($Presign.IsPresent) {
             $UrlEncodedSignature = [System.Net.WebUtility]::UrlEncode($Signature)
             if ($Config.SignerType -eq "AWS4") {
@@ -1177,8 +1171,8 @@ function Global:Get-AwsRequest {
         $Config.EndpointUrl.Path = $Uri
         $Config.EndpointUrl.Query = $CanonicalQueryString
 
-        Write-Verbose "Request URI:`n$($Config.EndpointUrl.Uri)"
-        Write-Verbose "Request Headers:`n$($Headers | ConvertTo-Json)"
+        Write-Log -Level Verbose -Config $Config -Message "Request URI:`n$($Config.EndpointUrl.Uri)"
+        Write-Log -Level Verbose -Config $Config -Message "Request Headers:`n$($Headers | ConvertTo-Json)"
 
         if ($Size) {
             $ContentLength = $Size
@@ -1201,11 +1195,12 @@ function Global:Get-AwsRequest {
             $HttpRequestMessage.Content = $StreamContent
         }
         elseif ($RequestPayload) {
-            Write-Verbose "RequestPayload:`n$RequestPayload"
+            Write-Log -Level Verbose -Config $Config -Message "RequestPayload:`n$RequestPayload"
             $StringContent = [System.Net.Http.StringContent]::new($RequestPayload)
             $HttpRequestMessage.Content = $StringContent
         }
 
+        Write-Log -Level Verbose -Config $Config -Message "Adding content headers to HttpContent object"
         if ($HttpRequestMessage.Content) {
             if ($Headers["Content-MD5"]) {
                 $HttpRequestMessage.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
@@ -1224,7 +1219,9 @@ function Global:Get-AwsRequest {
             }
         }
 
+        Write-Log -Level Verbose -Config $Config -Message "Adding all other headers to the HttpRequestMessage object"
         foreach ($HeaderKey in $Headers.Keys) {
+            Write-Log -Level Debug -Config $Config -Message $HeaderKey
             # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
             if ($HeaderKey -eq "Authorization") {
                 $null = $HttpRequestMessage.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
@@ -1235,6 +1232,21 @@ function Global:Get-AwsRequest {
         }
 
         $HttpRequestMessage | Add-Member -MemberType AliasProperty -Name Uri -Value RequestUri
+
+        # make config object available via HttpRequestMessage to use pipeline the output of Get-AwsRequest to Invoke-AwsRequest without explicitly specifying the config parameter
+        $HttpRequestMessage | Add-Member -MemberType NoteProperty -Name Config -Value $Config
+
+        # create a unique ID based on the request to store and retrieve recordings
+        $RecordRelevantHeaders = ($AwsRequest.Headers.ToString() -split "`n" | Where-Object { $_ -notmatch '^Authorization:|^x-amz-date:|^date:' }) -join "`n"
+        $RecordIdString = "$Method`n$($HttpRequestMessage.RequestUri)`n$($RecordRelevantHeaders)"
+        if ($HttpRequestMessage.Content.Headers) {
+            $RecordIdString += $HttpRequestMessage.Content.Headers.ToString()
+        }
+        $RecordIdString += $ContentMd5
+        $RecordId = Get-AwsHash -StringToHash $RecordIdString
+
+        $HttpRequestMessage | Add-Member -MemberType NoteProperty -Name RecordIdString -Value $RecordIdString
+        $HttpRequestMessage | Add-Member -MemberType NoteProperty -Name RecordId -Value $RecordId
 
         Write-Output $HttpRequestMessage
     }
