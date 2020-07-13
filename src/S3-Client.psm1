@@ -665,7 +665,7 @@ function Global:New-AwsSignatureV2 {
     )
 
     Process {
-        Write-Log -Level Verbose -Config $Config -Message "Create AWS Authentication Signature Version 2 for Request"
+        Write-Log -Level Verbose -Config $Config -Message "Create AWS Authentication Signature Version 2 for AWS Request"
 
         # this Cmdlet follows the steps outlined in https://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
 
@@ -819,9 +819,11 @@ function Global:New-AwsSignatureV4 {
     )
 
     Process {
+        Write-Log -Level Verbose -Config $Config -Message "Create AWS Authentication Signature Version 4 for AWS Request"
+
         # this Cmdlet follows the steps outlined in http://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
 
-        # initialization
+        # date initialization in required format
         if (!$DateTime) {
             $DateTime = [DateTime]::UtcNow.ToString("yyyyMMddTHHmmssZ")
         }
@@ -829,57 +831,57 @@ function Global:New-AwsSignatureV4 {
             $DateString = [DateTime]::UtcNow.ToString('yyyyMMdd')
         }
 
-        Write-Verbose "Task 1: Create a Canonical Request for Signature Version 4"
+        Write-Log -Level Verbose -Config $Config -Message "Task 1: Create a Canonical Request for Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
 
-        Write-Verbose "1. HTTP Request Method:`n$Method"
+        Write-Log -Level Verbose -Config $Config -Message "1. HTTP Request Method:`n$Method"
 
-        # TODO: Think of a better way to get the properly encoded relative URI
+        # get the properly encoded relative URI
         $CanonicalURI = ([System.UriBuilder]"$EndpointUrl$($Uri -replace '^/','')").Uri.PathAndQuery
-        Write-Verbose "2. Canonical URI:`n$CanonicalURI"
+        Write-Log -Level Verbose -Config $Config -Message "2. Canonical URI:`n$CanonicalURI"
 
-        Write-Verbose "3. Canonical query string:`n$CanonicalQueryString"
+        Write-Log -Level Verbose -Config $Config -Message "3. Canonical query string:`n$CanonicalQueryString"
 
         $SortedHeaders = ConvertTo-SortedDictionary $Headers
         $CanonicalHeaders = (($SortedHeaders.GetEnumerator() | ForEach-Object { "$($_.Key.ToLower()):$($_.Value)" }) -join "`n") + "`n"
-        Write-Verbose "4. Canonical headers:`n$CanonicalHeaders"
+        Write-Log -Level Verbose -Config $Config -Message "4. Canonical headers:`n$CanonicalHeaders"
 
         $SignedHeaders = $SortedHeaders.Keys.ToLower() -join ";"
-        Write-Verbose "5. Signed headers:`n$SignedHeaders"
+        Write-Log -Level Verbose -Config $Config -Message "5. Signed headers:`n$SignedHeaders"
 
-        Write-Verbose "6. Hashed Payload`n$RequestPayloadHash"
+        Write-Log -Level Verbose -Config $Config -Message "6. Hashed Payload`n$RequestPayloadHash"
 
         $CanonicalRequest = "$Method`n$CanonicalURI`n$CanonicalQueryString`n$CanonicalHeaders`n$SignedHeaders`n$RequestPayloadHash"
-        Write-Verbose "7. CanonicalRequest:`n$CanonicalRequest"
+        Write-Log -Level Verbose -Config $Config -Message "7. CanonicalRequest:`n$CanonicalRequest"
 
         $hasher = [System.Security.Cryptography.SHA256]::Create()
         $CanonicalRequestHash = ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($CanonicalRequest))) -replace '-', '').ToLower()
-        Write-Verbose "8. Canonical request hash:`n$CanonicalRequestHash"
+        Write-Log -Level Verbose -Config $Config -Message "8. Canonical request hash:`n$CanonicalRequestHash"
 
-        Write-Verbose "Task 2: Create a String to Sign for Signature Version 4"
+        Write-Log -Level Verbose -Config $Config -Message "Task 2: Create a String to Sign for Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-create-string-to-sign.html
 
         $AlgorithmDesignation = "AWS4-HMAC-SHA256"
-        Write-Verbose "1. Algorithm designation:`n$AlgorithmDesignation"
+        Write-Log -Level Verbose -Config $Config -Message "1. Algorithm designation:`n$AlgorithmDesignation"
 
-        Write-Verbose "2. request date value, specified with ISO8601 basic format in the format YYYYMMDD'T'HHMMSS'Z:`n$DateTime"
+        Write-Log -Level Verbose -Config $Config -Message "2. request date value, specified with ISO8601 basic format in the format YYYYMMDD'T'HHMMSS'Z:`n$DateTime"
 
         $CredentialScope = "$DateString/$Region/$Service/aws4_request"
-        Write-Verbose "3. Credential scope:`n$CredentialScope"
+        Write-Log -Level Verbose -Config $Config -Message "3. Credential scope:`n$CredentialScope"
 
-        Write-Verbose "4. Canonical request hash:`n$CanonicalRequestHash"
+        Write-Log -Level Verbose -Config $Config -Message "4. Canonical request hash:`n$CanonicalRequestHash"
 
         $StringToSign = "$AlgorithmDesignation`n$DateTime`n$CredentialScope`n$CanonicalRequestHash"
-        Write-Verbose "StringToSign:`n$StringToSign"
+        Write-Log -Level Verbose -Config $Config -Message "StringToSign:`n$StringToSign"
 
-        Write-Verbose "Task 3: Calculate the Signature for AWS Signature Version 4"
+        Write-Log -Level Verbose -Config $Config -Message "Task 3: Calculate the Signature for AWS Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
 
         $SigningKey = GetSignatureKey $SecretKey $DateString $Region $Service
-        Write-Verbose "1. Signing Key:`n$([System.BitConverter]::ToString($SigningKey))"
+        Write-Log -Level Verbose -Config $Config -Message "1. Signing Key:`n$([System.BitConverter]::ToString($SigningKey))"
 
         $Signature = ([BitConverter]::ToString((sign $SigningKey $StringToSign)) -replace '-', '').ToLower()
-        Write-Verbose "2. Signature:`n$Signature"
+        Write-Log -Level Verbose -Config $Config -Message "2. Signature:`n$Signature"
 
         Write-Output $Signature
     }
