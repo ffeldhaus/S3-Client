@@ -1257,6 +1257,20 @@ function Global:Get-AwsRequest {
     Invoke AWS Request
     .DESCRIPTION
     Invoke AWS Request
+    .PARAMETER Config
+    AWS Config
+    .PARAMETER Method
+    HTTP Request Method
+    .PARAMETER RequestUri
+    Request URI
+    .PARAMETER Headers
+    HTTP Headers
+    .PARAMETER Content
+    HTTP Content
+    .PARAMETER CancellationToken
+    Thread cancellation token
+    .PARAMETER RecordId
+    Record ID uniquely identifying request
 #>
 function Global:Invoke-AwsRequest {
     [CmdletBinding()]
@@ -1265,7 +1279,8 @@ function Global:Invoke-AwsRequest {
         [parameter(
             Mandatory = $False,
             Position = 0,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "AWS Config")][PSCustomObject]$Config,
         [parameter(
             Mandatory = $False,
             Position = 1,
@@ -1280,7 +1295,7 @@ function Global:Invoke-AwsRequest {
             Mandatory = $False,
             Position = 3,
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Headers")][System.Collections.IEnumerable]$Headers,
+            HelpMessage = "HTTP Headers")][System.Collections.IEnumerable]$Headers,
         [parameter(
             Mandatory = $False,
             Position = 4,
@@ -1290,15 +1305,43 @@ function Global:Invoke-AwsRequest {
             Mandatory = $False,
             Position = 5,
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken
+            HelpMessage = "Thread cancellation token")][System.Threading.CancellationToken]$CancellationToken,
+        [parameter(
+            Mandatory = $False,
+            Position = 6,
+            ValueFromPipelineByPropertyName,
+            HelpMessage = "Record ID uniquely identifying request")][String]$RecordId
     )
 
-    Write-Verbose "Invoking Request:`n$Method $RequestUri"
+    Write-Log -Level Verbose -Config $Config -Message "Invoking Request:`n$Method $RequestUri"
 
+    if ($Config.RecordMode -eq "replay") {
+        $RecordFile = [System.IO.FileInfo](Join-Path -Path $Config.RecordPath -ChildPath $RecordId)
+        Write-Log -Level Verbose -Config $Config -Message "Replaying response from file $RecordFile"
+        $RecordFileExists = Test-Path -Path $RecordFile -PathType Leaf
+        if ($RecordFileExists) {
+            $TaskMetadata = Get-Content -Path $RecordFile | ConvertFrom-Json
+            $HttpResponseMessage = [System.Net.Http.HttpResponseMessage]::new($TaskMetadata.ResultMetadata.StatusCode)
+            foreach ($Header in $TaskMetadata.ResultMetadata.Headers) {
+                $null = $HttpResponseMessage.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
+            }
+            $ContentStream = [System.IO.FileStream]::new($TaskMetadata.ResultMetadata.ContentFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
+            $HttpContent = [System.Net.Http.StreamContent]::new($ContentStream)
+            foreach ($Header in $TaskMetadata.ResultMetadata.ContentHeaders) {
+                $null = $HttpContent.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
+            }
+            $HttpResponseMessage.Content = $HttpContent
+            $Task = [System.Threading.Tasks.Task]::FromResult($HttpResponseMessage)
+        }
+        else {
+            Throw "File $ReplayFromFile does not exist."
+        }
+    }
+    else {
     $HttpRequestMessage = [System.Net.Http.HttpRequestMessage]::new($Method, $RequestUri)
     $HttpRequestMessage.Content = $Content
 
-    Write-Verbose "Adding headers"
+        Write-Log -Level Verbose -Config $Config -Message "Adding headers"
     foreach ($Header in $Headers.GetEnumerator()) {
         # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
         if ($Header.Key -eq "Authorization") {
@@ -1310,14 +1353,14 @@ function Global:Invoke-AwsRequest {
     }
 
     if ([environment]::OSVersion.Platform -match "Win") {
-        # check if proxy is used
+            # check if proxy is used and display a warning as the proxy may block access to the endpoint or manipulate headers
         $ProxyRegistry = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
         $ProxySettings = Get-ItemProperty -Path $ProxyRegistry
         if ($ProxySettings.ProxyEnable) {
-            Write-Warning "Proxy Server $($ProxySettings.ProxyServer) configured in Internet Explorer may be used to connect to the endpoint!"
+                Write-Log -Level Warning -Config $Config -Message "Proxy Server $($ProxySettings.ProxyServer) configured in Internet Explorer may be used to connect to the endpoint!"
         }
         if ($ProxySettings.AutoConfigURL) {
-            Write-Warning "Proxy Server defined in automatic proxy configuration script $($ProxySettings.AutoConfigURL) configured in Internet Explorer may be used to connect to the endpoint!"
+                Write-Log -Level Warning -Config $Config -Message "Proxy Server defined in automatic proxy configuration script $($ProxySettings.AutoConfigURL) configured in Internet Explorer may be used to connect to the endpoint!"
         }
     }
 
@@ -1325,7 +1368,7 @@ function Global:Invoke-AwsRequest {
     $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
     if ($Config.SkipCertificateCheck) {
         if ($PSVersionTable.PSVersion.Major -lt 6) {
-            # PowerShell 5 and early cannot skip certificate validation per request therefore we need to use a workaround
+                # PowerShell 5 and earlier cannot skip certificate validation per request therefore we need to use a workaround
             $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
         }
@@ -1335,10 +1378,11 @@ function Global:Invoke-AwsRequest {
     }
     $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
-    Write-Verbose "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
+        Write-Log -Level Verbose -Config $Config -Message "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
     $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
-    Write-Verbose "Timeout set to $($HttpClient.Timeout)"
+        Write-Log -Level Verbose -Config $Config -Message "Timeout set to $($HttpClient.Timeout)"
 
+        Write-Log -Level Verbose -Config $Config -Message "Send request asynchronously"
     try {
         if ($CancellationToken) {
             $Task = $HttpClient.SendAsync($HttpRequestMessage, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
@@ -1346,8 +1390,6 @@ function Global:Invoke-AwsRequest {
         else {
             $Task = $HttpClient.SendAsync($HttpRequestMessage, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
         }
-
-        Write-Output $Task
     }
     catch {
         throw $_
@@ -1357,6 +1399,48 @@ function Global:Invoke-AwsRequest {
             [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
         }
     }
+
+        if ($Config.RecordMode -eq "record") {
+            $RecordPathExists = Test-Path -Path $Config.RecordPath -PathType Container
+            if ($RecordPathExists) {
+                $RecordFile = [System.IO.FileInfo](Join-Path -Path $Config.RecordPath -ChildPath $RecordId)
+                Write-Log -Level Verbose -Config $Config -Message "Recording response to file $RecordFile"
+
+                # copy the raw content of the http response needs to a file
+                $ContentFile = Join-Path -Path $RecordFile.Directory -ChildPath ($RecordFile.BaseName + "-content.raw")
+                $ContentStream = [System.IO.FileStream]::new($ContentFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite)
+                $null = $Task.Result.Content.CopyToAsync($ContentStream)
+                # reset the file content stream to allow the content to be processed again by the Cmdlet running Invoke-AwsRequest
+                $ContentStream.Position=0
+                $HttpResponseMessage = $Task.Result
+                # add content headers to the file content stream
+                $HttpContent = [System.Net.Http.StreamContent]::new($ContentStream)
+                foreach ($Header in $Task.Result.Content.Headers) {
+                    $null = $HttpContent.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
+}
+                # replace the response content with the file content
+                $HttpResponseMessage.Content = $HttpContent
+                # serialize the response message and add a reference to the content file
+                $HttpResponseMessageMetadata = @{
+                    Version = $HttpResponseMessage.Version.ToString()
+                    StatusCode = $HttpResponseMessage.StatusCode
+                    Headers = $HttpResponseMessage.Headers
+                    ContentHeaders = $HttpResponseMessage.Content.Headers
+                    ContentFile = $ContentFile
+                }
+                # serialize the task data and store it in the record file
+                $TaskMetadata = @{
+                    Status = $Task.Status
+                    ResultMetadata = $HttpResponseMessageMetadata
+                }
+                $TaskMetadata | ConvertTo-Json -Depth 4 | Out-File -FilePath $RecordFile
+            }
+            else {
+                Write-Log -Level Warning -Config $Config -Message "Cannot record response as record path $($Config.RecordPath) is not an existing directory."
+            }
+        }
+    }
+    Write-Output $Task
 }
 
 <#
