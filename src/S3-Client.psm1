@@ -1545,9 +1545,39 @@ Set-Alias -Name Update-AwsConfig -Value Add-AwsConfig
     .PARAMETER SecretKey
     S3 Secret Access Key
     .PARAMETER Region
-    Default Region to use for all requests made with these credentials
+    Default region to use for all requests made with these credentials
     .PARAMETER EndpointUrl
     Custom endpoint URL if different than AWS URL
+    .PARAMETER MaxConcurrentRequests
+    The maximum number of concurrent requests (Default: processor count * 2)
+    .PARAMETER MaxQueueSize
+    The maximum number of tasks in the task queue (Default: 1000)
+    .PARAMETER MultipartThreshold
+    The size threshold where multipart uploads are used of individual files (Default: 8MB)
+    .PARAMETER MultipartChunksize
+    When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files
+    .PARAMETER MaxBandwidth
+    The maximum bandwidth that will be consumed for uploading and downloading data to and from Amazon S3
+    .PARAMETER UseAccelerateEndpoint
+    Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.
+    .PARAMETER UseDualstackEndpoint
+    Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.
+    .PARAMETER AddressingStyle
+    Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.
+    .PARAMETER PayloadSigning
+    Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.
+    .PARAMETER SkipCertificateCheck
+    Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER LogPath
+    Log path
+    .PARAMETER LogLevel
+    Log level
+    .PARAMETER RecordPath
+    Path to directory to store response records in
+    .PARAMETER RecordMode
+    Record mode
 #>
 function Global:Add-AwsConfig {
     [CmdletBinding()]
@@ -1582,7 +1612,7 @@ function Global:Add-AwsConfig {
             Mandatory = $False,
             Position = 5,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Default Region to use for all requests made with these credentials")][String]$Region,
+            HelpMessage = "Default region to use for all requests made with these credentials")][String]$Region,
         [parameter(
             Mandatory = $False,
             Position = 6,
@@ -1640,15 +1670,28 @@ function Global:Add-AwsConfig {
         [parameter(
             Mandatory = $False,
             Position = 17,
+            ValueFromPipelineByPropertyName = $True,
             HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
         [parameter(
             Mandatory = $False,
             Position = 18,
+            ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Log path")][System.IO.DirectoryInfo]$LogPath,
         [parameter(
             Mandatory = $False,
             Position = 19,
-            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel,
+        [parameter(
+            Mandatory = $False,
+            Position = 20,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Path to directory to store response records in")][System.IO.DirectoryInfo]$RecordPath,
+        [parameter(
+            Mandatory = $False,
+            Position = 21,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Record mode")][String][ValidateSet("record","replay")]$RecordMode
     )
 
     Process {
@@ -1667,7 +1710,7 @@ function Global:Add-AwsConfig {
                 $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
             }
             catch {
-                Write-Verbose "Retrieving credentials from $ProfileLocation failed"
+                Write-Log -Level Verbose -Config $Config -Message "Retrieving credentials from $ProfileLocation failed"
             }
 
             if (($Credentials | Where-Object { $_.ProfileName -eq $ProfileName })) {
@@ -1680,7 +1723,7 @@ function Global:Add-AwsConfig {
             $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_access_key_id -Value $AccessKey -Force
             $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $SecretKey -Force
 
-            Write-Verbose $CredentialEntry
+            Write-Log -Level Verbose -Config $Config -Message $CredentialEntry
 
             $Credentials = (@($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry) | Where-Object { $_.ProfileName }
             ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
@@ -1690,16 +1733,18 @@ function Global:Add-AwsConfig {
             $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
         }
         catch {
-            Write-Verbose "Retrieving config from $ConfigLocation failed"
+            Write-Log -Level Verbose -Config $Config -Message "Retrieving config from $ConfigLocation failed"
         }
 
         $Config = $Configs | Where-Object { $_.ProfileName -eq $ProfileName }
         if ($Config) {
+            Write-Log -Level Verbose -Config $Config -Message "Updating AWS Config for profile $ProfileName"
             if (!$Config.S3) {
                 $Config | Add-Member -MemberType NoteProperty -Name "S3" -Value ([PSCustomObject]@{ })
             }
         }
         else {
+            Write-Log -Level Verbose -Config $Config -Message "Adding AWS Config for profile $ProfileName"
             $Config = [PSCustomObject]@{ ProfileName = $ProfileName; s3 = [PSCustomObject]@{ } }
         }
 
@@ -1799,12 +1844,19 @@ function Global:Add-AwsConfig {
         if ($LogPath) {
             $Config | Add-Member -MemberType NoteProperty -Name log_path -Value $LogPath -Force
         }
-
         if ($LogLevel -and $LogLevel -ne "DEFAULT") {
             $Config | Add-Member -MemberType NoteProperty -Name log_level -Value $LogLevel -Force
         }
         elseif ($Config.log_level -and $LogLevel -eq "DEFAULT") {
             $Config.PSObject.Properties.Remove("log_level")
+        }
+
+        if ($RecordPath) {
+            $Config | Add-Member -MemberType NoteProperty -Name record_path -Value $RecordPath -Force
+        }
+
+        if ($RecordMode -and $Config.record_path) {
+            $Config | Add-Member -MemberType NoteProperty -Name record_mode -Value $RecordMode -Force
         }
 
         $Configs = (@($Configs | Where-Object { $_.ProfileName -ne $ProfileName }) + $Config) | Where-Object { $_.ProfileName }
