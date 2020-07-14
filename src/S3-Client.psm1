@@ -1338,67 +1338,67 @@ function Global:Invoke-AwsRequest {
         }
     }
     else {
-    $HttpRequestMessage = [System.Net.Http.HttpRequestMessage]::new($Method, $RequestUri)
-    $HttpRequestMessage.Content = $Content
+        $HttpRequestMessage = [System.Net.Http.HttpRequestMessage]::new($Method, $RequestUri)
+        $HttpRequestMessage.Content = $Content
 
         Write-Log -Level Verbose -Config $Config -Message "Adding headers"
-    foreach ($Header in $Headers.GetEnumerator()) {
-        # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
-        if ($Header.Key -eq "Authorization") {
-            $null = $HttpRequestMessage.Headers.TryAddWithoutValidation($Header.Key, $Header.Value)
+        foreach ($Header in $Headers.GetEnumerator()) {
+            # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
+            if ($Header.Key -eq "Authorization") {
+                $null = $HttpRequestMessage.Headers.TryAddWithoutValidation($Header.Key, $Header.Value)
+            }
+            else {
+                $null = $HttpRequestMessage.Headers.Add($Header.Key, $Header.Value)
+            }
         }
-        else {
-            $null = $HttpRequestMessage.Headers.Add($Header.Key, $Header.Value)
-        }
-    }
 
-    if ([environment]::OSVersion.Platform -match "Win") {
+        if ([environment]::OSVersion.Platform -match "Win") {
             # check if proxy is used and display a warning as the proxy may block access to the endpoint or manipulate headers
-        $ProxyRegistry = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-        $ProxySettings = Get-ItemProperty -Path $ProxyRegistry
-        if ($ProxySettings.ProxyEnable) {
+            $ProxyRegistry = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+            $ProxySettings = Get-ItemProperty -Path $ProxyRegistry
+            if ($ProxySettings.ProxyEnable) {
                 Write-Log -Level Warning -Config $Config -Message "Proxy Server $($ProxySettings.ProxyServer) configured in Internet Explorer may be used to connect to the endpoint!"
-        }
-        if ($ProxySettings.AutoConfigURL) {
+            }
+            if ($ProxySettings.AutoConfigURL) {
                 Write-Log -Level Warning -Config $Config -Message "Proxy Server defined in automatic proxy configuration script $($ProxySettings.AutoConfigURL) configured in Internet Explorer may be used to connect to the endpoint!"
+            }
         }
-    }
 
-    # check if untrusted SSL certificates should be ignored
-    $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
-    if ($Config.SkipCertificateCheck) {
-        if ($PSVersionTable.PSVersion.Major -lt 6) {
+        # check if untrusted SSL certificates should be ignored
+        $HttpClientHandler = [System.Net.Http.HttpClientHandler]::new()
+        if ($Config.SkipCertificateCheck) {
+            if ($PSVersionTable.PSVersion.Major -lt 6) {
                 # PowerShell 5 and earlier cannot skip certificate validation per request therefore we need to use a workaround
-            $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+                $CurrentCertificatePolicy = [System.Net.ServicePointManager]::CertificatePolicy
+                [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            }
+            else {
+                $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
+            }
         }
-        else {
-            $HttpClientHandler.ServerCertificateCustomValidationCallback = [System.Net.Http.HttpClientHandler]::DangerousAcceptAnyServerCertificateValidator
-        }
-    }
-    $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
+        $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
         Write-Log -Level Verbose -Config $Config -Message "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
-    $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
+        $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
         Write-Log -Level Verbose -Config $Config -Message "Timeout set to $($HttpClient.Timeout)"
 
         Write-Log -Level Verbose -Config $Config -Message "Send request asynchronously"
-    try {
-        if ($CancellationToken) {
-            $Task = $HttpClient.SendAsync($HttpRequestMessage, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
+        try {
+            if ($CancellationToken) {
+                $Task = $HttpClient.SendAsync($HttpRequestMessage, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
+            }
+            else {
+                $Task = $HttpClient.SendAsync($HttpRequestMessage, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+            }
         }
-        else {
-            $Task = $HttpClient.SendAsync($HttpRequestMessage, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead)
+        catch {
+            throw $_
         }
-    }
-    catch {
-        throw $_
-    }
-    finally {
-        if ($Config.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
-            [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
+        finally {
+            if ($Config.SkipCertificateCheck -and $PSVersionTable.PSVersion.Major -lt 6) {
+                [System.Net.ServicePointManager]::CertificatePolicy = $CurrentCertificatePolicy
+            }
         }
-    }
 
         if ($Config.RecordMode -eq "record") {
             $RecordPathExists = Test-Path -Path $Config.RecordPath -PathType Container
@@ -1417,7 +1417,7 @@ function Global:Invoke-AwsRequest {
                 $HttpContent = [System.Net.Http.StreamContent]::new($ContentStream)
                 foreach ($Header in $Task.Result.Content.Headers) {
                     $null = $HttpContent.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
-}
+                }
                 # replace the response content with the file content
                 $HttpResponseMessage.Content = $HttpContent
                 # serialize the response message and add a reference to the content file
