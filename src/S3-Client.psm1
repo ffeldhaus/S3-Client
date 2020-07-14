@@ -1694,174 +1694,174 @@ function Global:Add-AwsConfig {
             HelpMessage = "Record mode")][String][ValidateSet("record","replay")]$RecordMode
     )
 
-    Process {
-        $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
+    Write-Log -Level Verbose -Config $Config -Message "Add AWS Config"
 
-        if ($Credential) {
-            $AccessKey = $Credential.UserName
-            $SecretKey = $Credential.GetNetworkCredential().Password
-        }
+    $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
 
-        $Credentials = @()
-        $Configs = @()
+    if ($Credential) {
+        $AccessKey = $Credential.UserName
+        $SecretKey = $Credential.GetNetworkCredential().Password
+    }
 
-        if ($AccessKey -and $SecretKey) {
-            try {
-                $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
-            }
-            catch {
-                Write-Log -Level Verbose -Config $Config -Message "Retrieving credentials from $ProfileLocation failed"
-            }
+    $Credentials = @()
+    $Configs = @()
 
-            if (($Credentials | Where-Object { $_.ProfileName -eq $ProfileName })) {
-                $CredentialEntry = $Credentials | Where-Object { $_.ProfileName -eq $ProfileName }
-            }
-            else {
-                $CredentialEntry = [PSCustomObject]@{ ProfileName = $ProfileName }
-            }
-
-            $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_access_key_id -Value $AccessKey -Force
-            $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $SecretKey -Force
-
-            Write-Log -Level Verbose -Config $Config -Message $CredentialEntry
-
-            $Credentials = (@($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry) | Where-Object { $_.ProfileName }
-            ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
-        }
-
+    if ($AccessKey -and $SecretKey) {
         try {
-            $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
+            $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
         }
         catch {
-            Write-Log -Level Verbose -Config $Config -Message "Retrieving config from $ConfigLocation failed"
+            Write-Log -Level Verbose -Config $Config -Message "Retrieving credentials from $ProfileLocation failed"
         }
 
-        $Config = $Configs | Where-Object { $_.ProfileName -eq $ProfileName }
-        if ($Config) {
-            Write-Log -Level Verbose -Config $Config -Message "Updating AWS Config for profile $ProfileName"
-            if (!$Config.S3) {
-                $Config | Add-Member -MemberType NoteProperty -Name "S3" -Value ([PSCustomObject]@{ })
-            }
+        if (($Credentials | Where-Object { $_.ProfileName -eq $ProfileName })) {
+            $CredentialEntry = $Credentials | Where-Object { $_.ProfileName -eq $ProfileName }
         }
         else {
-            Write-Log -Level Verbose -Config $Config -Message "Adding AWS Config for profile $ProfileName"
-            $Config = [PSCustomObject]@{ ProfileName = $ProfileName; s3 = [PSCustomObject]@{ } }
+            $CredentialEntry = [PSCustomObject]@{ ProfileName = $ProfileName }
         }
 
-        if ($Region -and $Region -ne "us-east-1") {
-            $Config | Add-Member -MemberType NoteProperty -Name region -Value $Region -Force
-        }
-        elseif ($Config.Region -and $Region -eq "us-east-1") {
-            $Config.PSObject.Properties.Remove("Region")
-        }
+        $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_access_key_id -Value $AccessKey -Force
+        $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $SecretKey -Force
 
-        if ($EndpointUrl) {
-            $EndpointUrlString = $EndpointUrl -replace "(http://.*:80)", '$1' -replace "(https://.*):443", '$1' -replace "/$", ""
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrlString -Force
-        }
+        Write-Log -Level Verbose -Config $Config -Message $CredentialEntry
 
-        if ($MaxConcurrentRequests -and $MaxConcurrentRequests -ne ([Environment]::ProcessorCount * 2)) {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name max_concurrent_requests -Value $MaxConcurrentRequests -Force
-        }
-        elseif ($Config.S3.max_concurrent_requests -and $MaxConcurrentRequests -eq ([Environment]::ProcessorCount * 2)) {
-            $Config.S3.PSObject.Properties.Remove("max_concurrent_requests")
-        }
-
-        if ($MaxQueueSize -and $MaxQueueSize -ne 1000) {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name max_queue_size -Value $MaxQueueSize -Force
-        }
-        elseif ($Config.S3.max_queue_size -and $MaxQueueSize -eq 1000) {
-            $Config.S3.PSObject.Properties.Remove("max_queue_size")
-        }
-
-        if ($MultipartThreshold -and $MultipartThreshold -ne "8MB") {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_threshold -Value $MultipartThreshold -Force
-        }
-        elseif ($Config.S3.multipart_threshold -and $MultipartThreshold -eq "8MB") {
-            $Config.S3.PSObject.Properties.Remove("multipart_threshold")
-        }
-
-        if ($MultipartChunksize -and $MultipartChunksize -ne "0") {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_chunksize -Value $MultipartChunksize -Force
-        }
-        elseif ($Config.S3.multipart_chunksize -and $MultipartChunksize -eq "0") {
-            $Config.S3.PSObject.Properties.Remove("multipart_chunksize")
-        }
-
-        if ($MaxBandwidth -and $MaxBandwidth -ne "0") {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name max_bandwidth -Value $MaxBandwidth -Force
-        }
-        elseif ($Config.S3.max_bandwidth -and $MaxBandwidth -eq "0") {
-            $Config.S3.PSObject.Properties.Remove("max_bandwidth")
-        }
-
-        if ($UseAccelerateEndpoint -and $UseDualstackEndpoint) {
-            Throw "The parameters use_accelerate_endpoint and use_dualstack_endpoint are mutually exclusive!"
-        }
-
-        if ($UseAccelerateEndpoint) {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name use_accelerate_endpoint -Value $UseAccelerateEndpoint -Force
-        }
-        elseif ($Config.S3.use_accelerate_endpoint -and !$UseAccelerateEndpoint) {
-            $Config.S3.PSObject.Properties.Remove("use_accelerate_endpoint")
-        }
-
-        if ($UseDualstackEndpoint) {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name use_dualstack_endpoint -Value $UseDualstackEndpoint -Force
-        }
-        elseif ($Config.use_dualstack_endpoint -and !$UseDualstackEndpoint) {
-            $Config.S3.PSObject.Properties.Remove("use_dualstack_endpoint")
-        }
-
-        if ($AddressingStyle -and $AddressingStyle -ne "auto") {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
-        }
-        elseif ($Config.S3.addressing_style -and $AddressingStyle -match "auto|false") {
-            $Config.S3.PSObject.Properties.Remove("addressing_style")
-        }
-
-        if ($PayloadSigning -and $PayloadSigning -ne "auto") {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigning -Force
-        }
-        elseif ($Config.S3.payload_signing_enabled -and $PayloadSigning -match "auto|false") {
-            $Config.S3.PSObject.Properties.Remove("payload_signing_enabled")
-        }
-
-        if ($SkipCertificateCheck) {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name skip_certificate_check -Value $SkipCertificateCheck -Force
-        }
-        elseif ($Config.skip_certificate_check -and !$SkipCertificateCheck) {
-            $Config.S3.PSObject.Properties.Remove("skip_certificate_check")
-        }
-
-        if ($SignerType) {
-            $Config.S3 | Add-Member -MemberType NoteProperty -Name signer_type -Value $SignerType -Force
-        }
-        elseif ($Config.S3.signer_type -and $SignerType -match "AWS4") {
-            $Config.S3.PSObject.Properties.Remove("signer_type")
-        }
-
-        if ($LogPath) {
-            $Config | Add-Member -MemberType NoteProperty -Name log_path -Value $LogPath -Force
-        }
-        if ($LogLevel -and $LogLevel -ne "DEFAULT") {
-            $Config | Add-Member -MemberType NoteProperty -Name log_level -Value $LogLevel -Force
-        }
-        elseif ($Config.log_level -and $LogLevel -eq "DEFAULT") {
-            $Config.PSObject.Properties.Remove("log_level")
-        }
-
-        if ($RecordPath) {
-            $Config | Add-Member -MemberType NoteProperty -Name record_path -Value $RecordPath -Force
-        }
-
-        if ($RecordMode -and $Config.record_path) {
-            $Config | Add-Member -MemberType NoteProperty -Name record_mode -Value $RecordMode -Force
-        }
-
-        $Configs = (@($Configs | Where-Object { $_.ProfileName -ne $ProfileName }) + $Config) | Where-Object { $_.ProfileName }
-        ConvertTo-AwsConfigFile -Config $Configs -AwsConfigFile $ConfigLocation
+        $Credentials = (@($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry) | Where-Object { $_.ProfileName }
+        ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
     }
+
+    try {
+        $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
+    }
+    catch {
+        Write-Log -Level Verbose -Config $Config -Message "Retrieving config from $ConfigLocation failed"
+    }
+
+    $Config = $Configs | Where-Object { $_.ProfileName -eq $ProfileName }
+    if ($Config) {
+        Write-Log -Level Verbose -Config $Config -Message "Updating AWS Config for profile $ProfileName"
+        if (!$Config.S3) {
+            $Config | Add-Member -MemberType NoteProperty -Name "S3" -Value ([PSCustomObject]@{ })
+        }
+    }
+    else {
+        Write-Log -Level Verbose -Config $Config -Message "Adding AWS Config for profile $ProfileName"
+        $Config = [PSCustomObject]@{ ProfileName = $ProfileName; s3 = [PSCustomObject]@{ } }
+    }
+
+    if ($Region -and $Region -ne "us-east-1") {
+        $Config | Add-Member -MemberType NoteProperty -Name region -Value $Region -Force
+    }
+    elseif ($Config.Region -and $Region -eq "us-east-1") {
+        $Config.PSObject.Properties.Remove("Region")
+    }
+
+    if ($EndpointUrl) {
+        $EndpointUrlString = $EndpointUrl -replace "(http://.*:80)", '$1' -replace "(https://.*):443", '$1' -replace "/$", ""
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name endpoint_url -Value $EndpointUrlString -Force
+    }
+
+    if ($MaxConcurrentRequests -and $MaxConcurrentRequests -ne ([Environment]::ProcessorCount * 2)) {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name max_concurrent_requests -Value $MaxConcurrentRequests -Force
+    }
+    elseif ($Config.S3.max_concurrent_requests -and $MaxConcurrentRequests -eq ([Environment]::ProcessorCount * 2)) {
+        $Config.S3.PSObject.Properties.Remove("max_concurrent_requests")
+    }
+
+    if ($MaxQueueSize -and $MaxQueueSize -ne 1000) {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name max_queue_size -Value $MaxQueueSize -Force
+    }
+    elseif ($Config.S3.max_queue_size -and $MaxQueueSize -eq 1000) {
+        $Config.S3.PSObject.Properties.Remove("max_queue_size")
+    }
+
+    if ($MultipartThreshold -and $MultipartThreshold -ne "8MB") {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_threshold -Value $MultipartThreshold -Force
+    }
+    elseif ($Config.S3.multipart_threshold -and $MultipartThreshold -eq "8MB") {
+        $Config.S3.PSObject.Properties.Remove("multipart_threshold")
+    }
+
+    if ($MultipartChunksize -and $MultipartChunksize -ne "0") {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name multipart_chunksize -Value $MultipartChunksize -Force
+    }
+    elseif ($Config.S3.multipart_chunksize -and $MultipartChunksize -eq "0") {
+        $Config.S3.PSObject.Properties.Remove("multipart_chunksize")
+    }
+
+    if ($MaxBandwidth -and $MaxBandwidth -ne "0") {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name max_bandwidth -Value $MaxBandwidth -Force
+    }
+    elseif ($Config.S3.max_bandwidth -and $MaxBandwidth -eq "0") {
+        $Config.S3.PSObject.Properties.Remove("max_bandwidth")
+    }
+
+    if ($UseAccelerateEndpoint -and $UseDualstackEndpoint) {
+        Throw "The parameters use_accelerate_endpoint and use_dualstack_endpoint are mutually exclusive!"
+    }
+
+    if ($UseAccelerateEndpoint) {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name use_accelerate_endpoint -Value $UseAccelerateEndpoint -Force
+    }
+    elseif ($Config.S3.use_accelerate_endpoint -and !$UseAccelerateEndpoint) {
+        $Config.S3.PSObject.Properties.Remove("use_accelerate_endpoint")
+    }
+
+    if ($UseDualstackEndpoint) {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name use_dualstack_endpoint -Value $UseDualstackEndpoint -Force
+    }
+    elseif ($Config.use_dualstack_endpoint -and !$UseDualstackEndpoint) {
+        $Config.S3.PSObject.Properties.Remove("use_dualstack_endpoint")
+    }
+
+    if ($AddressingStyle -and $AddressingStyle -ne "auto") {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name addressing_style -Value $AddressingStyle -Force
+    }
+    elseif ($Config.S3.addressing_style -and $AddressingStyle -match "auto|false") {
+        $Config.S3.PSObject.Properties.Remove("addressing_style")
+    }
+
+    if ($PayloadSigning -and $PayloadSigning -ne "auto") {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name payload_signing_enabled -Value $PayloadSigning -Force
+    }
+    elseif ($Config.S3.payload_signing_enabled -and $PayloadSigning -match "auto|false") {
+        $Config.S3.PSObject.Properties.Remove("payload_signing_enabled")
+    }
+
+    if ($SkipCertificateCheck) {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name skip_certificate_check -Value $SkipCertificateCheck -Force
+    }
+    elseif ($Config.skip_certificate_check -and !$SkipCertificateCheck) {
+        $Config.S3.PSObject.Properties.Remove("skip_certificate_check")
+    }
+
+    if ($SignerType) {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name signer_type -Value $SignerType -Force
+    }
+    elseif ($Config.S3.signer_type -and $SignerType -match "AWS4") {
+        $Config.S3.PSObject.Properties.Remove("signer_type")
+    }
+
+    if ($LogPath) {
+        $Config | Add-Member -MemberType NoteProperty -Name log_path -Value $LogPath -Force
+    }
+    if ($LogLevel -and $LogLevel -ne "DEFAULT") {
+        $Config | Add-Member -MemberType NoteProperty -Name log_level -Value $LogLevel -Force
+    }
+    elseif ($Config.log_level -and $LogLevel -eq "DEFAULT") {
+        $Config.PSObject.Properties.Remove("log_level")
+    }
+
+    if ($RecordPath) {
+        $Config | Add-Member -MemberType NoteProperty -Name record_path -Value $RecordPath -Force
+    }
+
+    if ($RecordMode -and $Config.record_path) {
+        $Config | Add-Member -MemberType NoteProperty -Name record_mode -Value $RecordMode -Force
+    }
+
+    $Configs = (@($Configs | Where-Object { $_.ProfileName -ne $ProfileName }) + $Config) | Where-Object { $_.ProfileName }
+    ConvertTo-AwsConfigFile -Config $Configs -AwsConfigFile $ConfigLocation
 }
 
 Set-Alias -Name Get-AwsProfiles -Value Get-AwsConfigs
