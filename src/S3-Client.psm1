@@ -1885,6 +1885,8 @@ function Global:Get-AwsConfigs {
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation = $AWS_CREDENTIALS_FILE
     )
 
+    Write-Log -Level Verbose -Config $Config -Message "Get the AWS config for all profiles"
+
     if (!$ProfileLocation) {
         $ProfileLocation = $AWS_CREDENTIALS_FILE
     }
@@ -2075,8 +2077,6 @@ Set-Alias -Name Get-AwsCredential -Value Get-AwsConfig
     AWS Profile to use which contains AWS sredentials and settings
     .PARAMETER ProfileLocation
     AWS Profile location if different than .aws/credentials
-    .PARAMETER Credential
-    Credential
     .PARAMETER AccessKey
     S3 Access Key
     .PARAMETER SecretKey
@@ -2087,6 +2087,36 @@ Set-Alias -Name Get-AwsCredential -Value Get-AwsConfig
     Default Region to use for all requests made with these credentials
     .PARAMETER EndpointUrl
     Custom endpoint URL if different than AWS URL
+    .PARAMETER MaxConcurrentRequests
+    The maximum number of concurrent requests (Default: processor count * 2)
+    .PARAMETER MaxQueueSize
+    The maximum number of tasks in the task queue (Default: 1000)
+    .PARAMETER MultipartThreshold
+    The size threshold where multipart uploads are used of individual files (Default: 8MB)
+    .PARAMETER MultipartChunksize
+    When using multipart transfers, this is the chunk size that is used for multipart transfers of individual files
+    .PARAMETER MaxBandwidth
+    The maximum bandwidth that will be consumed for uploading and downloading data to and from Amazon S3
+    .PARAMETER UseAccelerateEndpoint
+    Use the Amazon S3 Accelerate endpoint for all s3 and s3api commands. S3 Accelerate must first be enabled on the bucket before attempting to use the accelerate endpoint. This is mutually exclusive with the use_dualstack_endpoint option.
+    .PARAMETER UseDualstackEndpoint
+    Use the Amazon S3 dual IPv4 / IPv6 endpoint for all s3 commands. This is mutually exclusive with the use_accelerate_endpoint option.
+    .PARAMETER AddressingStyle
+    Specifies which addressing style to use. This controls if the bucket name is in the hostname or part of the URL. Value values are: path, virtual, and auto. The default value is auto.
+    .PARAMETER PayloadSigning
+    Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is disabled for streaming uploads (UploadPart and PutObject) when using https.
+    .PARAMETER SkipCertificateCheck
+    Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
+    .PARAMETER SignerType
+    AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)
+    .PARAMETER LogPath
+    Log path
+    .PARAMETER LogLevel
+    Log level
+    .PARAMETER RecordPath
+    Path to directory to store response records in
+    .PARAMETER RecordMode
+    Record mode
 #>
 function Global:Get-AwsConfig {
     [CmdletBinding()]
@@ -2192,163 +2222,176 @@ function Global:Get-AwsConfig {
         [parameter(
             Mandatory = $False,
             Position = 20,
-            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel = "DEFAULT"
+            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel,
+        [parameter(
+            Mandatory = $False,
+            Position = 20,
+            HelpMessage = "Path to directory to store response records in")][System.IO.DirectoryInfo]$RecordPath,
+        [parameter(
+            Mandatory = $False,
+            Position = 21,
+            HelpMessage = "Record mode")][String][ValidateSet("record","replay")]$RecordMode
     )
 
-    Begin {
-        if (!$Server -and $CurrentSgwServer) {
-            $Server = $CurrentSgwServer.PSObject.Copy()
+    Write-Log -Level Verbose -Config $Config -Message "Get AWS config"
+
+    if (!$Server -and $CurrentSgwServer) {
+        $Server = $CurrentSgwServer.PSObject.Copy()
+    }
+
+    $Config = [PSCustomObject]@{ProfileName = $ProfileName;
+        AccessKey                           = $AccessKey;
+        SecretKey                           = $SecretKey;
+        Region                              = $Region;
+        EndpointUrl                         = $EndpointUrl;
+        MaxConcurrentRequests               = $MaxConcurrentRequests;
+        MaxQueueSize                        = $MaxQueueSize;
+        MultipartThreshold                  = $MultipartThreshold;
+        MultipartChunksize                  = $MultipartChunksize;
+        MaxBandwidth                        = $MaxBandwidth;
+        UseAccelerateEndpoint               = $UseAccelerateEndpoint;
+        UseDualstackEndpoint                = $UseDualstackEndpoint;
+        AddressingStyle                     = $AddressingStyle;
+        PayloadSigning                      = $PayloadSigning;
+        SkipCertificateCheck                = [System.Convert]::ToBoolean($SkipCertificateCheck -eq $true);
+        SignerType                          = $SignerType
+        LogPath                             = $LogPath
+        LogLevel                            = $LogLevel
+    }
+
+    if (!$ProfileName -and !$AccessKey -and !($Server -and ($AccountId -or $Server.AccountId))) {
+        $ProfileName = "default"
+    }
+
+    if ($ProfileName) {
+        Write-Log -Level Verbose -Config $Config -Message "Profile $ProfileName specified, therefore returning AWS config of this profile"
+        $Config = Get-AwsConfigs -ProfileLocation $ProfileLocation | Where-Object { $_.ProfileName -eq $ProfileName }
+        if (!$Config) {
+            Write-Log -Level Verbose -Config $Config -Message "Config for profile $ProfileName not found"
+            return
+        }
+    }
+    elseif ($AccessKey) {
+        Write-Log -Level Verbose -Config $Config -Message "Access Key $AccessKey and Secret Access Key specified, therefore returning AWS config for the keys"
+        $PayloadSigning = "auto"
+    }
+    else {
+        # if an explicit endpoint URL is provided, use instead of the one from provided server
+        if ($Server.AccountId) {
+            $AccountId = $Server.AccountId
+        }
+        if (!$EndpointUrl) {
+            $EndpointUrl = $Server.S3EndpointUrl
+        }
+        if (!$Server.DisableAutomaticAccessKeyGeneration -and $AccountId) {
+            Write-Log -Level Verbose -Config $Config -Message "No profile and no access key specified, but connected to StorageGRID tenant with Account ID $AccountId. Therefore using autogenerated temporary AWS credentials"
+            if ($Server.AccessKeyStore[$AccountId].Expires -ge (Get-Date).AddMinutes(1) -or ($Server.AccessKeyStore[$AccountId] -and !$Server.AccessKeyStore[$AccountId].Expires)) {
+                $Credential = $Server.AccessKeyStore[$AccountId] | Sort-Object -Property expires | Select-Object -Last 1
+                Write-Log -Level Verbose -Config $Config -Message "Using existing Access Key $( $Credential.AccessKey )"
+            }
+            else {
+                $Credential = New-SgwS3AccessKey -Server $Server -Expires (Get-Date).AddSeconds($Server.TemporaryAccessKeyExpirationTime) -AccountId $AccountId
+                Write-Log -Level Verbose -Config $Config -Message "Created new temporary Access Key $( $Credential.AccessKey )"
+            }
+            $Config.AccessKey = $Credential.AccessKey
+            $Config.SecretKey = $Credential.SecretAccessKey
+            $Config.EndpointUrl = [System.UriBuilder]$EndpointUrl.ToString()
+            $Config.SkipCertificateCheck = $Server.SkipCertificateCheck
         }
     }
 
-    Process {
-        $Config = [PSCustomObject]@{ProfileName = $ProfileName;
-            AccessKey                           = $AccessKey;
-            SecretKey                           = $SecretKey;
-            Region                              = $Region;
-            EndpointUrl                         = $EndpointUrl;
-            MaxConcurrentRequests               = $MaxConcurrentRequests;
-            MaxQueueSize                        = $MaxQueueSize;
-            MultipartThreshold                  = $MultipartThreshold;
-            MultipartChunksize                  = $MultipartChunksize;
-            MaxBandwidth                        = $MaxBandwidth;
-            UseAccelerateEndpoint               = $UseAccelerateEndpoint;
-            UseDualstackEndpoint                = $UseDualstackEndpoint;
-            AddressingStyle                     = $AddressingStyle;
-            PayloadSigning                      = $PayloadSigning;
-            SkipCertificateCheck                = [System.Convert]::ToBoolean($SkipCertificateCheck -eq $true);
-            SignerType                          = $SignerType
-            LogPath                             = $LogPath
-            LogLevel                            = $LogLevel
-        }
+    if ($Region) {
+        $Config.Region = $Region
+    }
+    elseif (!$Config.Region) {
+        $Config.Region = "us-east-1"
+    }
 
-        if (!$ProfileName -and !$AccessKey -and !($Server -and ($AccountId -or $Server.AccountId))) {
-            $ProfileName = "default"
-        }
+    if ($EndpointUrl) {
+        $Config.EndpointUrl = $EndpointUrl
+    }
 
-        if ($ProfileName) {
-            Write-Verbose "Profile $ProfileName specified, therefore returning AWS config of this profile"
-            $Config = Get-AwsConfigs -ProfileLocation $ProfileLocation | Where-Object { $_.ProfileName -eq $ProfileName }
-            if (!$Config) {
-                Write-Verbose "Config for profile $ProfileName not found"
-                return
-            }
-        }
-        elseif ($AccessKey) {
-            Write-Verbose "Access Key $AccessKey and Secret Access Key specified, therefore returning AWS config for the keys"
-            $PayloadSigning = "auto"
-        }
-        else {
-            # if an explicit endpoint URL is provided, use instead of the one from provided server
-            if ($Server.AccountId) {
-                $AccountId = $Server.AccountId
-            }
-            if (!$EndpointUrl) {
-                $EndpointUrl = $Server.S3EndpointUrl
-            }
-            if (!$Server.DisableAutomaticAccessKeyGeneration -and $AccountId) {
-                Write-Verbose "No profile and no access key specified, but connected to StorageGRID tenant with Account ID $AccountId. Therefore using autogenerated temporary AWS credentials"
-                if ($Server.AccessKeyStore[$AccountId].Expires -ge (Get-Date).AddMinutes(1) -or ($Server.AccessKeyStore[$AccountId] -and !$Server.AccessKeyStore[$AccountId].Expires)) {
-                    $Credential = $Server.AccessKeyStore[$AccountId] | Sort-Object -Property expires | Select-Object -Last 1
-                    Write-Verbose "Using existing Access Key $( $Credential.AccessKey )"
-                }
-                else {
-                    $Credential = New-SgwS3AccessKey -Server $Server -Expires (Get-Date).AddSeconds($Server.TemporaryAccessKeyExpirationTime) -AccountId $AccountId
-                    Write-Verbose "Created new temporary Access Key $( $Credential.AccessKey )"
-                }
-                $Config.AccessKey = $Credential.AccessKey
-                $Config.SecretKey = $Credential.SecretAccessKey
-                $Config.EndpointUrl = [System.UriBuilder]$EndpointUrl.ToString()
-                $Config.SkipCertificateCheck = $Server.SkipCertificateCheck
-            }
-        }
+    if ($MaxConcurrentRequests) {
+        $Config.MaxConcurrentRequests = $MaxConcurrentRequests
+    }
+    elseif (!$Config.MaxConcurrentRequests) {
+        $Config.MaxConcurrentRequests = ([Environment]::ProcessorCount * 2)
+    }
 
-        if ($Region) {
-            $Config.Region = $Region
-        }
-        elseif (!$Config.Region) {
-            $Config.Region = "us-east-1"
-        }
+    if ($MaxQueueSize) {
+        $Config.MaxQueueSize = $MaxQueueSize
+    }
+    elseif (!$Config.MaxQueueSize) {
+        $Config.MaxQueueSize = 1000
+    }
 
-        if ($EndpointUrl) {
-            $Config.EndpointUrl = $EndpointUrl
-        }
+    if ($MultipartThreshold) {
+        $Config.MultipartThreshold = $MultipartThreshold
+    }
+    elseif (!$Config.MultipartThreshold) {
+        $Config.MultipartThreshold = "8MB"
+    }
 
-        if ($MaxConcurrentRequests) {
-            $Config.MaxConcurrentRequests = $MaxConcurrentRequests
-        }
-        elseif (!$Config.MaxConcurrentRequests) {
-            $Config.MaxConcurrentRequests = ([Environment]::ProcessorCount * 2)
-        }
+    if ($MultipartChunksize) {
+        $Config.MultipartChunksize = $MultipartChunksize
+    }
 
-        if ($MaxQueueSize) {
-            $Config.MaxQueueSize = $MaxQueueSize
-        }
-        elseif (!$Config.MaxQueueSize) {
-            $Config.MaxQueueSize = 1000
-        }
+    if ($MaxBandwidth) {
+        $Config.MaxBandwidth = $MaxBandwidth
+    }
 
-        if ($MultipartThreshold) {
-            $Config.MultipartThreshold = $MultipartThreshold
-        }
-        elseif (!$Config.MultipartThreshold) {
-            $Config.MultipartThreshold = "8MB"
-        }
+    if ($UseAccelerateEndpoint) {
+        $Config.UseAccelerateEndpoint = ([System.Convert]::ToBoolean($UseAccelerateEndpoint))
+    }
+    elseif ($null -eq $Config.UseAccelerateEndpoint) {
+        $Config.UseAccelerateEndpoint = $false
+    }
 
-        if ($MultipartChunksize) {
-            $Config.MultipartChunksize = $MultipartChunksize
-        }
+    if ($UseDualstackEndpoint) {
+        $Config.UseDualstackEndpoint = ([System.Convert]::ToBoolean($UseDualstackEndpoint))
+    }
+    elseif ($null -eq $Config.UseDualstackEndpoint) {
+        $Config.UseDualstackEndpoint = $false
+    }
 
-        if ($MaxBandwidth) {
-            $Config.MaxBandwidth = $MaxBandwidth
-        }
+    if ($AddressingStyle) {
+        $Config.AddressingStyle = $AddressingStyle
+    }
+    elseif (!$Config.AddressingStyle) {
+        $Config.AddressingStyle = "auto"
+    }
 
-        if ($UseAccelerateEndpoint) {
-            $Config.UseAccelerateEndpoint = ([System.Convert]::ToBoolean($UseAccelerateEndpoint))
-        }
-        elseif ($null -eq $Config.UseAccelerateEndpoint) {
-            $Config.UseAccelerateEndpoint = $false
-        }
+    if ($PayloadSigning) {
+        $Config.PayloadSigning = $PayloadSigning
+    }
+    elseif (!$Config.PayloadSigning) {
+        $Config.PayloadSigning = "auto"
+    }
 
-        if ($UseDualstackEndpoint) {
-            $Config.UseDualstackEndpoint = ([System.Convert]::ToBoolean($UseDualstackEndpoint))
-        }
-        elseif ($null -eq $Config.UseDualstackEndpoint) {
-            $Config.UseDualstackEndpoint = $false
-        }
+    if (!$Config.SkipCertificateCheck -and $SkipCertificateCheck) {
+        $Config.SkipCertificateCheck = ([System.Convert]::ToBoolean($SkipCertificateCheck))
+    }
+    elseif ($SkipCertificateCheck -eq $null) {
+        $Config.SkipCertificateCheck = $false
+    }
 
-        if ($AddressingStyle) {
-            $Config.AddressingStyle = $AddressingStyle
-        }
-        elseif (!$Config.AddressingStyle) {
-            $Config.AddressingStyle = "auto"
-        }
+    if ($LogPath) {
+        $Config.LogPath = [System.IO.DirectoryInfo]$LogPath
+    }
 
-        if ($PayloadSigning) {
-            $Config.PayloadSigning = $PayloadSigning
-        }
-        elseif (!$Config.PayloadSigning) {
-            $Config.PayloadSigning = "auto"
-        }
+    if ($LogLevel) {
+        $Config.LogLevel = $LogLevel
+    }
 
-        if (!$Config.SkipCertificateCheck -and $SkipCertificateCheck) {
-            $Config.SkipCertificateCheck = ([System.Convert]::ToBoolean($SkipCertificateCheck))
+    if ($RecordPath) {
+        $Config | Add-Member -MemberType NoteProperty -Name RecordPath -Value ([System.IO.DirectoryInfo]$RecordPath)
+        if ($RecordMode) {
+            $Config | Add-Member -MemberType NoteProperty -Name RecordMode -Value $RecordMode
         }
-        elseif ($SkipCertificateCheck -eq $null) {
-            $Config.SkipCertificateCheck = $false
-        }
+    }
 
-        if ($LogPath) {
-            $Config.LogPath = [System.IO.DirectoryInfo]$LogPath
-        }
-
-        if ($LogLevel) {
-            $Config.LogLevel = $LogLevel
-        }
-
-        if ($Config.AccessKey -and $Config.SecretKey) {
-            Write-Output $Config
-        }
+    if ($Config.AccessKey -and $Config.SecretKey) {
+        Write-Output $Config
     }
 }
 
