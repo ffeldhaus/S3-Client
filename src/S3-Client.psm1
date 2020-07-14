@@ -2422,17 +2422,17 @@ function Global:Remove-AwsConfig {
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation = $AWS_CREDENTIALS_FILE
     )
 
-    Process {
-        $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
+    Write-Log -Level Verbose -Config $Config -Message "Remove AWS config"
 
-        $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
-        $Credentials = $Credentials | Where-Object { $_.ProfileName -ne $ProfileName }
-        ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
+    $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
 
-        $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
-        $Configs = $Configs | Where-Object { $_.ProfileName -ne $ProfileName }
-        ConvertTo-AwsConfigFile -Config $Configs -AwsConfigFile $ConfigLocation
-    }
+    $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
+    $Credentials = $Credentials | Where-Object { $_.ProfileName -ne $ProfileName }
+    ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
+
+    $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
+    $Configs = $Configs | Where-Object { $_.ProfileName -ne $ProfileName }
+    ConvertTo-AwsConfigFile -Config $Configs -AwsConfigFile $ConfigLocation
 }
 
 Set-Alias -Name Add-AwsPolicyStatement -Value New-AwsPolicy
