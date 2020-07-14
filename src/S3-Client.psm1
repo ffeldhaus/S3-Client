@@ -2442,9 +2442,37 @@ Set-Alias -Name New-S3BucketPolicy -Value New-AwsPolicy
 Set-Alias -Name Add-S3BucketPolicyStatement -Value New-AwsPolicy
 <#
     .SYNOPSIS
-    Create new S3 Bucket Policy
+    Create new AWS Policy
     .DESCRIPTION
-    Create new S3 Bucket Policy
+    Create new AWS Policy
+    .PARAMETER PolicyString
+    S3 Bucket Policy to add statements to
+    .PARAMETER Sid
+    The Sid element is optional. The Sid is only intended as a description for the user. It is stored but not interpreted by the StorageGRID Webscale system.
+    .PARAMETER Effect
+    Use the Effect element to establish whether the specified operations are allowed or denied. You must identify operations you allow (or deny) on buckets or objects using the supported Action element keywords.
+    .PARAMETER Principal
+    Use the Principal element in a policy to specify the principal that is allowed or denied access to a resource
+    .PARAMETER NotPrincipal
+    Use the NotPrincipal element in a policy to specify all but the specified principal that is allowed or denied access to a resource
+    .PARAMETER Resource
+    The Resource element identifies buckets and objects. With it you can allow or deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.
+    .PARAMETER NotResource
+    The NotResource element identifies all but the specified buckets and objects. With it you can allow or deny permissions to all but the specified buckets and objects using the uniform resource name (URN) to identify the resource.
+    .PARAMETER Action
+    The Action element specifies a list of actions or all actions using a wildcard (e.g. s3:*).
+    .PARAMETER NotAction
+    The NotAction element identifies all but the specified list of actions or all actions using a wildcard (e.g. s3:*).
+    .PARAMETER Condition
+    The Condition element is optional. Conditions allow you to build expressions to determine when a policy should be applied.
+    .PARAMETER FullAccess
+    Grant full access.
+    .PARAMETER ReadOnlyAccess
+    Grant read only access.
+    .PARAMETER DenyWriteDeleteAndPolicyChanges
+    Explicitly deny write operations.
+    .PARAMETER WriteOnceReadManyAccess
+    Explicitly deny write operations.
 #>
 function Global:New-AwsPolicy {
     [CmdletBinding(DefaultParameterSetName = "PrincipalResourceAction")]
@@ -2468,122 +2496,122 @@ function Global:New-AwsPolicy {
             Mandatory = $False,
             Position = 3,
             ParameterSetName = "PrincipalResourceAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
+            HelpMessage = "Use the Principal element in a policy to specify the principal that is allowed or denied access to a resource")][PSCustomObject[]]
         [parameter(
             Mandatory = $False,
             Position = 3,
             ParameterSetName = "PrincipalResourceNotAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
+            HelpMessage = "Use the Principal element in a policy to specify the principal that is allowed or denied access to a resource")][PSCustomObject[]]
         [parameter(
             Mandatory = $False,
             Position = 3,
             ParameterSetName = "PrincipalNotResourceAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
+            HelpMessage = "Use the Principal element in a policy to specify the principal that is allowed or denied access to a resource")][PSCustomObject[]]
         [parameter(
             Mandatory = $False,
             Position = 3,
             ParameterSetName = "PrincipalNotResourceNotAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]$Principal,
+            HelpMessage = "Use the Principal element in a policy to specify the principal that is allowed or denied access to a resource")][PSCustomObject[]]$Principal,
         [parameter(
             Mandatory = $False,
             Position = 3,
             ParameterSetName = "NotPrincipalResourceAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
+            HelpMessage = "Use the NotPrincipal element in a policy to specify all but the specified principal that is allowed or denied access to a resource")][PSCustomObject[]]
         [parameter(
             Mandatory = $False,
             Position = 3,
             ParameterSetName = "NotPrincipalResourceNotAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
+            HelpMessage = "Use the NotPrincipal element in a policy to specify all but the specified principal that is allowed or denied access to a resource")][PSCustomObject[]]
         [parameter(
             Mandatory = $False,
             Position = 3,
             ParameterSetName = "NotPrincipalNotResourceAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]
+            HelpMessage = "Use the NotPrincipal element in a policy to specify all but the specified principal that is allowed or denied access to a resource")][PSCustomObject[]]
         [parameter(
             Mandatory = $False,
             Position = 3,
             ParameterSetName = "NotPrincipalNotResourceNotAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][PSCustomObject[]]$NotPrincipal,
+            HelpMessage = "Use the NotPrincipal element in a policy to specify all but the specified principal that is allowed or denied access to a resource")][PSCustomObject[]]$NotPrincipal,
         [parameter(
             Mandatory = $False,
             Position = 4,
             ParameterSetName = "PrincipalResourceAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
+            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow or deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
             Mandatory = $False,
             Position = 4,
             ParameterSetName = "PrincipalResourceNotAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
+            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow or deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
             Mandatory = $False,
             Position = 4,
             ParameterSetName = "NotPrincipalResourceAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
+            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow or deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
             Mandatory = $False,
             Position = 4,
             ParameterSetName = "NotPrincipalResourceNotAction",
-            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]$Resource = "arn:aws:s3:::*",
+            HelpMessage = "The Resource element identifies buckets and objects. With it you can allow or deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]$Resource = "arn:aws:s3:::*",
         [parameter(
             Mandatory = $False,
             Position = 4,
             ParameterSetName = "PrincipalNotResourceAction",
-            HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
+            HelpMessage = "The NotResource element identifies all but the specified buckets and objects. With it you can allow or deny permissions to all but the specified buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
             Mandatory = $False,
             Position = 4,
             ParameterSetName = "PrincipalNotResourceNotAction",
-            HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
+            HelpMessage = "The NotResource element identifies all but the specified buckets and objects. With it you can allow or deny permissions to all but the specified buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
             Mandatory = $False,
             Position = 4,
             ParameterSetName = "NotPrincipalNotResourceAction",
-            HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
+            HelpMessage = "The NotResource element identifies all but the specified buckets and objects. With it you can allow or deny permissions to all but the specified buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]
         [parameter(
             Mandatory = $False,
             Position = 4,
             ParameterSetName = "NotPrincipalNotResourceNotAction",
-            HelpMessage = "The NotResource element identifies buckets and objects. With it you can deny permissions to buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]$NotResource,
+            HelpMessage = "The NotResource element identifies all but the specified buckets and objects. With it you can allow or deny permissions to all but the specified buckets and objects using the uniform resource name (URN) to identify the resource.")][System.UriBuilder[]]$NotResource,
         [parameter(
             Mandatory = $False,
             Position = 5,
             ParameterSetName = "PrincipalResourceAction",
-            HelpMessage = "The Action element specifies a list of allowed actions and may allow all actions using a wildcard (e.g. s3:*).")][String[]]
+            HelpMessage = "The Action element identifies a list of actions or all actions using a wildcard (e.g. s3:*).")][String[]]
         [parameter(
             Mandatory = $False,
             Position = 5,
             ParameterSetName = "PrincipalNotResourceAction",
-            HelpMessage = "The Action element specifies a list of allowed actions and may allow all actions using a wildcard (e.g. s3:*).")][String[]]
+            HelpMessage = "The Action element identifies a list of actions or all actions using a wildcard (e.g. s3:*).")][String[]]
         [parameter(
             Mandatory = $False,
             Position = 5,
             ParameterSetName = "NotPrincipalResourceAction",
-            HelpMessage = "The Action element specifies a list of allowed actions and may allow all actions using a wildcard (e.g. s3:*).")][String[]]
+            HelpMessage = "The Action element identifies a list of actions or all actions using a wildcard (e.g. s3:*).")][String[]]
         [parameter(
             Mandatory = $False,
             Position = 5,
             ParameterSetName = "NotPrincipalNotResourceAction",
-            HelpMessage = "The Action element specifies a list of allowed actions and may allow all actions using a wildcard (e.g. s3:*).")][String[]]$Action = "s3:*",
+            HelpMessage = "The Action element identifies a list of actions or all actions using a wildcard (e.g. s3:*).")][String[]]$Action = "s3:*",
         [parameter(
             Mandatory = $False,
             Position = 5,
             ParameterSetName = "PrincipalResourceNotAction",
-            HelpMessage = "The NotAction element specifies a list of denied actions and may deny all actions using a wildcard (e.g. s3:*).")][String[]]
+            HelpMessage = "The NotAction element identifies all but the specified list of actions or all actions using a wildcard (e.g. s3:*).")][String[]]
         [parameter(
             Mandatory = $False,
             Position = 5,
             ParameterSetName = "PrincipalNotResourceNotAction",
-            HelpMessage = "The NotAction element specifies a list of denied actions and may deny all actions using a wildcard (e.g. s3:*).")][String[]]
+            HelpMessage = "The NotAction element identifies all but the specified list of actions or all actions using a wildcard (e.g. s3:*).")][String[]]
         [parameter(
             Mandatory = $False,
             Position = 5,
             ParameterSetName = "NotPrincipalResourceNotAction",
-            HelpMessage = "The NotAction element specifies a list of denied actions and may deny all actions using a wildcard (e.g. s3:*).")][String[]]
+            HelpMessage = "The NotAction element identifies all but the specified list of actions or all actions using a wildcard (e.g. s3:*).")][String[]]
         [parameter(
             Mandatory = $False,
             Position = 5,
             ParameterSetName = "NotPrincipalNotResourceNotAction",
-            HelpMessage = "The NotAction element specifies a list of denied actions and may deny all actions using a wildcard (e.g. s3:*).")][String[]]$NotAction,
+            HelpMessage = "The NotAction element identifies all but the specified list of actions or all actions using a wildcard (e.g. s3:*).")][String[]]$NotAction,
         [parameter(
             Mandatory = $False,
             Position = 6,
@@ -2595,7 +2623,7 @@ function Global:New-AwsPolicy {
         [parameter(
             Mandatory = $False,
             Position = 8,
-            HelpMessage = "Grant full access.")][Switch]$ReadOnlyAccess,
+            HelpMessage = "Grant read only access.")][Switch]$ReadOnlyAccess,
         [parameter(
             Mandatory = $False,
             Position = 9,
@@ -2606,131 +2634,131 @@ function Global:New-AwsPolicy {
             HelpMessage = "Explicitly deny write operations.")][Alias("WormAccess")][Switch]$WriteOnceReadManyAccess
     )
 
-    Process {
-        # see https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html for details on Policies
+    Write-Log -Level Verbose -Config $Config -Message "Create or add to AWS Policy"
 
-        if ($CurrentSgwServer -and ($Resource -match "arn:aws" -or $NotResource -match "arn:aws") -or $Principal.Keys -match 'SGWS') {
-            Write-Warning "Resource starts with arn:aws:"
-            Write-Warning "If the policy is created for an S3 service different than AWS (e.g. StorageGRID 11.1 and earlier),the Resource may need to be specified as:"
-            if ($Resource) {
-                foreach ($WrongResource in $Resource) {
-                    Write-Warning $($WrongResource.Uri.OriginalString -replace "arn:aws:", "urn:sgws:")
-                }
+    # see https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html for details on Policies
+
+    if ($CurrentSgwServer -and ($Resource -match "arn:aws" -or $NotResource -match "arn:aws") -or $Principal.Keys -match 'SGWS') {
+        Write-Log -Level Warning -Config $Config -Message "Resource starts with arn:aws:"
+        Write-Log -Level Warning -Config $Config -Message "If the policy is created for an S3 service different than AWS (e.g. StorageGRID 11.1 and earlier),the Resource may need to be specified as:"
+        if ($Resource) {
+            foreach ($WrongResource in $Resource) {
+                Write-Log -Level Warning -Config $Config -Message $($WrongResource.Uri.OriginalString -replace "arn:aws:", "urn:sgws:")
             }
-            else {
-                foreach ($WrongNotResource in $NotResource) {
-                    Write-Warning $($WrongNotResource.Uri.OriginalString -replace "arn:aws:", "urn:sgws:")
-                }
-            }
-        }
-
-        if ($FullAccess.IsPresent) {
-            $Effect = "Allow"
-            $Action = "s3:*"
-        }
-
-        if (!$PolicyString) {
-            $Policy = [PSCustomObject]@{ Version = "2012-10-17"; Statement = @() }
         }
         else {
-            $Policy = ConvertFrom-Json -InputObject $PolicyString
-            $Statement = $Policy.Statement | Select-Object -First 1
-            $Policy.Statement = $Policy.Statement | Select-Object -Skip 1
-        }
-
-        if (!$Statement) {
-            $Statement = @{Effect = $Effect }
-        }
-
-        if (!$Statement.Sid -and $Sid) {
-            $Statement.Sid = $Sid
-        }
-
-        if (!$Statement.Principal -and $Principal) {
-            # if everyone should be authorized (*) an array is not allowed in the policy
-            if ($Principal -eq "*") {
-                $Statement.Principal = $Principal[0]
-            }
-            else {
-                $Statement.Principal = $Principal
+            foreach ($WrongNotResource in $NotResource) {
+                Write-Log -Level Warning -Config $Config -Message $($WrongNotResource.Uri.OriginalString -replace "arn:aws:", "urn:sgws:")
             }
         }
-        if (!$Statement.NotPrincipal -and $NotPrincipal) {
-            if ($NotPrincipal -eq "*") {
-                $Statement.NotPrincipal = $NotPrincipal[0]
-            }
-            else {
-                $Statement.NotPrincipal = Principal
-            }
-        }
-        if (!$Statement.Resource -and $Resource) {
-            $Statement.Resource = $Resource.Uri.AbsoluteUri
-        }
-        if (!$Statement.NotResource -and $NotResource) {
-            $Statement.NotResource = $NotResource.Uri.AbsoluteUri
-        }
-        if (!$Statement.Action -and $Action) {
-            $Statement.Action = $Action
-        }
-        if (!$Statement.NotAction -and $NotAction) {
-            $Statement.NotAction = $NotAction
-        }
-        if (!$Statement.Condition -and $Condition) {
-            $Statement.Condition = $Condition
-        }
-
-        if ($ReadOnlyAccess.IsPresent) {
-            $Effect = "Allow"
-            if ($Principal) {
-                # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
-                if ($Resource -match "aws") {
-                    $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
-                }
-                else {
-                    $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketVersioning", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging", "s3:GetReplicationConfiguration")
-                }
-            }
-            else {
-                # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
-                if ($Resource -match "aws") {
-                    $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
-                }
-                else {
-                    $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketVersioning", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging", "s3:GetReplicationConfiguration")
-                }
-            }
-        }
-
-        if ($DenyWriteDeleteAndPolicyChanges.IsPresent) {
-            $Effect = "Deny"
-            # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
-            if ($Resource -match "aws") {
-                $Statement.Action = @("s3:AbortMultipartUpload", "s3:DeleteObject", "s3:DeleteObjectTagging", "s3:DeleteObjectVersion", "s3:DeleteObjectVersionTagging", "s3:PutObject", "s3:PutObjectAcl", "s3:PutObjectTagging", "s3:PutObjectVersionAcl", "s3:PutObjectVersionTagging", "s3:RestoreObject", "s3:CreateBucket", "s3:DeleteBucket", "s3:DeleteBucketPolicy", "s3:DeleteBucketWebsite", "s3:PutAccelerateConfiguration", "s3:PutAnalyticsConfiguration", "s3:PutBucketAcl", "s3:PutBucketCORS", "s3:PutBucketLogging", "s3:PutBucketNotification", "s3:PutBucketPolicy", "s3:PutBucketRequestPayment", "s3:PutBucketTagging", "s3:PutBucketVersioning", "s3:PutBucketWebsite", "s3:PutEncryptionConfiguration", "s3:PutInventoryConfiguration", "s3:PutLifecycleConfiguration", "s3:PutMetricsConfiguration", "s3:PutReplicationConfiguration")
-            }
-            else {
-                $Statement.Action = @("s3:AbortMultipartUpload", "s3:DeleteObject", "s3:DeleteObjectTagging", "s3:DeleteObjectVersion", "s3:DeleteObjectVersionTagging", "s3:PutObject", "s3:PutObjectTagging", "s3:PutObjectVersionTagging", "s3:CreateBucket", "s3:DeleteBucket", "s3:DeleteBucketPolicy", "s3:PutBucketCORS", "s3:PutBucketLogging", "s3:PutBucketNotification", "s3:PutBucketPolicy", "s3:PutBucketTagging", "s3:PutBucketVersioning", "s3:PutReplicationConfiguration")
-            }
-        }
-
-        if ($WriteOnceReadManyAccess) {
-            $Statement.Effect = "Allow"
-            $Statement.Action = "s3:*"
-            $Policy.Statement += $Statement.PSObject.Copy()
-            $Statement.Effect = "Deny"
-            # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
-            if ($Resource -match "aws") {
-                Write-Warning "Not supported by AWS!"
-            }
-            $Statement.Action = @("s3:PutOverwriteObject", "s3:DeleteObject", "s3:DeleteObjectVersion", "s3:PutBucketPolicy", "s3:DeleteBucketPolicy")
-        }
-
-        $Policy.Statement += $Statement
-
-        # convert to JSON
-        $PolicyString = ConvertTo-Json -InputObject $Policy -Depth 10
-
-        Write-Output $PolicyString
     }
+
+    if ($FullAccess.IsPresent) {
+        $Effect = "Allow"
+        $Action = "s3:*"
+    }
+
+    if (!$PolicyString) {
+        $Policy = [PSCustomObject]@{ Version = "2012-10-17"; Statement = @() }
+    }
+    else {
+        $Policy = ConvertFrom-Json -InputObject $PolicyString
+        $Statement = $Policy.Statement | Select-Object -First 1
+        $Policy.Statement = $Policy.Statement | Select-Object -Skip 1
+    }
+
+    if (!$Statement) {
+        $Statement = @{Effect = $Effect }
+    }
+
+    if (!$Statement.Sid -and $Sid) {
+        $Statement.Sid = $Sid
+    }
+
+    if (!$Statement.Principal -and $Principal) {
+        # if everyone should be authorized (*) an array is not allowed in the policy
+        if ($Principal -eq "*") {
+            $Statement.Principal = $Principal[0]
+        }
+        else {
+            $Statement.Principal = $Principal
+        }
+    }
+    if (!$Statement.NotPrincipal -and $NotPrincipal) {
+        if ($NotPrincipal -eq "*") {
+            $Statement.NotPrincipal = $NotPrincipal[0]
+        }
+        else {
+            $Statement.NotPrincipal = Principal
+        }
+    }
+    if (!$Statement.Resource -and $Resource) {
+        $Statement.Resource = $Resource.Uri.AbsoluteUri
+    }
+    if (!$Statement.NotResource -and $NotResource) {
+        $Statement.NotResource = $NotResource.Uri.AbsoluteUri
+    }
+    if (!$Statement.Action -and $Action) {
+        $Statement.Action = $Action
+    }
+    if (!$Statement.NotAction -and $NotAction) {
+        $Statement.NotAction = $NotAction
+    }
+    if (!$Statement.Condition -and $Condition) {
+        $Statement.Condition = $Condition
+    }
+
+    if ($ReadOnlyAccess.IsPresent) {
+        $Effect = "Allow"
+        if ($Principal) {
+            # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
+            if ($Resource -match "aws") {
+                $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
+            }
+            else {
+                $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketVersioning", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging", "s3:GetReplicationConfiguration")
+            }
+        }
+        else {
+            # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
+            if ($Resource -match "aws") {
+                $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetAccelerateConfiguration", "s3:GetAnalyticsConfiguration", "s3:GetBucketAcl", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketLogging", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketRequestPayment", "s3:GetBucketTagging", "s3:GetBucketVersioning", "s3:GetBucketWebsite", "s3:GetInventoryConfiguration", "s3:GetIpConfiguration", "s3:GetLifecycleConfiguration", "s3:GetMetricsConfiguration", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectTorrent", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionForReplication", "s3:GetObjectVersionTagging", "s3:GetObjectVersionTorrent", "s3:GetReplicationConfiguration")
+            }
+            else {
+                $Statement.Action = @("s3:ListBucket", "s3:ListBucketVersions", "s3:ListAllMyBuckets", "s3:ListBucketMultipartUploads", "s3:ListMultipartUploadParts", "s3:GetBucketCORS", "s3:GetBucketLocation", "s3:GetBucketNotification", "s3:GetBucketPolicy", "s3:GetBucketVersioning", "s3:GetObject", "s3:GetObjectAcl", "s3:GetObjectTagging", "s3:GetObjectVersion", "s3:GetObjectVersionAcl", "s3:GetObjectVersionTagging", "s3:GetReplicationConfiguration")
+            }
+        }
+    }
+
+    if ($DenyWriteDeleteAndPolicyChanges.IsPresent) {
+        $Effect = "Deny"
+        # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
+        if ($Resource -match "aws") {
+            $Statement.Action = @("s3:AbortMultipartUpload", "s3:DeleteObject", "s3:DeleteObjectTagging", "s3:DeleteObjectVersion", "s3:DeleteObjectVersionTagging", "s3:PutObject", "s3:PutObjectAcl", "s3:PutObjectTagging", "s3:PutObjectVersionAcl", "s3:PutObjectVersionTagging", "s3:RestoreObject", "s3:CreateBucket", "s3:DeleteBucket", "s3:DeleteBucketPolicy", "s3:DeleteBucketWebsite", "s3:PutAccelerateConfiguration", "s3:PutAnalyticsConfiguration", "s3:PutBucketAcl", "s3:PutBucketCORS", "s3:PutBucketLogging", "s3:PutBucketNotification", "s3:PutBucketPolicy", "s3:PutBucketRequestPayment", "s3:PutBucketTagging", "s3:PutBucketVersioning", "s3:PutBucketWebsite", "s3:PutEncryptionConfiguration", "s3:PutInventoryConfiguration", "s3:PutLifecycleConfiguration", "s3:PutMetricsConfiguration", "s3:PutReplicationConfiguration")
+        }
+        else {
+            $Statement.Action = @("s3:AbortMultipartUpload", "s3:DeleteObject", "s3:DeleteObjectTagging", "s3:DeleteObjectVersion", "s3:DeleteObjectVersionTagging", "s3:PutObject", "s3:PutObjectTagging", "s3:PutObjectVersionTagging", "s3:CreateBucket", "s3:DeleteBucket", "s3:DeleteBucketPolicy", "s3:PutBucketCORS", "s3:PutBucketLogging", "s3:PutBucketNotification", "s3:PutBucketPolicy", "s3:PutBucketTagging", "s3:PutBucketVersioning", "s3:PutReplicationConfiguration")
+        }
+    }
+
+    if ($WriteOnceReadManyAccess) {
+        $Statement.Effect = "Allow"
+        $Statement.Action = "s3:*"
+        $Policy.Statement += $Statement.PSObject.Copy()
+        $Statement.Effect = "Deny"
+        # StorageGRID does not allow the full set of actions to be specified, therefore we need to differentiate
+        if ($Resource -match "aws") {
+            Write-Log -Level Warning -Config $Config -Message "Not supported by AWS!"
+        }
+        $Statement.Action = @("s3:PutOverwriteObject", "s3:DeleteObject", "s3:DeleteObjectVersion", "s3:PutBucketPolicy", "s3:DeleteBucketPolicy")
+    }
+
+    $Policy.Statement += $Statement
+
+    # convert to JSON
+    $PolicyString = ConvertTo-Json -InputObject $Policy -Depth 10
+
+    Write-Output $PolicyString
 }
 
 ### S3 Cmdlets ###
