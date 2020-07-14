@@ -2796,7 +2796,7 @@ New-Alias -Name Get-S3Bucket -Value Get-S3Buckets
     .PARAMETER RetryCount
     Current retry count
     .PARAMETER BucketName
-    Bucket Name
+    Bucket name
 #>
 function Global:Get-S3Buckets {
     [CmdletBinding(DefaultParameterSetName = "none")]
@@ -2866,6 +2866,10 @@ function Global:Get-S3Buckets {
     )
 
     Begin {
+        trap { Write-Log -Level Critical -Config $Config -ErrorRecord $_ }
+
+        Write-Log -Level Verbose -Config $Config -Message "Retrieving all buckets"
+
         if (!$Server) {
             $Server = $Global:CurrentSgwServer
         }
@@ -2876,7 +2880,7 @@ function Global:Get-S3Buckets {
     }
 
     Process {
-        Write-Verbose "Retrieving all buckets"
+        trap { Write-Log -Level Critical -Config $Config -ErrorRecord $_ }
 
         if ($AccountId) {
             $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
@@ -2888,97 +2892,106 @@ function Global:Get-S3Buckets {
                 Write-Output $AwsRequest
             }
             else {
-                $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
+                $Task = $AwsRequest | Invoke-AwsRequest
+                $Result = Test-AwsResponse -Task $Task -RetryCount $RetryCount
 
-                if ($Task.Result.IsSuccessStatusCode) {
-                    if ($Task.Result.Content.Headers.ContentType -notmatch "application/xml") {
-                        Throw "Response content type is $($Task.Result.Content.Headers.ContentType), but expecting application/xml"
-                    }
-                    $Content = [System.Xml.XmlDocument]$Task.Result.Content.ReadAsStringAsync().Result
+                switch ($Result.Status) {
+                    "SUCCESS" {
+                        if ($Task.Result.Content.Headers.ContentType -notmatch "application/xml") {
+                            Throw "Response content type is $($Task.Result.Content.Headers.ContentType), but expecting application/xml"
+                        }x
+                        $Content = [System.Xml.XmlDocument]$Task.Result.Content.ReadAsStringAsync().Result
 
-                    if ($Content.ListAllMyBucketsResult) {
-                        if ($BucketName) {
-                            $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes | Where-Object { $_.Name -eq (ConvertTo-Punycode -Config $Config -BucketName $BucketName) }
-                        }
-                        else {
-                            $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes
-                        }
-
-                        $RunspacePool = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateRunspacePool(1, $Config.MaxConcurrentRequests)
-                        $RunspacePool.Open()
-
-                        $Tasks = New-Object System.Collections.ArrayList
-
-                        foreach ($XmlBucket in $XmlBuckets) {
-                            $UnicodeBucketName = ConvertFrom-Punycode -BucketName $XmlBucket.Name
-                            # ensure that we keep uppercase letters
-                            if ($UnicodeBucketName -eq $XmlBucket.Name) {
-                                $UnicodeBucketName = $XmlBucket.Name
+                        if ($Content.ListAllMyBucketsResult) {
+                            if ($BucketName) {
+                                $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes | Where-Object { $_.Name -eq (ConvertTo-Punycode -Config $Config -BucketName $BucketName) }
                             }
-                            $Bucket = [PSCustomObject]@{ BucketName = $UnicodeBucketName; CreationDate = $XmlBucket.CreationDate; OwnerId = $Content.ListAllMyBucketsResult.Owner.ID; OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName; Region = $Location }
+                            else {
+                                $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes
+                            }
 
-                            $Task = $Bucket | Get-S3BucketLocation -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -DryRun | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
-                            $Task | Add-Member -MemberType NoteProperty -Name Bucket -Value $Bucket
-                            $null = $Tasks.Add($Task)
-                                    }
+                            $Tasks = New-Object -TypeName System.Collections.ArrayList
+                            $AwsRequestQueue = New-Object -TypeName System.Collections.Queue
 
-                        while ($Tasks) {
-                            Start-Sleep -Milliseconds 100
-                            $CompletedTasks = $Tasks | Where-Object { $_.IsCompleted }
-                            foreach ($Task in $CompletedTasks) {
-                                if ($Task.Result.IsSuccessStatusCode) {
-                                    # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
-                                    $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-
-                                    if (!$Content.GetElementsByTagName("LocationConstraint").InnerText) {
-                                        # if no location is returned, bucket is in default region us-east-1
-                                        $Task.Bucket.Region = "us-east-1"
-                                    }
-                                    else {
-                                        $Task.Bucket.Region = $Content.GetElementsByTagName("LocationConstraint").InnerText
-                                    }
+                            foreach ($XmlBucket in $XmlBuckets) {
+                                $UnicodeBucketName = ConvertFrom-Punycode -BucketName $XmlBucket.Name
+                                # ensure that we keep uppercase letters
+                                if ($UnicodeBucketName -eq $XmlBucket.Name) {
+                                    $UnicodeBucketName = $XmlBucket.Name
+                                }
+                                $Bucket = [PSCustomObject]@{
+                                    BucketName = $UnicodeBucketName
+                                    CreationDate = $XmlBucket.CreationDate
+                                    OwnerId = $Content.ListAllMyBucketsResult.Owner.ID
+                                    OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName
+                                    Region = $Location
                                 }
 
-                                # TODO: consider adding error handling or decide that location/region is returned on best effort
-                                Write-Output $Task.Bucket
+                                $AwsRequest= $Bucket | Get-S3BucketLocation -Config $Config -Presign:$Presign -DryRun
+                                $AwsRequest | Add-Member -MemberType NoteProperty -Name Bucket -Value $Bucket
+                                $AwsRequestQueue.Enqueue($AwsRequest)
+                            }
 
-                                $null = $Tasks.Remove($Task)
+                            while ($AwsRequestQueue.Count -gt 0 -or $Tasks.Count -gt 0) {
+                                if ($AwsRequestQueue.Count -gt 0 -and $Tasks.Count -lt $Config.MaxConcurrentRequests) {
+                                    $AwsRequest = $AwsRequestQueue.Dequeue()
+                                    $Task = $AwsRequest | Invoke-AwsRequest
+                                    $Task | Add-Member -MemberType NoteProperty -Name Bucket -Value $AwsRequest.Bucket
+                                    $null = $Tasks.Add($Task)
+                                }
+
+                                $CompletedTasks = $Tasks | Where-Object { $_.IsCompleted }
+                                foreach ($Task in $CompletedTasks) {
+                                    $Result = Test-AwsResponse -Task $Task -RetryCount $RetryCount
+                                    switch ($Result.Status) {
+                                        "SUCCESS" {
+                                            # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
+                                            $Content = [System.Xml.XmlDocument]$Task.Result.Content.ReadAsStringAsync().Result
+
+                                            if (!$Content.GetElementsByTagName("LocationConstraint").InnerText) {
+                                                # if no location is returned, bucket is in default region us-east-1
+                                                $Task.Bucket.Region = "us-east-1"
+                                            }
+                                            else {
+                                                $Task.Bucket.Region = $Content.GetElementsByTagName("LocationConstraint").InnerText
+                                            }
+                                            Write-Output $Task.Bucket
+                                        }
+                                        "RETRY" {
+                                            $RetryTask = $Task.Bucket | Get-S3BucketLocation -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Presign:$Presign -DryRun
+                                            $AwsRequest | Add-Member -MemberType NoteProperty -Name Bucket -Value $Task.Bucket
+                                            $Tasks.Add($RetryTask)
+                                        }
+                                        "FAILED" {
+                                            Write-Log -Level Warning -Config $Config -Message $Result.Message
+                                            Throw $Task.Exception
+                                        }
+                                        default {
+                                            Throw $Result.Message
+                                        }
+                                    }
+                                    $Tasks.Remove($Task)
+                                }
+
+                                Start-Sleep -Milliseconds 10
                             }
                         }
                     }
-                }
-                elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                    $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
-                    $RetryCount++
-                    Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
-                    Start-Sleep -Seconds $SleepSeconds
-                    Get-S3Buckets -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName
-                }
-                elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
-                    Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
-                }
-                elseif ($Task.Exception -match "Device not configured") {
-                    Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
-                }
-                elseif ($Task.IsFaulted) {
-                    Throw $Task.Exception
-                }
-                elseif ($Task.Result) {
-                    $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                    if ($Result.Error.Message) {
-                        Throw $Result.Error.Message
+                    "RETRY" {
+                        Get-S3Buckets -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName
                     }
-                    else {
-                        Throw $Task.Result.StatusCode
+                    "FAILED" {
+                        Write-Log -Level Warning -Config $Config -Message $Result.Message
+                        Throw $Task.Exception
                     }
-                }
-                else {
-                    Throw "Task failed with status $($Task.Status)"
+                    default {
+                        Throw $Result.Message
+                    }
                 }
             }
         }
         elseif ($Server.SupportedApiVersions -match "1" -and !$Server.AccountId -and !$AccountId -and $Server.S3EndpointUrl -and !$Server.DisableAutomaticAccessKeyGeneration) {
-            Write-Host "No config provided, but connected to StorageGRID Webscale. Therefore retrieving all buckets of all tenants."
+            Write-Log -Level Information -Config $Config -Message "No config provided, but connected to StorageGRID Webscale. Therefore retrieving all buckets of all tenants."
             $Accounts = Get-SgwAccounts -Capabilities "s3"
             foreach ($Account in $Accounts) {
                 Get-S3Buckets -Server $CurrentSgwServer -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $CurrentSgwServer.S3EndpointUrl -AccountId $Account.Id
