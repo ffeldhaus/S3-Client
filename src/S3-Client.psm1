@@ -222,8 +222,10 @@ function ConvertTo-AwsConfigFile {
                     $Output += "$($Property.Name) = $($Property.Value)`n"
                 }
                 foreach ($Section in $Sections) {
-                    $Output += "$($Section.Name) =`n"
                     $Properties = $Section.Value.PSObject.Members | Where-Object { $_.MemberType -eq "NoteProperty" }
+                    if ($Properties) {
+                        $Output += "$($Section.Name) =`n"
+                    }
                     foreach ($Property in $Properties) {
                         $Output += "  $($Property.Name) = $($Property.Value)`n"
                     }
