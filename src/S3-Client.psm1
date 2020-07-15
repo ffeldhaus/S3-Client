@@ -986,6 +986,14 @@ function Global:Get-AwsRequest {
             $InFile = Join-Path -Path $PWD -ChildPath ($InFile -replace "^./|^.\\","")
         }
 
+        # if no config object is suplied, use default config
+        if (!$Config) {
+            $Config = Get-AwsConfig
+            if (!$Config) {
+                throw "No config supplied and no default config available"
+            }
+        }
+
         # as we are modifying the endpoint URL, make sure to work on a new object and not modify the original object
         $Config = $Config.PSObject.Copy()
         $Config.EndpointUrl = [System.UriBuilder]$Config.EndpointUrl.ToString()
