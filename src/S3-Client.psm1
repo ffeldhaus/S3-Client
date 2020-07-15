@@ -1684,7 +1684,7 @@ function Global:Add-AwsConfig {
             Mandatory = $False,
             Position = 17,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
+            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType,
         [parameter(
             Mandatory = $False,
             Position = 18,
