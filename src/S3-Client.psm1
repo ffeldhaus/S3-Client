@@ -448,7 +448,6 @@ function ConvertFrom-Punycode {
             if (Test-Path -Path $Config.LogPath -PathType Container) {
                 $FileName = "$(Get-Date -Format FileDate)-$($Config.ProfileName).log"
                 $LogFile = Join-Path -Path $Config.LogPath -ChildPath $FileName
-                Write-Host $LogFile
                 $Message | Out-File -Append -FilePath $LogFile
             }
             elseif (Test-Path -Path $Config.LogPath.Parent -PathType Container) {
@@ -2901,7 +2900,7 @@ function Global:Get-S3Buckets {
                     "SUCCESS" {
                         if ($Task.Result.Content.Headers.ContentType -notmatch "application/xml") {
                             Throw "Response content type is $($Task.Result.Content.Headers.ContentType), but expecting application/xml"
-                        }x
+                        }
                         $Content = [System.Xml.XmlDocument]$Task.Result.Content.ReadAsStringAsync().Result
 
                         if ($Content.ListAllMyBucketsResult) {
