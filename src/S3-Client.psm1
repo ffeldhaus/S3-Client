@@ -1246,12 +1246,16 @@ function Global:Get-AwsRequest {
         $HttpRequestMessage | Add-Member -MemberType NoteProperty -Name Config -Value $Config
 
         # create a unique ID based on the request to store and retrieve recordings
-        $RecordRelevantHeaders = ($AwsRequest.Headers.ToString() -split "`n" | Where-Object { $_ -notmatch '^Authorization:|^x-amz-date:|^date:' }) -join "`n"
-        $RecordIdString = "$Method`n$($HttpRequestMessage.RequestUri)`n$($RecordRelevantHeaders)"
-        if ($HttpRequestMessage.Content.Headers) {
-            $RecordIdString += $HttpRequestMessage.Content.Headers.ToString()
+        $RecordIdString = "$Method`n$($HttpRequestMessage.RequestUri)`n"
+        if ($HttpRequestMessage.Headers) {
+            $RecordIdString += ($HttpRequestMessage.Headers.ToString() -split "`n" | Where-Object { $_ -notmatch '^Authorization:|^x-amz-date:|^date:' }) -join "`n"
         }
-        $RecordIdString += $ContentMd5
+        if ($HttpRequestMessage.Content.Headers) {
+            $RecordIdString += "$HttpRequestMessage.Content.Headers`n"
+        }
+        if ($ContentMd5) {
+            $RecordIdString += $ContentMd5
+        }
         $RecordId = Get-AwsHash -StringToHash $RecordIdString
 
         $HttpRequestMessage | Add-Member -MemberType NoteProperty -Name RecordIdString -Value $RecordIdString
