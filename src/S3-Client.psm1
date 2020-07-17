@@ -505,6 +505,9 @@ function ConvertFrom-Punycode {
         if (!$Config) {
             $Config = Get-AwsConfig -ProfileName $ProfileName -LogPath $Path
         }
+        if (!$Config.LogPath) {
+            throw "Logging not enabled for profile $($Config.ProfileName)"
+        }
     }
 
     PROCESS {
