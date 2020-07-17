@@ -1331,7 +1331,13 @@ function Global:Invoke-AwsRequest {
     Write-Log -Level Verbose -Config $Config -Message "Invoking Request:`n$Method $RequestUri"
 
     if ($Config.RecordMode -eq "replay") {
-        $RecordFile = [System.IO.FileInfo](Join-Path -Path $Config.RecordPath -ChildPath $RecordId)
+        if ($S3ClientRecordState) {
+            $RecordFileName = "$($RecordId)-$($S3ClientRecordState)"
+        }
+        else {
+            $RecordFileName = $RecordId
+        }
+        $RecordFile = [System.IO.FileInfo](Join-Path -Path $Config.RecordPath -ChildPath $RecordFileName)
         Write-Log -Level Verbose -Config $Config -Message "Replaying response from file $RecordFile"
         $RecordFileExists = Test-Path -Path $RecordFile -PathType Leaf
         if ($RecordFileExists) {
@@ -1422,7 +1428,13 @@ function Global:Invoke-AwsRequest {
         if ($Config.RecordMode -eq "record") {
             $RecordPathExists = Test-Path -Path $Config.RecordPath -PathType Container
             if ($RecordPathExists) {
-                $RecordFile = [System.IO.FileInfo](Join-Path -Path $Config.RecordPath -ChildPath $RecordId)
+                if ($S3ClientRecordState) {
+                    $RecordFileName = "$($RecordId)-$($S3ClientRecordState)"
+                }
+                else {
+                    $RecordFileName = $RecordId
+                }
+                $RecordFile = [System.IO.FileInfo](Join-Path -Path $Config.RecordPath -ChildPath $RecordFileName)
                 Write-Log -Level Verbose -Config $Config -Message "Recording response to file $RecordFile"
 
                 # copy the raw content of the http response needs to a file

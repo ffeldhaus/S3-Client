@@ -359,7 +359,10 @@ Describe "Create Bucket" {
 Describe "List Buckets" {
 
     BeforeAll {
-        $BucketName = $BaseBucketName + "-list-buckets"
+        $S3ClientTest = "list-buckets"
+        $S3ClientTestStep = 1
+        $S3ClientRecordState = "$($S3ClientTest)-$($S3ClientTestStep)"
+        $BucketName = "$($BaseBucketName)-$($S3ClientTest)"
         Setup -BucketName $BucketName
     }
 
@@ -379,8 +382,8 @@ Describe "List Buckets" {
             $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
             $Bucket.BucketName | Should -Be $BucketName
         }
-        }
     }
+}
 
 Describe "Test Bucket existence" {
 
