@@ -1392,6 +1392,10 @@ function Global:Invoke-AwsRequest {
         }
         $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
+        $UserAgent = "PowerShell-S3-Client/$($MyInvocation.MyCommand.Version)"
+        Write-Log -Level Verbose -Config $Config -Message "Adding User Agent header: $UserAgent"
+        $HttpClient.DefaultRequestHeaders.UserAgent.Add($UserAgent)
+
         Write-Log -Level Verbose -Config $Config -Message "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
         $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
         Write-Log -Level Verbose -Config $Config -Message "Timeout set to $($HttpClient.Timeout)"
