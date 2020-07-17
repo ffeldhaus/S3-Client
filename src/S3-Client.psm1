@@ -1042,7 +1042,7 @@ function Global:Get-AwsRequest {
 
         # AWS expects a request payload hash for signer type AWS4 when changing an object (e.g. HTTP methods PUT, POST, DELETE) and also for unsecure connections via http instead of https
         if ($Method -match 'PUT|POST|DELETE' -and $Config.SignerType -eq "AWS4" -and ($Config.PayloadSigning -eq "true" -or ($Config.PayloadSigning -eq "auto" -and $Config.EndpointUrl -match "http://"))) {
-            if ($InFile) {
+            if ($InFile.Exists) {
                 $RequestPayloadHash = Get-AwsHash -FileToHash $InFile
             }
             elseif ($InStream) {
@@ -1207,34 +1207,32 @@ function Global:Get-AwsRequest {
             $StreamContent.Headers.ContentLength = $ContentLength
             $HttpRequestMessage.Content = $StreamContent
         }
-        elseif ($RequestPayload) {
+        elseif ($RequestPayload -or $Headers["content-md5"] -or $Headers["content-type"]) {
             Write-Log -Level Verbose -Config $Config -Message "RequestPayload:`n$RequestPayload"
             $StringContent = [System.Net.Http.StringContent]::new($RequestPayload)
             $HttpRequestMessage.Content = $StringContent
         }
 
         Write-Log -Level Verbose -Config $Config -Message "Adding content headers to HttpContent object"
-        if ($HttpRequestMessage.Content) {
-            if ($Headers["Content-MD5"]) {
-                $HttpRequestMessage.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["Content-MD5"])
-                $Headers.Remove("Content-MD5")
-            }
-            elseif ($Headers["Content-MD5"] -ne $null) {
-                Throw "Content-MD5 header specified but empty"
-            }
+        if ($Headers["content-md5"]) {
+            $HttpRequestMessage.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["content-md5"])
+            $Headers.Remove("content-md5")
+        }
+        elseif ($Headers["Content-MD5"] -ne $null) {
+            Throw "content-md5 header specified but empty"
+        }
 
-            if ($Headers["content-type"]) {
-                $HttpRequestMessage.Content.Headers.ContentType = $Headers["content-type"]
-                $Headers.Remove("content-type")
-            }
-            elseif ($Headers["content-type"] -ne $null) {
-                Throw "content-type header specified but empty"
-            }
+        if ($Headers["content-type"]) {
+            $HttpRequestMessage.Content.Headers.ContentType = $Headers["content-type"]
+            $Headers.Remove("content-type")
+        }
+        elseif ($Headers["content-type"] -ne $null) {
+            Throw "content-type header specified but empty"
         }
 
         Write-Log -Level Verbose -Config $Config -Message "Adding all other headers to the HttpRequestMessage object"
         foreach ($HeaderKey in $Headers.Keys) {
-            Write-Log -Level Debug -Config $Config -Message $HeaderKey
+            Write-Log -Level Debug -Config $Config -Message "$($HeaderKey):$($Headers[$HeaderKey])"
             # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
             if ($HeaderKey -eq "Authorization") {
                 $null = $HttpRequestMessage.Headers.TryAddWithoutValidation($HeaderKey, $Headers[$HeaderKey])
