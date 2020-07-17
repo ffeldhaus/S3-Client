@@ -425,9 +425,10 @@ function ConvertFrom-Punycode {
 
     PROCESS {
         $PSCallStack = Get-PSCallStack
-        $InvocationFunctionName = $PSCallStack[1].FunctionName -replace "Global:","" -replace "<[^>]*>",""
-        $InvocationScriptName = $PSCallStack[1].ScriptName
-        $InvocationScriptLineNumber = $PSCallStack[1].ScriptLineNumber
+        $Invocation = $PSCallStack[1]
+        $InvocationFunctionName = $Invocation.FunctionName -replace "Global:","" -replace "<[^>]*>",""
+        $InvocationScriptName = $Invocation.ScriptName
+        $InvocationScriptLineNumber = $Invocation.ScriptLineNumber
         $DateTime = Get-Date -Format o
 
         if ($Config.LogLevel -and $Config.LogLevel -ne "DEFAULT") {
