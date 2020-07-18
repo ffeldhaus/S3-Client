@@ -1346,12 +1346,14 @@ function Global:Invoke-AwsRequest {
             foreach ($Header in $TaskMetadata.ResultMetadata.Headers) {
                 $null = $HttpResponseMessage.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
             }
-            $ContentStream = [System.IO.FileStream]::new($TaskMetadata.ResultMetadata.ContentFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
-            $HttpContent = [System.Net.Http.StreamContent]::new($ContentStream)
-            foreach ($Header in $TaskMetadata.ResultMetadata.ContentHeaders) {
-                $null = $HttpContent.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
+            if ($TaskMetadata.ResultMetadata.ContentFile) {
+                $ContentStream = [System.IO.FileStream]::new($TaskMetadata.ResultMetadata.ContentFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
+                $HttpContent = [System.Net.Http.StreamContent]::new($ContentStream)
+                foreach ($Header in $TaskMetadata.ResultMetadata.ContentHeaders) {
+                    $null = $HttpContent.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
+                }
+                $HttpResponseMessage.Content = $HttpContent
             }
-            $HttpResponseMessage.Content = $HttpContent
             $Task = [System.Threading.Tasks.Task]::FromResult($HttpResponseMessage)
         }
         else {
@@ -1437,32 +1439,48 @@ function Global:Invoke-AwsRequest {
                 $RecordFile = [System.IO.FileInfo](Join-Path -Path $Config.RecordPath -ChildPath $RecordFileName)
                 Write-Log -Level Verbose -Config $Config -Message "Recording response to file $RecordFile"
 
-                # copy the raw content of the http response needs to a file
-                $ContentFile = Join-Path -Path $RecordFile.Directory -ChildPath ($RecordFile.BaseName + "-content.raw")
-                $ContentStream = [System.IO.FileStream]::new($ContentFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite)
-                $null = $Task.Result.Content.CopyToAsync($ContentStream)
-                # reset the file content stream to allow the content to be processed again by the Cmdlet running Invoke-AwsRequest
-                $ContentStream.Position=0
                 $HttpResponseMessage = $Task.Result
-                # add content headers to the file content stream
-                $HttpContent = [System.Net.Http.StreamContent]::new($ContentStream)
-                foreach ($Header in $Task.Result.Content.Headers) {
-                    $null = $HttpContent.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
-                }
-                # replace the response content with the file content
-                $HttpResponseMessage.Content = $HttpContent
-                # serialize the response message and add a reference to the content file
+
+                # serialize the response message
                 $HttpResponseMessageMetadata = @{
                     Version = $HttpResponseMessage.Version.ToString()
                     StatusCode = $HttpResponseMessage.StatusCode
                     Headers = $HttpResponseMessage.Headers
-                    ContentHeaders = $HttpResponseMessage.Content.Headers
-                    ContentFile = $ContentFile
                 }
+
+                # copy the raw content of the http response needs to a file
+                $ContentFile = Join-Path -Path $RecordFile.Directory -ChildPath ($RecordFile.BaseName + "-content.raw")
+                $ContentStream = [System.IO.FileStream]::new($ContentFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite)
+                # ensure that existing content is completely replaced
+                $ContentStream.SetLength(0)
+                $null = $HttpResponseMessage.Content.CopyToAsync($ContentStream).Result
+                # reset the file content stream to allow the content to be processed again by the Cmdlet running Invoke-AwsRequest
+                $ContentStream.Position = 0
+                # the length of the response is only available after reading it
+                if ($ContentStream.Length -gt 0) {
+                    # add content headers to the file content stream
+                    $HttpContent = [System.Net.Http.StreamContent]::new($ContentStream)
+                    foreach ($Header in $Task.Result.Content.Headers) {
+                        $null = $HttpContent.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
+                    }
+                    # replace the response content with the file content
+                    $HttpResponseMessage.Content = $HttpContent
+                    # add a reference to the content file
+                    $HttpResponseMessageMetadata.ContentFile = $ContentFile
+                    $HttpResponseMessageMetadata.ContentHeaders = $HttpResponseMessage.Content.Headers
+                }
+                else {
+                    # ensure that content file is removed when it is empty
+                    Remove-Item $ContentFile
+                }
+
                 # serialize the task data and store it in the record file
                 $TaskMetadata = @{
                     Status = $Task.Status
                     ResultMetadata = $HttpResponseMessageMetadata
+                }
+                if ($Task.Exception) {
+                    $TaskMetadata.Exception = $Task.Exception
                 }
                 $TaskMetadata | ConvertTo-Json -Depth 4 | Out-File -FilePath $RecordFile
             }
