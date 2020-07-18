@@ -2949,14 +2949,16 @@ function Global:Get-S3Buckets {
                         if ($Task.Result.Content.Headers.ContentType -notmatch "application/xml") {
                             Throw "Response content type is $($Task.Result.Content.Headers.ContentType), but expecting application/xml"
                         }
-                        $Content = [System.Xml.XmlDocument]$Task.Result.Content.ReadAsStringAsync().Result
+                        $Content = $Task.Result.Content.ReadAsStringAsync().Result
+                        Write-Log -Level DEBUG -Config $Config -Message "Response content:`n$Content"
+                        $Xml = [System.Xml.XmlDocument]$Content
 
-                        if ($Content.ListAllMyBucketsResult) {
+                        if ($Xml.ListAllMyBucketsResult) {
                             if ($BucketName) {
-                                $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes | Where-Object { $_.Name -eq (ConvertTo-Punycode -Config $Config -BucketName $BucketName) }
+                                $XmlBuckets = $Xml.ListAllMyBucketsResult.Buckets.ChildNodes | Where-Object { $_.Name -eq (ConvertTo-Punycode -Config $Config -BucketName $BucketName) }
                             }
                             else {
-                                $XmlBuckets = $Content.ListAllMyBucketsResult.Buckets.ChildNodes
+                                $XmlBuckets = $Xml.ListAllMyBucketsResult.Buckets.ChildNodes
                             }
 
                             $Tasks = New-Object -TypeName System.Collections.ArrayList
@@ -2971,8 +2973,8 @@ function Global:Get-S3Buckets {
                                 $Bucket = [PSCustomObject]@{
                                     BucketName = $UnicodeBucketName
                                     CreationDate = $XmlBucket.CreationDate
-                                    OwnerId = $Content.ListAllMyBucketsResult.Owner.ID
-                                    OwnerDisplayName = $Content.ListAllMyBucketsResult.Owner.DisplayName
+                                    OwnerId = $Xml.ListAllMyBucketsResult.Owner.ID
+                                    OwnerDisplayName = $Xml.ListAllMyBucketsResult.Owner.DisplayName
                                     Region = $Location
                                 }
 
