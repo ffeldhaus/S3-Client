@@ -1253,7 +1253,7 @@ function Global:Get-AwsRequest {
             $RecordIdString += ($HttpRequestMessage.Headers.ToString() -split "`n" | Where-Object { $_ -notmatch '^Authorization:|^x-amz-date:|^date:' }) -join "`n"
         }
         if ($HttpRequestMessage.Content.Headers) {
-            $RecordIdString += "$HttpRequestMessage.Content.Headers`n"
+            $RecordIdString += "$($HttpRequestMessage.Content.Headers.ToString())`n"
         }
         if ($ContentMd5) {
             $RecordIdString += $ContentMd5
