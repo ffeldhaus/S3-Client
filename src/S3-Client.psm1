@@ -1524,15 +1524,17 @@ function Global:Test-AwsResponse {
 
     $RedirectedRegion = New-Object -TypeName 'System.Collections.Generic.List[string]'
 
-    $Result = [PSCustomObject]@{Status="";RedirectedRegion=""}
+    $Result = [PSCustomObject]@{Status="";RedirectedRegion="";Message=""}
 
     if ($Task.Result.IsSuccessStatusCode) {
         $Result.Status = "SUCCESS"
+        Write-Log -Level Verbose -Config $Config -Message "Response has success status code"
     }
     elseif ($Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
         $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
         $RetryCount++
         $Result.Message = "Task failed due to internal server error, starting retry number $RetryCount of $MAX_RETRIES retries after exponential backoff of $SleepSeconds seconds"
+        Write-Log -Level Verbose -Config $Config -Message $Result.Message
         Start-Sleep -Seconds $SleepSeconds
         $Result.Status = "RETRY"
     }
@@ -1540,32 +1542,39 @@ function Global:Test-AwsResponse {
         $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
         $RetryCount++
         $Result.Message = "Task canceled, starting retry number $RetryCount of $MAX_RETRIES retries after exponential backoff of $SleepSeconds seconds"
+        Write-Log -Level Verbose -Config $Config -Message $Result.Message
         Start-Sleep -Seconds $SleepSeconds
         $Result.Status = "RETRY"
     }
     elseif ($Task.IsCanceled -and $RetryCount -ge $MAX_RETRIES) {
         $Result.Message = "Task canceled (usually due to a connection timeout) and maximum number of $MAX_RETRIES retries are reached."
+        Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = "FAILED"
     }
     elseif ($Task.Exception.Message -match "Device not configured") {
         $Result.Message = "Task failed due to issues with the network connection. " + $Task.Exception.Message
+        Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = "FAILED"
     }
     elseif ($Task.IsFaulted) {
         $Result.Message = $Task.Exception.Message
+        Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = "FAILED"
     }
     elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
         $Result.Message = "Request was redirected as bucket does not belong to specified region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
+        Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = "REDIRECTED"
         $Result.RedirectedRegion = $RedirectedRegion[0]
     }
     elseif ($Task.Result) {
         $Result.Message = "Request completed with HTTP status code $($Task.Result.StatusCode). HTTP Response Content:`n$($Task.Result.Content.ReadAsStringAsync().Result)"
+        Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = $Task.Result.StatusCode
     }
     else {
         $Result.Message = "Task did not succeed and has status $($Task.Status)"
+        Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = "OTHER"
     }
     Write-Output $Result
