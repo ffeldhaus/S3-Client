@@ -17,6 +17,9 @@ if (!$ProfileName) {
 $MAX_RETRIES = 3
 $MAX_WAIT_TIME = 120
 
+# ensure all required assemblies are loaded
+Add-Type -AssemblyName System.Web
+
 $UnicodeString = [System.Web.HttpUtility]::UrlDecode("%40%c5%93%c3%a6%c3%b6%c3%bc%c3%a4%c3%84%c3%96%c3%9c%2f%3d%c3%a1%c3%aa%3a%2b-_.")
 $Tags = @(@{Key=$UnicodeString;Value="valuewithunicodekey"},@{Key="keywithunicodevalue";Value=$UnicodeString})
 
