@@ -1305,7 +1305,7 @@ function Global:Invoke-AwsRequest {
             Mandatory = $False,
             Position = 2,
             ValueFromPipelineByPropertyName,
-            HelpMessage = "Request URI")][Alias("Uri")][System.Uri]$RequestUri,
+            HelpMessage = "Request URI")][Alias("Uri")][System.UriBuilder]$RequestUri,
         [parameter(
             Mandatory = $False,
             Position = 3,
