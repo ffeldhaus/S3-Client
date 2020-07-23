@@ -1,0 +1,33 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "x-amz-id-2",
+        "Value": [
+          "UU7OKpqbg80pVBA7dQxqYC/SXgxNRKJzC1KRHbehY30yXSikBig1+T7BWrAfrUsqNUTORaPahog="
+        ]
+      },
+      {
+        "Key": "x-amz-request-id",
+        "Value": [
+          "C344C53C6B7B7205"
+        ]
+      },
+      {
+        "Key": "Date",
+        "Value": [
+          "Thu, 23 Jul 2020 22:12:55 GMT"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "AmazonS3"
+        ]
+      }
+    ],
+    "StatusCode": 204
+  }
+}

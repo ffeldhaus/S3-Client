@@ -1,0 +1,45 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "X-GUploader-UploadID",
+        "Value": [
+          "AAANsUnzzLoHXoafH-qH4J53B2nuinbA_NMAz90f6sE3e4VLnoo6sSuNHwUHfEBGWY1dv-_lf-LRT4_hRNeIYifciKWWY4eKWA"
+        ]
+      },
+      {
+        "Key": "x-goog-metageneration",
+        "Value": [
+          "1"
+        ]
+      },
+      {
+        "Key": "Vary",
+        "Value": [
+          "Origin"
+        ]
+      },
+      {
+        "Key": "Date",
+        "Value": [
+          "Thu, 23 Jul 2020 22:12:12 GMT"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "UploadServer"
+        ]
+      },
+      {
+        "Key": "Alt-Svc",
+        "Value": [
+          "h3-29=\":443\"; ma=2592000,h3-27=\":443\"; ma=2592000,h3-25=\":443\"; ma=2592000,h3-T050=\":443\"; ma=2592000,h3-Q050=\":443\"; ma=2592000,h3-Q046=\":443\"; ma=2592000,h3-Q043=\":443\"; ma=2592000,quic=\":443\"; ma=2592000; v=\"46,43\""
+        ]
+      }
+    ],
+    "StatusCode": 200
+  }
+}

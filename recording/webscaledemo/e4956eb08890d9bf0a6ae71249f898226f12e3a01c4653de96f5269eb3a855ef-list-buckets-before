@@ -1,0 +1,39 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "Date",
+        "Value": [
+          "Thu, 23 Jul 2020 22:10:30 GMT"
+        ]
+      },
+      {
+        "Key": "Connection",
+        "Value": [
+          "KEEP-ALIVE"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "StorageGRID/11.3.0.5"
+        ]
+      },
+      {
+        "Key": "x-amz-request-id",
+        "Value": [
+          "1595542230597786"
+        ]
+      },
+      {
+        "Key": "x-amz-id-2",
+        "Value": [
+          "12952406"
+        ]
+      }
+    ],
+    "StatusCode": 200
+  }
+}

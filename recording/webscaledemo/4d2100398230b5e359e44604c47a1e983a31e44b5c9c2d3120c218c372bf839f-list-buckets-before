@@ -1,0 +1,54 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "Date",
+        "Value": [
+          "Thu, 23 Jul 2020 22:10:32 GMT"
+        ]
+      },
+      {
+        "Key": "Connection",
+        "Value": [
+          "KEEP-ALIVE"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "StorageGRID/11.3.0.5"
+        ]
+      },
+      {
+        "Key": "x-amz-request-id",
+        "Value": [
+          "1595542232030534"
+        ]
+      },
+      {
+        "Key": "x-amz-id-2",
+        "Value": [
+          "12952406"
+        ]
+      }
+    ],
+    "ContentHeaders": [
+      {
+        "Key": "Content-Length",
+        "Value": [
+          "108"
+        ]
+      },
+      {
+        "Key": "Content-Type",
+        "Value": [
+          "application/xml"
+        ]
+      }
+    ],
+    "StatusCode": 200,
+    "ContentFile": "/Users/florianfeldhaus/IdeaProjects/S3-Client/recording/webscaledemo/4d2100398230b5e359e44604c47a1e983a31e44b5c9c2d3120c218c372bf839f-list-buckets-before-content.raw"
+  }
+}

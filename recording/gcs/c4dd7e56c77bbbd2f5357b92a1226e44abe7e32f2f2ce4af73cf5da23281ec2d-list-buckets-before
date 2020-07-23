@@ -1,0 +1,39 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "X-GUploader-UploadID",
+        "Value": [
+          "AAANsUmLb6DcemsDXqfi70c-BeE_QLIkcBhyM80UCZBJFiwxI6wOpf_RosI0lb1sLpAYguY2xsRFx0iQHxmUOnvTkI0"
+        ]
+      },
+      {
+        "Key": "Date",
+        "Value": [
+          "Thu, 23 Jul 2020 22:12:16 GMT"
+        ]
+      },
+      {
+        "Key": "Cache-Control",
+        "Value": [
+          "max-age=0, private"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "UploadServer"
+        ]
+      },
+      {
+        "Key": "Alt-Svc",
+        "Value": [
+          "h3-29=\":443\"; ma=2592000,h3-27=\":443\"; ma=2592000,h3-T050=\":443\"; ma=2592000,h3-Q050=\":443\"; ma=2592000,h3-Q046=\":443\"; ma=2592000,h3-Q043=\":443\"; ma=2592000,quic=\":443\"; ma=2592000; v=\"46,43\""
+        ]
+      }
+    ],
+    "StatusCode": 400
+  }
+}

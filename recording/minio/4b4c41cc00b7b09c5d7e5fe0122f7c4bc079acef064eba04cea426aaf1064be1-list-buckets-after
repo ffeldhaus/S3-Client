@@ -1,0 +1,51 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "Accept-Ranges",
+        "Value": [
+          "bytes"
+        ]
+      },
+      {
+        "Key": "Content-Security-Policy",
+        "Value": [
+          "block-all-mixed-content"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "MinIO/RELEASE.2020-07-20T02-25-16Z"
+        ]
+      },
+      {
+        "Key": "Vary",
+        "Value": [
+          "Origin"
+        ]
+      },
+      {
+        "Key": "X-Amz-Request-Id",
+        "Value": [
+          "1624814909CDA060"
+        ]
+      },
+      {
+        "Key": "X-Xss-Protection",
+        "Value": [
+          "1; mode=block"
+        ]
+      },
+      {
+        "Key": "Date",
+        "Value": [
+          "Thu, 23 Jul 2020 22:11:58 GMT"
+        ]
+      }
+    ],
+    "StatusCode": 404
+  }
+}
