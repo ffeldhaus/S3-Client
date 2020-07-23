@@ -364,14 +364,14 @@ Describe "Create Bucket" {
 Describe "List Buckets" {
 
     BeforeAll {
-        $S3ClientTest = "list-buckets"
-        $S3ClientTestStep = 1
-        $S3ClientRecordState = "$($S3ClientTest)-$($S3ClientTestStep)"
-        $BucketName = "$($BaseBucketName)-$($S3ClientTest)"
+        $S3ClientTestName = "list-buckets"
+        $Global:S3ClientRecordState = "$($S3ClientTestName)-before"
+        $BucketName = "$($BaseBucketName)-$($S3ClientTestName)"
         Setup -BucketName $BucketName
     }
 
     AfterAll {
+        $Global:S3ClientRecordState = "$($S3ClientTestName)-after"
         Cleanup -BucketName $BucketName
     }
 
