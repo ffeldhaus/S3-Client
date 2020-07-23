@@ -1503,8 +1503,8 @@ function Global:Invoke-AwsRequest {
     Test AWS Response
     .PARAMETER Task
     Task with HttpResponseMessage to be tested
-    .PARAMETER RetryCount
-    Current retry count
+    .PARAMETER Config
+    AWS config
 #>
 function Global:Test-AwsResponse {
     [CmdletBinding()]
@@ -1513,18 +1513,20 @@ function Global:Test-AwsResponse {
         [parameter(
             Mandatory = $True,
             Position = 0,
+            ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Task with HttpResponseMessage to be tested")][System.Threading.Tasks.Task[System.Net.Http.HttpResponseMessage]]$Task,
         [parameter(
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Current retry count")][Int]$RetryCount = $MAX_RETRIES
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config
     )
 
     Write-Log -Level Verbose -Config $Config -Message "Testing AWS Response"
 
     $RedirectedRegion = New-Object -TypeName 'System.Collections.Generic.List[string]'
 
-    $Result = [PSCustomObject]@{Status="";RedirectedRegion="";Message=""}
+    $Result = [PSCustomObject]@{Status="";Message=""}
 
     if ($Task.Result.IsSuccessStatusCode) {
         $Result.Status = "SUCCESS"
@@ -1538,21 +1540,21 @@ function Global:Test-AwsResponse {
         Start-Sleep -Seconds $SleepSeconds
         $Result.Status = "RETRY"
     }
-    elseif ($Task.IsCanceled -and $RetryCount -lt $MAX_RETRIES) {
-        $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
-        $RetryCount++
-        $Result.Message = "Task canceled, starting retry number $RetryCount of $MAX_RETRIES retries after exponential backoff of $SleepSeconds seconds"
+    elseif ($Task.IsCanceled -and $Config.RetryCount -lt $Config.MaxRetries) {
+        $SleepSeconds = [System.Math]::Pow(3, $Config.RetryCount)
+        $Config.RetryCount++
+        $Result.Message = "Task canceled, starting retry number $($Config.RetryCount) of $($Config.MaxRetries) retries after exponential backoff of $SleepSeconds seconds"
         Write-Log -Level Verbose -Config $Config -Message $Result.Message
         Start-Sleep -Seconds $SleepSeconds
         $Result.Status = "RETRY"
     }
-    elseif ($Task.IsCanceled -and $RetryCount -ge $MAX_RETRIES) {
-        $Result.Message = "Task canceled (usually due to a connection timeout) and maximum number of $MAX_RETRIES retries are reached."
+    elseif ($Task.IsCanceled -and $Config.RetryCount -ge $Config.MaxRetries) {
+        $Result.Message = "Task canceled (usually due to a connection timeout) and maximum number of $(Config.MaxRetries) retries are reached."
         Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = "FAILED"
     }
     elseif ($Task.Exception.Message -match "Device not configured") {
-        $Result.Message = "Task failed due to issues with the network connection. " + $Task.Exception.Message
+        $Result.Message = "Task failed due to issues with the network connection." + $Task.Exception.Message
         Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = "FAILED"
     }
@@ -1561,11 +1563,11 @@ function Global:Test-AwsResponse {
         Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = "FAILED"
     }
-    elseif ($Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
+    elseif ($Task.Result.Headers -and $Task.Result.Headers.TryGetValues("x-amz-bucket-region", [ref]$RedirectedRegion)) {
         $Result.Message = "Request was redirected as bucket does not belong to specified region. Repeating request with region $($RedirectedRegion[0]) returned by S3 service."
         Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = "REDIRECTED"
-        $Result.RedirectedRegion = $RedirectedRegion[0]
+        $Config.Region = $RedirectedRegion[0]
     }
     elseif ($Task.Result) {
         $Result.Message = "Request completed with HTTP status code $($Task.Result.StatusCode). HTTP Response Content:`n$($Task.Result.Content.ReadAsStringAsync().Result)"
