@@ -9281,82 +9281,43 @@ Set-Alias -Name Get-S3BucketRegion -Value Get-S3BucketLocation
     Get S3 Bucket Location
     .DESCRIPTION
     Get S3 Bucket Location
-    .PARAMETER Server
-    StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.
     .PARAMETER ProfileName
     AWS Profile to use which contains AWS sredentials and settings
     .PARAMETER ProfileLocation
     AWS Profile location if different than .aws/credentials
-    .PARAMETER AccessKey
-    S3 Access Key
-    .PARAMETER SecretKey
-    S3 Secret Access Key
     .PARAMETER AccountId
     StorageGRID account ID to execute this command against
     .PARAMETER Config
     AWS config
-    .PARAMETER SkipCertificateCheck
-    Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.
-    .PARAMETER EndpointUrl
-    Custom S3 Endpoint URL
     .PARAMETER Presign
     Use presigned URL
     .PARAMETER DryRun
     Do not execute request, just return request URI and Headers
-    .PARAMETER RetryCount
-    Current retry count
     .PARAMETER BucketName
     Bucket Name
 #>
 function Global:Get-S3BucketLocation {
-    [CmdletBinding(DefaultParameterSetName = "none")]
+    [CmdletBinding()]
 
     PARAM (
         [parameter(
-            ParameterSetName = "server",
-            Mandatory = $False,
-            Position = 0,
-            HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
-        [parameter(
-            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
         [parameter(
-            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
-            ParameterSetName = "keys",
             Mandatory = $False,
-            Position = 0,
-            HelpMessage = "S3 Access Key")][String]$AccessKey,
-        [parameter(
-            ParameterSetName = "keys",
-            Mandatory = $False,
-            Position = 1,
-            HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
-        [parameter(
-            ParameterSetName = "account",
-            Mandatory = $False,
-            Position = 0,
+            Position = 2,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
-            ParameterSetName = "config",
-            Mandatory = $False,
-            Position = 0,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "AWS config")][PSCustomObject]$Config,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
             Mandatory = $False,
             Position = 3,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
         [parameter(
             Mandatory = $False,
             Position = 4,
@@ -9366,31 +9327,30 @@ function Global:Get-S3BucketLocation {
             Position = 5,
             HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
         [parameter(
-            Mandatory = $False,
-            Position = 6,
-            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
-        [parameter(
             Mandatory = $True,
-            Position = 7,
+            Position = 6,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName
     )
 
     Begin {
-        if (!$Server) {
-            $Server = $Global:CurrentSgwServer
-        }
+        trap { Write-Log -Level Critical -Config $Config -ErrorRecord $_ }
+
         if (!$Config) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Global:CurrentSgwServer -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccountId $AccountId
         }
+
         $Method = "GET"
     }
 
     Process {
-        Write-Verbose "Retrieving location for bucket $BucketName"
+        trap { Write-Log -Level Critical -Config $Config -ErrorRecord $_ }
 
-        if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        Write-Log -Level Verbose -Config $Config -Message "Retrieving location for bucket $BucketName"
+
+        # the following ensures that the StorageGRID AccountID is picked up from the pipeline
+        if ($AccountId -and $Global:CurrentSgwServer) {
+            $Config = $Config | Get-AwsConfig -Server $Global:CurrentSgwServer -AccountId $AccountId
         }
 
         if (!$Config.AccessKey) {
@@ -9411,47 +9371,31 @@ function Global:Get-S3BucketLocation {
             Write-Output $AwsRequest
         }
         else {
-            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
+            $Task = $AwsRequest | Invoke-AwsRequest
+            $Result = Test-AwsResponse -Task $Task -Config $Config
 
-            if ($Task.Result.IsSuccessStatusCode) {
-                # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
-                $Content = [XML]$Task.Result.Content.ReadAsStringAsync().Result
+            switch ($Result.Status) {
+                "SUCCESS" {
+                    $Content = [System.Xml.XmlDocument]$Task.Result.Content.ReadAsStringAsync().Result
 
-                if (!$Content.GetElementsByTagName("LocationConstraint").InnerText) {
-                    # if no location is returned, bucket is in default region us-east-1
-                    Write-Output "us-east-1"
+                    if (!$Content.GetElementsByTagName("LocationConstraint").InnerText) {
+                        # if no location is returned, bucket is in default region us-east-1
+                        Write-Output "us-east-1"
+                    }
+                    else {
+                        Write-Output $Content.GetElementsByTagName("LocationConstraint").InnerText
+                    }
                 }
-                else {
-                    Write-Output $Content.GetElementsByTagName("LocationConstraint").InnerText
+                "RETRY" {
+                    Get-S3BucketLocation -Config $Config -Presign:$Presign -BucketName $BucketName
                 }
-            }
-            elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
-                $RetryCount++
-                Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
-                Start-Sleep -Seconds $SleepSeconds
-                Get-S3BucketLocation -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName
-            }
-            elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
-                Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
-            }
-            elseif ($Task.Exception -match "Device not configured") {
-                Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
-            }
-            elseif ($Task.IsFaulted) {
-                Throw $Task.Exception
-            }
-            elseif ($Task.Result) {
-                $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message) {
-                    Throw $Result.Error.Message
+                "FAILED" {
+                    Write-Log -Level Warning -Config $Config -Message $Result.Message
+                    Throw $Task.Exception
                 }
-                else {
-                    Throw $Task.Result.StatusCode
+                default {
+                    Write-Output $false
                 }
-            }
-            else {
-                Throw "Task failed with status $($Task.Status)"
             }
         }
     }
