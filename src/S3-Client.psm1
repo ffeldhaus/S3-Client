@@ -692,7 +692,7 @@ function Global:New-AwsSignatureV2 {
             Write-Log -Level Debug -Config $Config -Message "Task 1 Step 2: bucket name already part of Url for path style therefore skipping this step"
         }
 
-        $CanonicalURI = [Uri]::new($Uri).AbsolutePath
+        $CanonicalURI = [System.UriBuilder]::new($Uri).Path
         $CanonicalizedResource += $CanonicalURI
         Write-Log -Level Debug -Config $Config -Message "Task 1 Step 3: Append the path part of the un-decoded HTTP Request-URI, up-to but not including the query string:`n$CanonicalizedResource"
 
