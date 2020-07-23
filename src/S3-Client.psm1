@@ -2918,54 +2918,27 @@ New-Alias -Name Get-S3Bucket -Value Get-S3Buckets
     Bucket name
 #>
 function Global:Get-S3Buckets {
-    [CmdletBinding(DefaultParameterSetName = "none")]
+    [CmdletBinding()]
 
     PARAM (
         [parameter(
-            ParameterSetName = "server",
-            Mandatory = $False,
-            Position = 0,
-            HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
-        [parameter(
-            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
         [parameter(
-            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
-            ParameterSetName = "keys",
             Mandatory = $False,
-            Position = 0,
-            HelpMessage = "S3 Access Key")][String]$AccessKey,
-        [parameter(
-            ParameterSetName = "keys",
-            Mandatory = $False,
-            Position = 1,
-            HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
-        [parameter(
-            ParameterSetName = "account",
-            Mandatory = $False,
-            Position = 0,
+            Position = 2,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
-            ParameterSetName = "config",
-            Mandatory = $False,
-            Position = 0,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "AWS config")][PSCustomObject]$Config,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
             Mandatory = $False,
             Position = 3,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
         [parameter(
             Mandatory = $False,
             Position = 4,
@@ -2977,32 +2950,27 @@ function Global:Get-S3Buckets {
         [parameter(
             Mandatory = $False,
             Position = 6,
-            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
-        [parameter(
-            Mandatory = $False,
-            Position = 7,
             HelpMessage = "Bucket name")][Alias("Name", "Bucket")][String]$BucketName
     )
 
     Begin {
         trap { Write-Log -Level Critical -Config $Config -ErrorRecord $_ }
 
-        Write-Log -Level Verbose -Config $Config -Message "Retrieving all buckets"
-
-        if (!$Server) {
-            $Server = $Global:CurrentSgwServer
-        }
         if (!$Config) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Global:CurrentSgwServer -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccountId $AccountId
         }
+
         $Method = "GET"
     }
 
     Process {
         trap { Write-Log -Level Critical -Config $Config -ErrorRecord $_ }
 
-        if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        Write-Log -Level Verbose -Config $Config -Message "Retrieving all buckets"
+
+        # the following ensures that the StorageGRID AccountID is picked up from the pipeline
+        if ($AccountId -and $Global:CurrentSgwServer) {
+            $Config = $Config | Get-AwsConfig -Server $Global:CurrentSgwServer -AccountId $AccountId
         }
 
         if ($Config.AccessKey) {
@@ -3012,7 +2980,7 @@ function Global:Get-S3Buckets {
             }
             else {
                 $Task = $AwsRequest | Invoke-AwsRequest
-                $Result = Test-AwsResponse -Task $Task -RetryCount $RetryCount
+                $Result = Test-AwsResponse -Task $Task -Config $Config
 
                 switch ($Result.Status) {
                     "SUCCESS" {
@@ -3063,7 +3031,7 @@ function Global:Get-S3Buckets {
 
                                 $CompletedTasks = $Tasks | Where-Object { $_.IsCompleted }
                                 foreach ($Task in $CompletedTasks) {
-                                    $Result = Test-AwsResponse -Task $Task -RetryCount $RetryCount
+                                    $Result = Test-AwsResponse -Task $Task -Config $Config
                                     switch ($Result.Status) {
                                         "SUCCESS" {
                                             # PowerShell does not correctly parse Unicode content, therefore assuming Unicode encoding and parsing ourself
@@ -3099,7 +3067,7 @@ function Global:Get-S3Buckets {
                         }
                     }
                     "RETRY" {
-                        Get-S3Buckets -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName
+                        Get-S3Buckets -Config $Config -Presign:$Presign -BucketName $BucketName
                     }
                     "FAILED" {
                         Write-Log -Level Warning -Config $Config -Message $Result.Message
@@ -3115,7 +3083,8 @@ function Global:Get-S3Buckets {
             Write-Log -Level Information -Config $Config -Message "No config provided, but connected to StorageGRID Webscale. Therefore retrieving all buckets of all tenants."
             $Accounts = Get-SgwAccounts -Capabilities "s3"
             foreach ($Account in $Accounts) {
-                Get-S3Buckets -Server $CurrentSgwServer -SkipCertificateCheck:$SkipCertificateCheck -Presign:$Presign -DryRun:$DryRun -SignerType $SignerType -EndpointUrl $CurrentSgwServer.S3EndpointUrl -AccountId $Account.Id
+                $Config = $Config | Get-AwsConfig -Server $Global:CurrentSgwServer -AccountId $Account.Id
+                Get-S3Buckets -Config $Config -Presign:$Presign -DryRun:$DryRun
             }
         }
         else {
