@@ -3285,54 +3285,27 @@ function Global:Test-S3Bucket {
     Parameter is only used for compatibility with AWS Cmdlets and will be ignored
 #>
 function Global:New-S3Bucket {
-    [CmdletBinding(DefaultParameterSetName = "none")]
+    [CmdletBinding()]
 
     PARAM (
         [parameter(
-            ParameterSetName = "server",
-            Mandatory = $False,
-            Position = 0,
-            HelpMessage = "StorageGRID Webscale Management Server object. If not specified, global CurrentSgwServer object will be used.")][PSCustomObject]$Server,
-        [parameter(
-            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 0,
             HelpMessage = "AWS Profile to use which contains AWS credentials and settings")][Alias("Profile")][String]$ProfileName = "",
         [parameter(
-            ParameterSetName = "profile",
             Mandatory = $False,
             Position = 1,
             HelpMessage = "AWS Profile location if different than .aws/credentials")][String]$ProfileLocation,
         [parameter(
-            ParameterSetName = "keys",
             Mandatory = $False,
-            Position = 0,
-            HelpMessage = "S3 Access Key")][String]$AccessKey,
-        [parameter(
-            ParameterSetName = "keys",
-            Mandatory = $False,
-            Position = 1,
-            HelpMessage = "S3 Secret Access Key")][Alias("SecretAccessKey")][String]$SecretKey,
-        [parameter(
-            ParameterSetName = "account",
-            Mandatory = $False,
-            Position = 0,
+            Position = 2,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "StorageGRID account ID to execute this command against")][Alias("OwnerId")][String]$AccountId,
         [parameter(
-            ParameterSetName = "config",
-            Mandatory = $False,
-            Position = 0,
-            ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "AWS config")][PSCustomObject]$Config,
-        [parameter(
-            Mandatory = $False,
-            Position = 2,
-            HelpMessage = "Skips certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][Switch]$SkipCertificateCheck,
-        [parameter(
             Mandatory = $False,
             Position = 3,
-            HelpMessage = "Custom S3 Endpoint URL")][System.UriBuilder]$EndpointUrl,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS config")][PSCustomObject]$Config,
         [parameter(
             Mandatory = $False,
             Position = 4,
@@ -3342,72 +3315,71 @@ function Global:New-S3Bucket {
             Position = 5,
             HelpMessage = "Do not execute request, just return request URI and Headers")][Switch]$DryRun,
         [parameter(
-            Mandatory = $False,
-            Position = 6,
-            HelpMessage = "Current retry count")][Int]$RetryCount = 0,
-        [parameter(
             Mandatory = $True,
-            Position = 7,
+            Position = 6,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Bucket")][Alias("Name", "Bucket")][String]$BucketName,
         [parameter(
             Mandatory = $False,
-            Position = 8,
+            Position = 7,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Region to be used")][String]$Region,
         [parameter(
             Mandatory = $False,
-            Position = 9,
+            Position = 8,
             HelpMessage = "Canned ACL")][Alias("CannedAcl", "Acl")][String][ValidateSet("private", "public-read", "public-read-write", "aws-exec-read", "authenticated-read", "bucket-owner-read", "bucket-owner-full-control")]$CannedAclName,
         [parameter(
             Mandatory = $False,
-            Position = 10,
+            Position = 9,
             HelpMessage = "Allows grantee to list the objects in the bucket.")][String]$AclGrantRead,
         [parameter(
             Mandatory = $False,
-            Position = 11,
+            Position = 10,
             HelpMessage = "Allows grantee to create, overwrite, and delete any object in the bucket.")][String]$AclGrantWrite,
         [parameter(
             Mandatory = $False,
-            Position = 12,
+            Position = 11,
             HelpMessage = "Allows grantee to read the bucket ACL.")][String]$AclGrantReadAcp,
         [parameter(
             Mandatory = $False,
-            Position = 13,
+            Position = 12,
             HelpMessage = "Allows grantee to write the ACL for the applicable bucket.")][String]$AclGrantWriteAcp,
         [parameter(
             Mandatory = $False,
-            Position = 14,
+            Position = 13,
             HelpMessage = "Allows grantee the READ, WRITE, READ_ACP, and WRITE_ACP permissions on the bucket.")][String]$AclGrantFullControl,
         [parameter(
             Mandatory = $False,
-            Position = 15,
+            Position = 14,
             HelpMessage = "If set, applies a Bucket Policy making the bucket public with read-only permissions")][Switch]$PublicReadOnlyPolicy,
         [parameter(
             Mandatory = $False,
-            Position = 16,
+            Position = 15,
             HelpMessage = "If set, applies a Bucket Policy making the bucket public with read-write permissions")][Switch]$PublicReadWritePolicy,
         [parameter(
             Mandatory = $False,
-            Position = 17,
+            Position = 16,
             HelpMessage = "Parameter is only used for compatibility with AWS Cmdlets and will be ignored")][Switch]$Force
     )
 
     Begin {
-        if (!$Server) {
-            $Server = $Global:CurrentSgwServer
-        }
+        trap { Write-Log -Level Critical -Config $Config -ErrorRecord $_ }
+
         if (!$Config) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $EndpointUrl -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccessKey $AccessKey -SecretKey $SecretKey -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+            $Config = Get-AwsConfig -Server $Global:CurrentSgwServer -ProfileName $ProfileName -ProfileLocation $ProfileLocation -AccountId $AccountId
         }
+
         $Method = "PUT"
     }
 
     Process {
-        Write-Verbose "Creating bucket $BucketName"
+        trap { Write-Log -Level Critical -Config $Config -ErrorRecord $_ }
 
-        if ($AccountId) {
-            $Config = Get-AwsConfig -Server $Server -EndpointUrl $Server.S3EndpointUrl -AccountId $AccountId -SkipCertificateCheck:$SkipCertificateCheck
+        Write-Log -Level Verbose -Config $Config -Message "Creating bucket $BucketName"
+
+        # the following ensures that the StorageGRID AccountID is picked up from the pipeline
+        if ($AccountId -and $Global:CurrentSgwServer) {
+            $Config = $Config | Get-AwsConfig -Server $Global:CurrentSgwServer -AccountId $AccountId
         }
 
         if (!$Config.AccessKey) {
@@ -3423,7 +3395,15 @@ function Global:New-S3Bucket {
             $RequestPayload = "<CreateBucketConfiguration xmlns=`"http://s3.amazonaws.com/doc/2006-03-01/`"><LocationConstraint>$($Config.Region)</LocationConstraint></CreateBucketConfiguration>"
         }
 
-        $BucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName -SkipTest
+        $PunycodeBucketName = ConvertTo-Punycode -Config $Config -BucketName $BucketName -SkipTest
+
+        if ($PunycodeBucketName -ne $BucketName -and $Config.EndpointUrl -match $DEFAULT_AWS_ENDPOINT) {
+            $Message = "Since February 2020 AWS does not support names of new buckets to contain special characters (e.g. IDN or Punycode encoded starting with xn--). See https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html#bucketnamingrules for details."
+            throw $Message
+        }
+        else {
+            $BucketName = $PunycodeBucketName
+        }
 
         $Headers = @{ }
         if ($CannedAclName) {
@@ -3451,46 +3431,31 @@ function Global:New-S3Bucket {
             Write-Output $AwsRequest
         }
         else {
-            $Task = $AwsRequest | Invoke-AwsRequest -SkipCertificateCheck:$Config.SkipCertificateCheck
+            $Task = $AwsRequest | Invoke-AwsRequest
+            $Result = Test-AwsResponse -Task $Task -Config $Config
 
-            if ($Task.Result.IsSuccessStatusCode) {
-                # do nothing
-            }
-            elseif ($Task.IsCanceled -or $Task.Result.StatusCode -match "500" -and $RetryCount -lt $MAX_RETRIES) {
-                $SleepSeconds = [System.Math]::Pow(3, $RetryCount)
-                $RetryCount++
-                Write-Warning "Command failed, starting retry number $RetryCount of $MAX_RETRIES retries after waiting for $SleepSeconds seconds"
-                Start-Sleep -Seconds $SleepSeconds
-                New-S3Bucket -Config $Config -Presign:$Presign -RetryCount $RetryCount -BucketName $BucketName -CannedAclName $CannedAclName -AclGrantRead $AclGrantRead -AclGrantWrite $AclGrantWrite -AclGrantReadAcp $AclGrantReadAcp -AclGrantWriteAcp $AclGrantWriteAcp -AclGrantFullControl $AclGrantFullControl -PublicReadOnlyPolicy:$PublicReadOnlyPolicy -PublicReadWritePolicy:$PublicReadWritePolicy -Force:$Force
-            }
-            elseif ($Task.Status -eq "Canceled" -and $RetryCount -ge $MAX_RETRIES) {
-                Throw "Task canceled due to connection timeout and maximum number of $MAX_RETRIES retries reached."
-            }
-            elseif ($Task.Exception -match "Device not configured") {
-                Throw "Task canceled due to issues with the network connection to endpoint $($Config.EndpointUrl)"
-            }
-            elseif ($Task.IsFaulted) {
-                Throw $Task.Exception
-            }
-            elseif ($Task.Result) {
-                $Result = [XML]$Task.Result.Content.ReadAsStringAsync().Result
-                if ($Result.Error.Message) {
-                    Throw $Result.Error.Message
+            switch ($Result.Status) {
+                "SUCCESS" {
+                    Write-Log -Level Verbose -Config $Config -Message "Bucket $BucketName successfully created"
                 }
-                else {
-                    Throw $Task.Result.StatusCode
+                "RETRY" {
+                    New-S3Bucket -Config $Config -Presign:$Presign -BucketName $BucketName -CannedAclName $CannedAclName -AclGrantRead $AclGrantRead -AclGrantWrite $AclGrantWrite -AclGrantReadAcp $AclGrantReadAcp -AclGrantWriteAcp $AclGrantWriteAcp -AclGrantFullControl $AclGrantFullControl -PublicReadOnlyPolicy:$PublicReadOnlyPolicy -PublicReadWritePolicy:$PublicReadWritePolicy -Force:$Force
+                }
+                "FAILED" {
+                    Write-Log -Level Warning -Config $Config -Message $Result.Message
+                    Throw $Task.Exception
+                }
+                default {
+                    Throw $Result.Message
                 }
             }
-            else {
-                Throw "Task failed with status $($Task.Status)"
-            }
-        }
 
-        if ($PublicReadOnlyPolicy) {
-            Set-S3BucketPolicy -Config $Config -BucketName $BucketName -PublicReadOnlyPolicy
-        }
-        if ($PublicReadWritePolicy) {
-            Set-S3BucketPolicy -Config $Config -BucketName $BucketName -PublicReadWritePolicy
+            if ($PublicReadOnlyPolicy) {
+                Set-S3BucketPolicy -Config $Config -BucketName $BucketName -PublicReadOnlyPolicy
+            }
+            if ($PublicReadWritePolicy) {
+                Set-S3BucketPolicy -Config $Config -BucketName $BucketName -PublicReadWritePolicy
+            }
         }
     }
 }
