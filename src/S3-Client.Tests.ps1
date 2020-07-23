@@ -4,6 +4,16 @@ PARAM(
 
 Import-Module "$PSScriptRoot\S3-Client" -Force
 
+if (!$ProfileName) {
+    Write-Warning "No Profilename specified for this test, falling back to default"
+    $ProfileName = "default"
+}
+
+# Start Minio Server
+# docker run --name minio -d -p 9000:9000 -e "MINIO_ACCESS_KEY=$(Get-AwsConfig -ProfileName minio | Select-Object -ExpandProperty AccessKey)" -e "MINIO_SECRET_KEY=$(Get-AwsConfig -ProfileName minio | Select-Object -ExpandProperty SecretKey)" -e "MINIO_BROWSER=off" minio/minio server /data
+# Stop Minio Server
+# docker rm -f minio
+
 $MAX_RETRIES = 3
 $MAX_WAIT_TIME = 120
 
@@ -21,11 +31,6 @@ else {
 }
 $Content = "Hello World!"
 $Metadata = @{"MetadataKey"="MetadataValue"}
-
-if (!$ProfileName) {
-    Write-Warning "No Profilename specified for this test, falling back to default"
-    $ProfileName = "default"
-}
 
 Write-Host "Running S3 Client tests for profile $ProfileName"
 
