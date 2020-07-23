@@ -1740,20 +1740,25 @@ function Global:Add-AwsConfig {
             Mandatory = $False,
             Position = 18,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Log path")][System.IO.DirectoryInfo]$LogPath,
+            HelpMessage = "Maximum retry count")][Int]$MaxRetries,
         [parameter(
             Mandatory = $False,
             Position = 19,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel,
+            HelpMessage = "Log path")][System.IO.DirectoryInfo]$LogPath,
         [parameter(
             Mandatory = $False,
             Position = 20,
             ValueFromPipelineByPropertyName = $True,
-            HelpMessage = "Path to directory to store response records in")][System.IO.DirectoryInfo]$RecordPath,
+            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel,
         [parameter(
             Mandatory = $False,
             Position = 21,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Path to directory to store response records in")][System.IO.DirectoryInfo]$RecordPath,
+        [parameter(
+            Mandatory = $False,
+            Position = 22,
             ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Record mode")][String][ValidateSet("record","replay")]$RecordMode
     )
@@ -1904,6 +1909,13 @@ function Global:Add-AwsConfig {
     }
     elseif ($Config.S3.signer_type -and $SignerType -match "AWS4") {
         $Config.S3.PSObject.Properties.Remove("signer_type")
+    }
+
+    if ($MaxRetries -and $MaxRetries -ne $MAX_RETRIES) {
+        $Config.S3 | Add-Member -MemberType NoteProperty -Name max_retries -Value $MaxRetries -Force
+    }
+    elseif ($Config.S3.max_retries -and $MaxRetries -eq $MAX_RETRIES) {
+        $Config.S3.PSObject.Properties.Remove("max_retries")
     }
 
     if ($LogPath) {
@@ -2107,6 +2119,13 @@ function Global:Get-AwsConfigs {
         else {
             $Output | Add-Member -MemberType NoteProperty -Name SignerType -Value "AWS4"
         }
+        $Output | Add-Member -MemberType NoteProperty -Name RetryCount -Value 0
+        if ($Config.S3.max_retries) {
+            $Output | Add-Member -MemberType NoteProperty -Name MaxRetries -Value $Config.S3.max_retries
+        }
+        else {
+            $Output | Add-Member -MemberType NoteProperty -Name MaxRetries -Value $MAX_RETRIES
+        }
         if ($Config.log_path) {
             $Output | Add-Member -MemberType NoteProperty -Name LogPath -Value ([System.IO.DirectoryInfo]$Config.log_path)
         }
@@ -2274,26 +2293,42 @@ function Global:Get-AwsConfig {
         [parameter(
             Mandatory = $False,
             Position = 17,
+            ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Enable or disable skipping of certificate validation checks. This includes all validations such as expiration, revocation, trusted root authority, etc.")][String]$SkipCertificateCheck,
         [parameter(
             Mandatory = $False,
             Position = 18,
-            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType = "AWS4",
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "AWS Signer type (S3 for V2 Authentication and AWS4 for V4 Authentication)")][String][ValidateSet("S3", "AWS4")]$SignerType,
         [parameter(
             Mandatory = $False,
             Position = 19,
-            HelpMessage = "Log path")][String]$LogPath,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Current retry count")][Int]$RetryCount,
         [parameter(
             Mandatory = $False,
             Position = 20,
-            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel,
-        [parameter(
-            Mandatory = $False,
-            Position = 20,
-            HelpMessage = "Path to directory to store response records in")][System.IO.DirectoryInfo]$RecordPath,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Maximum retry count")][Int]$MaxRetries,
         [parameter(
             Mandatory = $False,
             Position = 21,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Log path")][String]$LogPath,
+        [parameter(
+            Mandatory = $False,
+            Position = 22,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Log level")][String][ValidateSet("CRITICAL","ERROR","WARNING","INFORMATION","VERBOSE","DEBUG","DEFAULT")]$LogLevel,
+        [parameter(
+            Mandatory = $False,
+            Position = 23,
+            ValueFromPipelineByPropertyName = $True,
+            HelpMessage = "Path to directory to store response records in")][System.IO.DirectoryInfo]$RecordPath,
+        [parameter(
+            Mandatory = $False,
+            Position = 24,
+            ValueFromPipelineByPropertyName = $True,
             HelpMessage = "Record mode")][String][ValidateSet("record","replay")]$RecordMode
     )
 
@@ -2319,6 +2354,8 @@ function Global:Get-AwsConfig {
         PayloadSigning                      = $PayloadSigning;
         SkipCertificateCheck                = [System.Convert]::ToBoolean($SkipCertificateCheck -eq $true);
         SignerType                          = $SignerType
+        RetryCount                          = $RetryCount
+        MaxRetries                          = $MaxRetries
         LogPath                             = $LogPath
         LogLevel                            = $LogLevel
     }
@@ -2437,6 +2474,24 @@ function Global:Get-AwsConfig {
     }
     elseif ($SkipCertificateCheck -eq $null) {
         $Config.SkipCertificateCheck = $false
+    }
+
+    if ($SignerType) {
+        $Config.SignerType = $SignerType
+    }
+    elseif (!$Config.SignerType) {
+        $Config.SignerType = "AWS4"
+    }
+
+    if ($RetryCount) {
+        $Config | Add-Member -MemberType NoteProperty -Name RetryCount -Value $RetryCount -Force
+    }
+
+    if ($MaxRetries) {
+        $Config.MaxRetries = $MaxRetries
+    }
+    elseif (!$Config.MaxRetries) {
+        $Config.MaxRetries = $MAX_RETRIES
     }
 
     if ($LogPath) {
