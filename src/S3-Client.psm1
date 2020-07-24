@@ -494,7 +494,7 @@ function ConvertFrom-Punycode {
         }
 
         if ($Config.LogPath -and $LOG_LEVELS[$Level] -le $LOG_LEVELS[$MaxLogLevel]) {
-            $LogPath = ConverTo-AbsolutePath -Path $LogPath
+            $LogPath = ConvertTo-AbsolutePath -Path $Config.LogPath
             if (Test-Path -Path $LogPath -PathType Container) {
                 $FileName = "$(Get-Date -Format FileDate)-$($Config.ProfileName).log"
                 $LogFile = Join-Path -Path $LogPath -ChildPath $FileName
