@@ -1197,7 +1197,7 @@ function Global:Get-AwsRequest {
             $ContentLength = $RequestPayload.Length
         }
 
-        $HttpRequestMessage = [System.Net.Http.HttpRequestMessage]::new($Method, $Config.EndpointUrl)
+        $HttpRequestMessage = [System.Net.Http.HttpRequestMessage]::new($Method, $Config.EndpointUrl.Uri)
 
         if ($HttpContent) {
             $HttpRequestMessage.Content = $HttpContent
@@ -1250,12 +1250,14 @@ function Global:Get-AwsRequest {
         # create a unique ID based on the request to store and retrieve recordings
         $RecordIdString = "$Method`n$($HttpRequestMessage.RequestUri)`n"
         if ($HttpRequestMessage.Headers) {
-            $RecordIdString += ($HttpRequestMessage.Headers.ToString() -split "`n" | Where-Object { $_ -notmatch '^Authorization:|^x-amz-date:|^date:' }) -join "`n"
+            $RecordIdString += ($HttpRequestMessage.Headers | Where-Object { $_.Key -notmatch 'Authorization|^x-amz-date|^date' } | Sort-Object | Foreach {"$($_.Key.ToLower()): $($_.Value.ToLower())" }) -join "`n"
         }
         if ($HttpRequestMessage.Content.Headers) {
-            $RecordIdString += "$($HttpRequestMessage.Content.Headers.ToString())`n"
+            $RecordIdString += "`n"
+            $RecordIdString += ($HttpRequestMessage.Content.Headers | Sort-Object | Foreach {"$($_.Key.ToLower()): $($_.Value.ToLower())" }) -join "`n"
         }
         if ($ContentMd5) {
+            $RecordIdString += "`n"
             $RecordIdString += $ContentMd5
         }
         $RecordId = Get-AwsHash -StringToHash $RecordIdString
@@ -1966,7 +1968,7 @@ function Global:Get-AwsConfigs {
     if (!$ProfileLocation) {
         $ProfileLocation = $AWS_CREDENTIALS_FILE
     }
-    $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
+    $ConfigLocation = $ProfileLocation -replace "credentials$", 'config'
 
     if (!(Test-Path $ProfileLocation)) {
         Write-Log -Level Warning -Config $Config -Message "Profile location $ProfileLocation does not exist!"
