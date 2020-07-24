@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>c3e4deb47b9dd8eb6cb0c8685cc959df5cc0354416e686d5770112a9e5fb6e11</ID><DisplayName>florian.feldhaus</DisplayName></Owner><Buckets><Bucket><Name>s3clienttest-aws-http-list-buckets</Name><CreationDate>2020-07-24T22:22:57.000Z</CreationDate></Bucket><Bucket><Name>soil-app</Name><CreationDate>2019-10-07T08:51:31.000Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>

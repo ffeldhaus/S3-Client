@@ -1,0 +1,66 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "Accept-Ranges",
+        "Value": [
+          "bytes"
+        ]
+      },
+      {
+        "Key": "Content-Security-Policy",
+        "Value": [
+          "block-all-mixed-content"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "MinIO/RELEASE.2020-07-20T02-25-16Z"
+        ]
+      },
+      {
+        "Key": "Vary",
+        "Value": [
+          "Origin"
+        ]
+      },
+      {
+        "Key": "X-Amz-Request-Id",
+        "Value": [
+          "1624D06E13B70D68"
+        ]
+      },
+      {
+        "Key": "X-Xss-Protection",
+        "Value": [
+          "1; mode=block"
+        ]
+      },
+      {
+        "Key": "Date",
+        "Value": [
+          "Fri, 24 Jul 2020 22:22:19 GMT"
+        ]
+      }
+    ],
+    "ContentHeaders": [
+      {
+        "Key": "Content-Length",
+        "Value": [
+          "384"
+        ]
+      },
+      {
+        "Key": "Content-Type",
+        "Value": [
+          "application/xml"
+        ]
+      }
+    ],
+    "StatusCode": 200,
+    "ContentFile": "/Users/florianfeldhaus/IdeaProjects/S3-Client/recording/minio/6a49e3801423810eb94bd026db3df5f557c97afb710ebb1556c8e618e212e052-list-buckets-content.raw"
+  }
+}
