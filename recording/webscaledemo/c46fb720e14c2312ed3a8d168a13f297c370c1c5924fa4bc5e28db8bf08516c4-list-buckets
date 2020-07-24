@@ -6,7 +6,7 @@
       {
         "Key": "Date",
         "Value": [
-          "Fri, 24 Jul 2020 22:21:39 GMT"
+          "Fri, 24 Jul 2020 22:32:29 GMT"
         ]
       },
       {
@@ -24,7 +24,7 @@
       {
         "Key": "x-amz-request-id",
         "Value": [
-          "1595629299037222"
+          "1595629949154272"
         ]
       },
       {
@@ -49,6 +49,6 @@
       }
     ],
     "StatusCode": 200,
-    "ContentFile": "/Users/florianfeldhaus/IdeaProjects/S3-Client/recording/webscaledemo/c46fb720e14c2312ed3a8d168a13f297c370c1c5924fa4bc5e28db8bf08516c4-list-buckets-content.raw"
+    "ContentFile": "recording/webscaledemo/c46fb720e14c2312ed3a8d168a13f297c370c1c5924fa4bc5e28db8bf08516c4-list-buckets-content.raw"
   }
 }

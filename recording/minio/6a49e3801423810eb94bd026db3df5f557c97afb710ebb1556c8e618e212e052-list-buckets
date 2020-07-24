@@ -30,7 +30,7 @@
       {
         "Key": "X-Amz-Request-Id",
         "Value": [
-          "1624D06E13B70D68"
+          "1624D0F8E69F3310"
         ]
       },
       {
@@ -42,7 +42,7 @@
       {
         "Key": "Date",
         "Value": [
-          "Fri, 24 Jul 2020 22:22:19 GMT"
+          "Fri, 24 Jul 2020 22:32:15 GMT"
         ]
       }
     ],
@@ -61,6 +61,6 @@
       }
     ],
     "StatusCode": 200,
-    "ContentFile": "/Users/florianfeldhaus/IdeaProjects/S3-Client/recording/minio/6a49e3801423810eb94bd026db3df5f557c97afb710ebb1556c8e618e212e052-list-buckets-content.raw"
+    "ContentFile": "recording/minio/6a49e3801423810eb94bd026db3df5f557c97afb710ebb1556c8e618e212e052-list-buckets-content.raw"
   }
 }

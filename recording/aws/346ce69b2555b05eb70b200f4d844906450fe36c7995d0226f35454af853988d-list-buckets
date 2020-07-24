@@ -6,19 +6,19 @@
       {
         "Key": "x-amz-id-2",
         "Value": [
-          "u+wFiXrpkX/Ns+Qjw4Vy6sqmyoH2e2K1FacXelJXxXRf5bSx6fex+/H4XG3V94G1jFWU0mZHb0Y="
+          "j32tIEfymL/z49v2XQVwS1zD09IwEX2Wqzb57ed9PVsJeZ4kjPTT95wAiazEciT+7GkV18qjBMI="
         ]
       },
       {
         "Key": "x-amz-request-id",
         "Value": [
-          "9D277BD6CE3B9A15"
+          "DE3D4239AE414B80"
         ]
       },
       {
         "Key": "Date",
         "Value": [
-          "Fri, 24 Jul 2020 21:53:14 GMT"
+          "Fri, 24 Jul 2020 22:31:56 GMT"
         ]
       },
       {
@@ -43,6 +43,6 @@
       }
     ],
     "StatusCode": 200,
-    "ContentFile": "/Users/florianfeldhaus/IdeaProjects/S3-Client/recording/aws/346ce69b2555b05eb70b200f4d844906450fe36c7995d0226f35454af853988d-list-buckets-content.raw"
+    "ContentFile": "recording/aws/346ce69b2555b05eb70b200f4d844906450fe36c7995d0226f35454af853988d-list-buckets-content.raw"
   }
 }

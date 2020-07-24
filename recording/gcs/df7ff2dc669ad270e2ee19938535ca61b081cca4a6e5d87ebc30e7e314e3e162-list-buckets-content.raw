@@ -1,1 +1,1 @@
-<?xml version='1.0' encoding='UTF-8'?><ListAllMyBucketsResult xmlns='http://doc.s3.amazonaws.com/2006-03-01'><Buckets><Bucket><Name>s3clienttest-gcs-list-buckets</Name><CreationDate>2020-07-24T22:22:40.587Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>
+<?xml version='1.0' encoding='UTF-8'?><ListAllMyBucketsResult xmlns='http://doc.s3.amazonaws.com/2006-03-01'><Buckets><Bucket><Name>s3clienttest-gcs-list-buckets</Name><CreationDate>2020-07-24T22:32:02.402Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>

@@ -6,7 +6,7 @@
       {
         "Key": "X-GUploader-UploadID",
         "Value": [
-          "AAANsUkRz9pyweJxg5vApOHfOn-qqnkLswiSVrNu-gnkxauaw9kwaefaeLZIi9KMKjkwkdIhQ82B6Gi-Ax1PQOpGCAA"
+          "AAANsUkXvPpxJZWiVfnpcy2vDaX_QGBe8vn62k9gYIv2ep8VmAWvLlevrxOcIvSQ8bsWJF1tjOntS636G9qhCUouEY8"
         ]
       },
       {
@@ -18,7 +18,7 @@
       {
         "Key": "Date",
         "Value": [
-          "Fri, 24 Jul 2020 22:22:43 GMT"
+          "Fri, 24 Jul 2020 22:32:05 GMT"
         ]
       },
       {
@@ -56,11 +56,11 @@
       {
         "Key": "Expires",
         "Value": [
-          "Fri, 24 Jul 2020 22:22:43 GMT"
+          "Fri, 24 Jul 2020 22:32:05 GMT"
         ]
       }
     ],
     "StatusCode": 200,
-    "ContentFile": "/Users/florianfeldhaus/IdeaProjects/S3-Client/recording/gcs/f05cac4811db3eee7d58fddbcceec417b6c6722385032bb177620bb1ab1d2b75-list-buckets-content.raw"
+    "ContentFile": "recording/gcs/f05cac4811db3eee7d58fddbcceec417b6c6722385032bb177620bb1ab1d2b75-list-buckets-content.raw"
   }
 }

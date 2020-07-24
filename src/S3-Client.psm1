@@ -1511,7 +1511,7 @@ function Global:Invoke-AwsRequest {
                     }
 
                     # copy the raw content of the http response needs to a file
-                    $ContentFile = Join-Path -Path $RecordFile.Directory -ChildPath ($RecordFile.BaseName + "-content.raw")
+                    $ContentFile = Join-Path -Path $Config.RecordPath -ChildPath ($RecordFile.BaseName + "-content.raw")
                     $ContentStream = [System.IO.FileStream]::new($ContentFile, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite)
                     # ensure that existing content is completely replaced
                     $ContentStream.SetLength(0)
