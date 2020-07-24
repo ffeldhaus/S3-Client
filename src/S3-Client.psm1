@@ -122,9 +122,13 @@ function ConvertTo-AbsolutePath {
         }
 
         # workaround as .NET before .NET Core does not support GetFullPath with basePath parameter
-        $Path = [System.IO.Path]::GetFullPath($Path)
-        $Path = [System.IO.Path]::GetRelativePath([System.Environment]::CurrentDirectory,$Path)
-        $Path = Join-Path -Path $BasePath -ChildPath $Path
+        if ($PSVersionTable.PSVersion.Major -lt 7) {
+            $Path = [System.IO.Path]::GetFullPath($Path)
+            $Path = $Path.Replace([System.Environment]::CurrentDirectory,$BasePath)
+        }
+        else {
+            $Path = [System.IO.Path]::GetFullPath($Path,$BasePath)
+        }
 
         Write-Output $Path
     }
