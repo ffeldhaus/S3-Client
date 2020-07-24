@@ -95,10 +95,18 @@ function Setup() {
                 HelpMessage="Bucket Region")][String]$ProfileName=$ProfileName
     )
 
-    New-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region
+    $Config = Get-AwsConfig -ProfileName $ProfileName
+    if ($Config.RecordMode -eq "record") {
+        $Config.RecordMode = ""
+    }
+    elseif ($Config.RecordMode -eq "replay") {
+        return
+    }
+
+    New-S3Bucket -Config $Config -BucketName $BucketName -Region $Region
     foreach ($i in 1..$MAX_WAIT_TIME) {
         sleep 1
-        if (Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region) {
+        if (Test-S3Bucket -Config $Config -BucketName $BucketName -Region $Region) {
             break
         }
         if ($i -lt $MAX_WAIT_TIME) {
@@ -107,11 +115,11 @@ function Setup() {
     }
 
     if ($Versioning.IsPresent) {
-        Enable-S3BucketVersioning -ProfileName $ProfileName -BucketName $BucketName -Region $Region
+        Enable-S3BucketVersioning -Config $Config -BucketName $BucketName -Region $Region
     }
 
     if ($Key) {
-        Write-S3Object -ProfileName $ProfileName -BucketName $BucketName -Key $Key -Region $Region
+        Write-S3Object -Config $Config -BucketName $BucketName -Key $Key -Region $Region
     }
 }
 
@@ -137,12 +145,20 @@ function Cleanup() {
                 HelpMessage="RetryCount")][Int]$RetryCount=1
     )
 
+    $Config = Get-AwsConfig -ProfileName $ProfileName
+    if ($Config.RecordMode -eq "record") {
+        $Config.RecordMode = ""
+    }
+    elseif ($Config.RecordMode -eq "replay") {
+        return
+    }
+
     try {
-        Remove-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region -Force
+        Remove-S3Bucket -Config $Config -BucketName $BucketName -Region $Region -Force
         # wait until bucket is really deleted
         foreach ($i in 1..$MAX_WAIT_TIME) {
             sleep 1
-            if (!(Test-S3Bucket -ProfileName $ProfileName -BucketName $BucketName -Region $Region)) {
+            if (!(Test-S3Bucket -Config $Config -BucketName $BucketName -Region $Region)) {
                 sleep 1
                 break
             }
@@ -368,13 +384,12 @@ Describe "List Buckets" {
 
     BeforeAll {
         $S3ClientTestName = "list-buckets"
-        $Global:S3ClientRecordState = "$($S3ClientTestName)-before"
+        $Global:S3ClientRecordState = $S3ClientTestName
         $BucketName = "$($BaseBucketName)-$($S3ClientTestName)"
         Setup -BucketName $BucketName
     }
 
     AfterAll {
-        $Global:S3ClientRecordState = "$($S3ClientTestName)-after"
         Cleanup -BucketName $BucketName
     }
 
