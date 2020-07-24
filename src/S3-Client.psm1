@@ -88,6 +88,50 @@ function GetSignatureKey($Key, $Date, $Region, $Service) {
 
 <#
     .SYNOPSIS
+    Convert string to absolute file or directory path
+    .DESCRIPTION
+    Convert string to absolute file or directory path
+    .PARAMETER Path
+    Path as string
+#>
+function ConvertTo-AbsolutePath {
+    #private
+    [CmdletBinding()]
+
+    PARAM (
+        [parameter(
+            Mandatory = $True,
+            Position = 0,
+            HelpMessage = "Path as string")][String]$Path,
+        [parameter(
+            Mandatory = $False,
+            Position = 1,
+            HelpMessage = "Base path for relative paths")][String]$BasePath
+    )
+
+    Process {
+        $SlashCount = $Path.Length - $Path.Replace('/','').Length
+        $BackslashCount = $Path.Length - $Path.Replace('\','').Length
+        if ($SlashCount -gt $BackslashCount) {
+            # probably a Posix path
+            $Path = $Path.Replace('/',[System.IO.Path]::DirectorySeparatorChar)
+        }
+        elseif ($BackslashCount -gt $SlashCount) {
+            # probably a Windows path
+            $Path = $Path.Replace('\',[System.IO.Path]::DirectorySeparatorChar)
+        }
+        if ($BasePath) {
+            $Path = [System.IO.Path]::GetFullPath($Path,$BasePath)
+        }
+        else {
+            $Path = [System.IO.Path]::GetFullPath($Path)
+        }
+        Write-Output $Path
+    }
+}
+
+<#
+    .SYNOPSIS
     Convert data from AWS config file to config objects
     .DESCRIPTION
     Convert data from AWS config file to config objects
@@ -446,13 +490,14 @@ function ConvertFrom-Punycode {
         }
 
         if ($Config.LogPath -and $LOG_LEVELS[$Level] -le $LOG_LEVELS[$MaxLogLevel]) {
-            if (Test-Path -Path $Config.LogPath -PathType Container) {
+            $LogPath = ConverTo-AbsolutePath -Path $LogPath
+            if (Test-Path -Path $LogPath -PathType Container) {
                 $FileName = "$(Get-Date -Format FileDate)-$($Config.ProfileName).log"
-                $LogFile = Join-Path -Path $Config.LogPath -ChildPath $FileName
+                $LogFile = Join-Path -Path $LogPath -ChildPath $FileName
                 $Message | Out-File -Append -FilePath $LogFile
             }
-            elseif (Test-Path -Path $Config.LogPath.Parent -PathType Container) {
-                $Message | Out-File -Append -FilePath $Config.LogPath
+            elseif (Test-Path -Path $LogPath.Parent -PathType Container) {
+                $Message | Out-File -Append -FilePath $LogPath
             }
             else {
                 Write-Warning "Cannot write to log path $LogPath as the directory does not exists"
@@ -986,8 +1031,8 @@ function Global:Get-AwsRequest {
         Write-Log -Level Verbose -Config $Config -Message "Create AWS Authentication Signature Version 4 for AWS Request"
 
         # convert relative paths to absolute paths for InFile
-        if ($InFile -match "^./|^.\\" -or $InFile -notmatch "^/|^\\") {
-            $InFile = Join-Path -Path $PWD -ChildPath ($InFile -replace "^./|^.\\","")
+        if ($InFile) {
+            $InFile = ConvertTo-AbsolutePath -Path $InFile
         }
 
         # if no config object is suplied, use default config
@@ -1339,7 +1384,8 @@ function Global:Invoke-AwsRequest {
         else {
             $RecordFileName = $RecordId
         }
-        $RecordFile = [System.IO.FileInfo](Join-Path -Path $Config.RecordPath -ChildPath $RecordFileName)
+        $RecordPath = ConvertTo-AbsolutePath -Path $Config.RecordPath
+        $RecordFile = [System.IO.FileInfo](Join-Path -Path $RecordPath -ChildPath $RecordFileName)
         Write-Log -Level Verbose -Config $Config -Message "Replaying response from file $RecordFile"
         $RecordFileExists = Test-Path -Path $RecordFile -PathType Leaf
         if ($RecordFileExists) {
@@ -1430,7 +1476,8 @@ function Global:Invoke-AwsRequest {
         }
 
         if ($Config.RecordMode -eq "record") {
-            $RecordPathExists = Test-Path -Path $Config.RecordPath -PathType Container
+            $RecordPath = ConvertTo-AbsolutePath -Path $Config.RecordPath
+            $RecordPathExists = Test-Path -Path $RecordPath -PathType Container
             if ($RecordPathExists) {
                 if ($S3ClientRecordState) {
                     $RecordFileName = "$($RecordId)-$($S3ClientRecordState)"
@@ -1438,7 +1485,7 @@ function Global:Invoke-AwsRequest {
                 else {
                     $RecordFileName = $RecordId
                 }
-                $RecordFile = [System.IO.FileInfo](Join-Path -Path $Config.RecordPath -ChildPath $RecordFileName)
+                $RecordFile = [System.IO.FileInfo](Join-Path -Path $RecordPath -ChildPath $RecordFileName)
                 Write-Log -Level Verbose -Config $Config -Message "Recording response to file $RecordFile"
 
                 # serialize the task data and store it in the record file
@@ -1491,7 +1538,7 @@ function Global:Invoke-AwsRequest {
                 $TaskMetadata | ConvertTo-Json -Depth 4 | Out-File -FilePath $RecordFile
             }
             else {
-                Write-Log -Level Warning -Config $Config -Message "Cannot record response as record path $($Config.RecordPath) is not an existing directory."
+                Write-Log -Level Warning -Config $Config -Message "Cannot record response as record path $RecordPath is not an existing directory."
             }
         }
     }
