@@ -106,7 +106,7 @@ function ConvertTo-AbsolutePath {
         [parameter(
             Mandatory = $False,
             Position = 1,
-            HelpMessage = "Base path for relative paths")][String]$BasePath
+            HelpMessage = "Base path for relative paths")][String]$BasePath = $PWD
     )
 
     Process {
@@ -120,12 +120,9 @@ function ConvertTo-AbsolutePath {
             # probably a Windows path
             $Path = $Path.Replace('\',[System.IO.Path]::DirectorySeparatorChar)
         }
-        if ($BasePath) {
-            $Path = [System.IO.Path]::GetFullPath($Path,$BasePath)
-        }
-        else {
-            $Path = [System.IO.Path]::GetFullPath($Path)
-        }
+
+        $Path = [System.IO.Path]::GetFullPath($Path,$BasePath)
+
         Write-Output $Path
     }
 }
