@@ -121,7 +121,10 @@ function ConvertTo-AbsolutePath {
             $Path = $Path.Replace('\',[System.IO.Path]::DirectorySeparatorChar)
         }
 
-        $Path = [System.IO.Path]::GetFullPath($Path,$BasePath)
+        # workaround as .NET before .NET Core does not support GetFullPath with basePath parameter
+        $Path = [System.IO.Path]::GetFullPath($Path)
+        $Path = [System.IO.Path]::GetRelativePath([System.Environment]::CurrentDirectory,$Path)
+        $Path = Join-Path -Path $BasePath -ChildPath $Path
 
         Write-Output $Path
     }
