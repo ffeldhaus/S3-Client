@@ -1,0 +1,66 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "X-GUploader-UploadID",
+        "Value": [
+          "AAANsUn4GlCiM4-EcRCNW_UPeK0WilBTTWfOQX3bPCM-iWSm6vKtPg_JoSVGBLPhUXsNl2Tr5cjeRJEOWr-We9ksuQtVdpMh1Q"
+        ]
+      },
+      {
+        "Key": "x-goog-metageneration",
+        "Value": [
+          "1"
+        ]
+      },
+      {
+        "Key": "Date",
+        "Value": [
+          "Fri, 24 Jul 2020 09:33:22 GMT"
+        ]
+      },
+      {
+        "Key": "Cache-Control",
+        "Value": [
+          "max-age=0, private"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "UploadServer"
+        ]
+      },
+      {
+        "Key": "Alt-Svc",
+        "Value": [
+          "h3-29=\":443\"; ma=2592000,h3-27=\":443\"; ma=2592000,h3-T050=\":443\"; ma=2592000,h3-Q050=\":443\"; ma=2592000,h3-Q046=\":443\"; ma=2592000,h3-Q043=\":443\"; ma=2592000,quic=\":443\"; ma=2592000; v=\"46,43\""
+        ]
+      }
+    ],
+    "ContentHeaders": [
+      {
+        "Key": "Content-Type",
+        "Value": [
+          "application/xml; charset=UTF-8"
+        ]
+      },
+      {
+        "Key": "Content-Length",
+        "Value": [
+          "91"
+        ]
+      },
+      {
+        "Key": "Expires",
+        "Value": [
+          "Fri, 24 Jul 2020 09:33:22 GMT"
+        ]
+      }
+    ],
+    "StatusCode": 200,
+    "ContentFile": "/Users/florianfeldhaus/IdeaProjects/S3-Client/recording/gcs/d45a2a9c2889f57d370493ed629143008b885e9174cd1cf007e6f18b666479d1-list-buckets-before-content.raw"
+  }
+}

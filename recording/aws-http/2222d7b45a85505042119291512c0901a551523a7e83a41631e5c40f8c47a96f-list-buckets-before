@@ -1,0 +1,48 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "x-amz-id-2",
+        "Value": [
+          "bmikzrWaCUeGGTwVcxSjQE5Y5kEz9MAVF4zb74XZw+CTMoLd+ADoL2boGbuI3Ju+JIpgaBaiiN0="
+        ]
+      },
+      {
+        "Key": "x-amz-request-id",
+        "Value": [
+          "5B25A4CB90BE91FE"
+        ]
+      },
+      {
+        "Key": "Date",
+        "Value": [
+          "Fri, 24 Jul 2020 09:32:34 GMT"
+        ]
+      },
+      {
+        "Key": "Transfer-Encoding",
+        "Value": [
+          "chunked"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "AmazonS3"
+        ]
+      }
+    ],
+    "ContentHeaders": [
+      {
+        "Key": "Content-Type",
+        "Value": [
+          "application/xml"
+        ]
+      }
+    ],
+    "StatusCode": 200,
+    "ContentFile": "/Users/florianfeldhaus/IdeaProjects/S3-Client/recording/aws-http/2222d7b45a85505042119291512c0901a551523a7e83a41631e5c40f8c47a96f-list-buckets-before-content.raw"
+  }
+}

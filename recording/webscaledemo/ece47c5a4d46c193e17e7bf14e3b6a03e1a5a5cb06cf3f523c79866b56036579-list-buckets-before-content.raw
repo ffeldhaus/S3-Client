@@ -1,2 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<ListAllMyBucketsResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/"><Owner><ID>87047597142943900387</ID><DisplayName>PowerShell Cmdlet Test</DisplayName></Owner><Buckets><Bucket><Name>938810914</Name><CreationDate>2020-01-02T12:55:31.879Z</CreationDate></Bucket><Bucket><Name>s3clienttest-webscaledemo-list-buckets</Name><CreationDate>2020-07-23T22:10:28.123Z</CreationDate></Bucket></Buckets></ListAllMyBucketsResult>

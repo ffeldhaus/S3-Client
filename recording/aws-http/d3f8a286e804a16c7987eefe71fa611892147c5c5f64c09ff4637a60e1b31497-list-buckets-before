@@ -1,0 +1,39 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "x-amz-id-2",
+        "Value": [
+          "lopfNq1ZRDWSuZZciyrAxib8iNEggXwFdxuXYUyL2JP7RY7nWxvLqx4wxLjVbDqiu8zlLvJ9LDo="
+        ]
+      },
+      {
+        "Key": "x-amz-request-id",
+        "Value": [
+          "DJ8TDH8T8Z8W0M9T"
+        ]
+      },
+      {
+        "Key": "Date",
+        "Value": [
+          "Fri, 24 Jul 2020 09:32:23 GMT"
+        ]
+      },
+      {
+        "Key": "Location",
+        "Value": [
+          "http://s3clienttest-aws-http-list-buckets.s3.amazonaws.com/"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "AmazonS3"
+        ]
+      }
+    ],
+    "StatusCode": 200
+  }
+}

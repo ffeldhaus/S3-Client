@@ -1,0 +1,39 @@
+{
+  "Status": 1,
+  "ResultMetadata": {
+    "Version": "1.1",
+    "Headers": [
+      {
+        "Key": "x-amz-request-id",
+        "Value": [
+          "D3CA5AA986F175B2"
+        ]
+      },
+      {
+        "Key": "x-amz-id-2",
+        "Value": [
+          "kA5X0Ax+ruLM1KULNTNn+Cmj52peYBtMPf7mMUaAyNBwmaV2tDfBNGkyaUSOe4FRzFmrSOrq8cg="
+        ]
+      },
+      {
+        "Key": "Transfer-Encoding",
+        "Value": [
+          "chunked"
+        ]
+      },
+      {
+        "Key": "Date",
+        "Value": [
+          "Fri, 24 Jul 2020 09:33:02 GMT"
+        ]
+      },
+      {
+        "Key": "Server",
+        "Value": [
+          "AmazonS3"
+        ]
+      }
+    ],
+    "StatusCode": 404
+  }
+}
