@@ -1,5 +1,5 @@
-$AWS_PROFILE_PATH = "$HOME/.aws/"
-$AWS_CREDENTIALS_FILE = $AWS_PROFILE_PATH + "credentials"
+$AWS_PROFILE_PATH = Join-Path -Path $HOME -ChildPath ".aws"
+$AWS_CREDENTIALS_FILE = Join-Path -Path $AWS_PROFILE_PATH -ChildPath "credentials"
 $DEFAULT_AWS_ENDPOINT = "https://s3.amazonaws.com"
 $DEFAULT_TIMEOUT_SECONDS = 60
 $MAX_RETRIES = 5
