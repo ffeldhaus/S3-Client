@@ -387,6 +387,7 @@ Describe "List Buckets" {
         $Global:S3ClientRecordState = $S3ClientTestName
         $BucketName = "$($BaseBucketName)-$($S3ClientTestName)"
         Setup -BucketName $BucketName
+        $Config = Get-AwsConfig -ProfileName $ProfileName
     }
 
     AfterAll {
@@ -397,6 +398,7 @@ Describe "List Buckets" {
         It "Retrieving buckets returns a list of all buckets" {
             $Buckets = Get-S3Buckets -ProfileName $ProfileName
             $Buckets.BucketName | Should -Contain $BucketName
+            $Buckets | Where-Object { $_.BucketName -eq $BucketName } | Select-Object -ExpandProperty Region | Should -Be $Config.Region
         }
     }
 
@@ -404,6 +406,7 @@ Describe "List Buckets" {
         It "Retrieving a specific, existing bucket with parameter -BucketName $BucketName returns only that bucket" {
             $Bucket = Get-S3Buckets -ProfileName $ProfileName -BucketName $BucketName
             $Bucket.BucketName | Should -Be $BucketName
+            $Bucket.Region | Should -Be $Config.Region
         }
     }
 }
