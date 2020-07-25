@@ -1399,7 +1399,8 @@ function Global:Invoke-AwsRequest {
                 $null = $HttpResponseMessage.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
             }
             if ($TaskMetadata.ResultMetadata.ContentFile) {
-                $ContentStream = [System.IO.FileStream]::new($TaskMetadata.ResultMetadata.ContentFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
+                $ContentFile = ConvertTo-AbsolutePath -Path $TaskMetadata.ResultMetadata.ContentFile
+                $ContentStream = [System.IO.FileStream]::new($ContentFile, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read)
                 $HttpContent = [System.Net.Http.StreamContent]::new($ContentStream)
                 foreach ($Header in $TaskMetadata.ResultMetadata.ContentHeaders) {
                     $null = $HttpContent.Headers.TryAddWithoutValidation($Header.Key,$Header.Value)
