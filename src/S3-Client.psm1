@@ -1410,7 +1410,7 @@ function Global:Invoke-AwsRequest {
             $Task = [System.Threading.Tasks.Task]::FromResult($HttpResponseMessage)
         }
         else {
-            Throw "File $ReplayFromFile does not exist."
+            Throw "File $RecordFileName does not exist."
         }
     }
     else {
@@ -1624,7 +1624,10 @@ function Global:Test-AwsResponse {
         $Config.Region = $RedirectedRegion[0]
     }
     elseif ($Task.Result) {
-        $Result.Message = "Request completed with HTTP status code $($Task.Result.StatusCode). HTTP Response Content:`n$($Task.Result.Content.ReadAsStringAsync().Result)"
+        $Result.Message = "Request completed with HTTP status code $($Task.Result.StatusCode)."
+        if ($Task.Result.Content) {
+            $Result.Message += " HTTP Response Content:`n$($Task.Result.Content.ReadAsStringAsync().Result)"
+        }
         Write-Log -Level Verbose -Config $Config -Message $Result.Message
         $Result.Status = $Task.Result.StatusCode
     }
