@@ -187,6 +187,9 @@ function ConvertFrom-AwsConfigFile {
         $Content = $Content -replace "\A", "["
         $Content = $Content -replace "},?\s*\n?\s*\z", "}]"
 
+        # ensure that backslashes are escaped
+        $Content = $Content -replace "\\","\\"
+
         $Config = ConvertFrom-Json -InputObject $Content
         Write-Output $Config
     }
