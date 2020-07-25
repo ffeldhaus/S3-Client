@@ -1822,7 +1822,7 @@ function Global:Add-AwsConfig {
 
     Write-Log -Level Verbose -Config $Config -Message "Add AWS Config"
 
-    $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
+    $ConfigLocation = $ProfileLocation -replace "credentials$", 'config'
 
     if ($Credential) {
         $AccessKey = $Credential.UserName
@@ -2600,7 +2600,7 @@ function Global:Remove-AwsConfig {
 
     Write-Log -Level Verbose -Config $Config -Message "Remove AWS config"
 
-    $ConfigLocation = $ProfileLocation -replace "/[^/]+$", '/config'
+    $ConfigLocation = $ProfileLocation -replace "credentials$", 'config'
 
     $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
     $Credentials = $Credentials | Where-Object { $_.ProfileName -ne $ProfileName }
