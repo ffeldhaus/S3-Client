@@ -1313,6 +1313,8 @@ function Global:Get-AwsRequest {
             $RecordIdString += $ContentMd5
         }
         $RecordId = Get-AwsHash -StringToHash $RecordIdString
+        Write-Log -Level Verbose -Config $Config -Message "RecordIdString:`n$RecordIdString"
+        Write-Log -Level Verbose -Config $Config -Message "RecordId:`n$RecordId"
 
         $HttpRequestMessage | Add-Member -MemberType NoteProperty -Name RecordIdString -Value $RecordIdString
         $HttpRequestMessage | Add-Member -MemberType NoteProperty -Name RecordId -Value $RecordId
