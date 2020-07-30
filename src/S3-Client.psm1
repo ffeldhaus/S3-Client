@@ -888,57 +888,57 @@ function Global:New-AwsSignatureV4 {
             $DateString = [DateTime]::UtcNow.ToString('yyyyMMdd')
         }
 
-        Write-Log -Level Verbose -Config $Config -Message "Task 1: Create a Canonical Request for Signature Version 4"
+        Write-Log -Level Debug -Config $Config -Message "Task 1: Create a Canonical Request for Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
 
-        Write-Log -Level Verbose -Config $Config -Message "1. HTTP Request Method:`n$Method"
+        Write-Log -Level Debug -Config $Config -Message "1. HTTP Request Method:`n$Method"
 
         # get the properly encoded relative URI
         $CanonicalURI = ([System.UriBuilder]"$EndpointUrl$($Uri -replace '^/','')").Uri.PathAndQuery
-        Write-Log -Level Verbose -Config $Config -Message "2. Canonical URI:`n$CanonicalURI"
+        Write-Log -Level Debug -Config $Config -Message "2. Canonical URI:`n$CanonicalURI"
 
-        Write-Log -Level Verbose -Config $Config -Message "3. Canonical query string:`n$CanonicalQueryString"
+        Write-Log -Level Debug -Config $Config -Message "3. Canonical query string:`n$CanonicalQueryString"
 
         $SortedHeaders = ConvertTo-SortedDictionary $Headers
         $CanonicalHeaders = (($SortedHeaders.GetEnumerator() | ForEach-Object { "$($_.Key.ToLower()):$($_.Value)" }) -join "`n") + "`n"
-        Write-Log -Level Verbose -Config $Config -Message "4. Canonical headers:`n$CanonicalHeaders"
+        Write-Log -Level Debug -Config $Config -Message "4. Canonical headers:`n$CanonicalHeaders"
 
         $SignedHeaders = $SortedHeaders.Keys.ToLower() -join ";"
-        Write-Log -Level Verbose -Config $Config -Message "5. Signed headers:`n$SignedHeaders"
+        Write-Log -Level Debug -Config $Config -Message "5. Signed headers:`n$SignedHeaders"
 
-        Write-Log -Level Verbose -Config $Config -Message "6. Hashed Payload`n$RequestPayloadHash"
+        Write-Log -Level Debug -Config $Config -Message "6. Hashed Payload`n$RequestPayloadHash"
 
         $CanonicalRequest = "$Method`n$CanonicalURI`n$CanonicalQueryString`n$CanonicalHeaders`n$SignedHeaders`n$RequestPayloadHash"
-        Write-Log -Level Verbose -Config $Config -Message "7. CanonicalRequest:`n$CanonicalRequest"
+        Write-Log -Level Debug -Config $Config -Message "7. CanonicalRequest:`n$CanonicalRequest"
 
         $hasher = [System.Security.Cryptography.SHA256]::Create()
         $CanonicalRequestHash = ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($CanonicalRequest))) -replace '-', '').ToLower()
-        Write-Log -Level Verbose -Config $Config -Message "8. Canonical request hash:`n$CanonicalRequestHash"
+        Write-Log -Level Debug -Config $Config -Message "8. Canonical request hash:`n$CanonicalRequestHash"
 
-        Write-Log -Level Verbose -Config $Config -Message "Task 2: Create a String to Sign for Signature Version 4"
+        Write-Log -Level Debug -Config $Config -Message "Task 2: Create a String to Sign for Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-create-string-to-sign.html
 
         $AlgorithmDesignation = "AWS4-HMAC-SHA256"
-        Write-Log -Level Verbose -Config $Config -Message "1. Algorithm designation:`n$AlgorithmDesignation"
+        Write-Log -Level Debug -Config $Config -Message "1. Algorithm designation:`n$AlgorithmDesignation"
 
-        Write-Log -Level Verbose -Config $Config -Message "2. request date value, specified with ISO8601 basic format in the format YYYYMMDD'T'HHMMSS'Z:`n$DateTime"
+        Write-Log -Level Debug -Config $Config -Message "2. request date value, specified with ISO8601 basic format in the format YYYYMMDD'T'HHMMSS'Z:`n$DateTime"
 
         $CredentialScope = "$DateString/$Region/$Service/aws4_request"
-        Write-Log -Level Verbose -Config $Config -Message "3. Credential scope:`n$CredentialScope"
+        Write-Log -Level Debug -Config $Config -Message "3. Credential scope:`n$CredentialScope"
 
-        Write-Log -Level Verbose -Config $Config -Message "4. Canonical request hash:`n$CanonicalRequestHash"
+        Write-Log -Level Debug -Config $Config -Message "4. Canonical request hash:`n$CanonicalRequestHash"
 
         $StringToSign = "$AlgorithmDesignation`n$DateTime`n$CredentialScope`n$CanonicalRequestHash"
-        Write-Log -Level Verbose -Config $Config -Message "StringToSign:`n$StringToSign"
+        Write-Log -Level Debug -Config $Config -Message "StringToSign:`n$StringToSign"
 
-        Write-Log -Level Verbose -Config $Config -Message "Task 3: Calculate the Signature for AWS Signature Version 4"
+        Write-Log -Level Debug -Config $Config -Message "Task 3: Calculate the Signature for AWS Signature Version 4"
         # http://docs.aws.amazon.com/general/latest/gr/sigv4-calculate-signature.html
 
         $SigningKey = GetSignatureKey $SecretKey $DateString $Region $Service
-        Write-Log -Level Verbose -Config $Config -Message "1. Signing Key:`n$([System.BitConverter]::ToString($SigningKey))"
+        Write-Log -Level Debug -Config $Config -Message "1. Signing Key:`n$([System.BitConverter]::ToString($SigningKey))"
 
         $Signature = ([BitConverter]::ToString((sign $SigningKey $StringToSign)) -replace '-', '').ToLower()
-        Write-Log -Level Verbose -Config $Config -Message "2. Signature:`n$Signature"
+        Write-Log -Level Debug -Config $Config -Message "2. Signature:`n$Signature"
 
         Write-Output $Signature
     }
@@ -1035,7 +1035,7 @@ function Global:Get-AwsRequest {
     )
 
     Begin {
-        Write-Log -Level Verbose -Config $Config -Message "Create AWS Authentication Signature Version 4 for AWS Request"
+        Write-Log -Level Verbose -Config $Config -Message "Get AWS Request"
 
         # convert relative paths to absolute paths for InFile
         if ($InFile) {
@@ -1071,18 +1071,18 @@ function Global:Get-AwsRequest {
                 }
             }
         }
-        Write-Log -Level Verbose -Config $Config -Message "Modified endpoint URL based on options: $($Config.EndpointUrl)"
+        Write-Log -Level Debug -Config $Config -Message "Modified endpoint URL based on options: $($Config.EndpointUrl)"
 
-        Write-Log -Level Verbose -Config $Config -Message "Ensure that plus sign (+), exclamation mark (!), asterisk (*) and brackets (()) are encoded in URI, otherwise AWS signing will not work"
+        Write-Log -Level Debug -Config $Config -Message "Ensure that plus sign (+), exclamation mark (!), asterisk (*) and brackets (()) are encoded in URI, otherwise AWS signing will not work"
         $Uri = $Uri -replace '\+', '%2B' -replace '!', '%21' -replace '\*', '%2A' -replace '\(', '%28' -replace '\)', '%29'
-        Write-Log -Level Verbose -Config $Config -Message "Encoded URI: $Uri"
+        Write-Log -Level Debug -Config $Config -Message "Encoded URI: $Uri"
 
         if (($Config.AddressingStyle -match "virtual" -and $BucketName) -or ($Config.AddressingStyle -eq "auto" -and $Config.EndpointUrl -match "amazonaws.com" -and $BucketName)) {
             $Config.EndpointUrl.Host = $BucketName + '.' + $Config.EndpointUrl.Host
-            Write-Log -Level Verbose -Config $Config -Message "Using virtual-hosted style URL $($Config.EndpointUrl)"
+            Write-Log -Level Debug -Config $Config -Message "Using virtual-hosted style URL $($Config.EndpointUrl)"
         }
         elseif ($BucketName) {
-            Write-Log -Level Verbose -Config $Config -Message "Using path style URL $($Config.EndpointUrl)"
+            Write-Log -Level Debug -Config $Config -Message "Using path style URL $($Config.EndpointUrl)"
             $Uri = "/$BucketName" + $Uri
         }
     }
@@ -1107,7 +1107,7 @@ function Global:Get-AwsRequest {
         else {
             $RequestPayloadHash = 'UNSIGNED-PAYLOAD'
         }
-        Write-Log -Level Verbose -Config $Config -Message "RequestPayloadHash: $RequestPayloadHash"
+        Write-Log -Level Debug -Config $Config -Message "RequestPayloadHash: $RequestPayloadHash"
 
         # AWS expects the ContentMD5 header when changing an object (e.g. HTTP methods PUT, POST, DELETE) via an insecure connection
         # the payload MD5 sum is also used in creating a unique ID when recording the response
@@ -1202,20 +1202,20 @@ function Global:Get-AwsRequest {
             $QueryString = $QueryString -replace "&`$", ""
             $CanonicalQueryString = $CanonicalQueryString -replace "&`$", ""
         }
-        Write-Log -Level Verbose -Config $Config -Message "Query String with selected Query components for S3 Signer: $QueryString"
-        Write-Log -Level Verbose -Config $Config -Message "Canonical Query String with all Query components for AWS Signer: $CanonicalQueryString"
+        Write-Log -Level Debug -Config $Config -Message "Query String with selected Query components for S3 Signer: $QueryString"
+        Write-Log -Level Debug -Config $Config -Message "Canonical Query String with all Query components for AWS Signer: $CanonicalQueryString"
 
         if ($Config.SignerType -eq "AWS4") {
-            Write-Log -Level Verbose -Config $Config -Message "Using AWS Signature Version 4"
+            Write-Log -Level Debug -Config $Config -Message "Using AWS Signature Version 4"
             $Signature = New-AwsSignatureV4 -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Region $Config.Region -Uri $Uri -CanonicalQueryString $CanonicalQueryString -Method $Method -RequestPayloadHash $RequestPayloadHash -DateTime $DateTime -DateString $DateString -Headers $Headers
-            Write-Log -Level Verbose -Config $Config -Message "Task 4: Add the Signing Information to the Request"
+            Write-Log -Level Debug -Config $Config -Message "Task 4: Add the Signing Information to the Request"
             # http://docs.aws.amazon.com/general/latest/gr/sigv4-add-signature-to-request.html
             if (!$Presign.IsPresent) {
                 $Headers["Authorization"] = "AWS4-HMAC-SHA256 Credential=$($Config.AccessKey)/$DateString/$($Config.Region)/$Service/aws4_request,SignedHeaders=$SignedHeaders,Signature=$Signature"
             }
         }
         else {
-            Write-Log -Level Verbose -Config $Config -Message "Using AWS Signature Version 2"
+            Write-Log -Level Debug -Config $Config -Message "Using AWS Signature Version 2"
             $Signature = New-AwsSignatureV2 -AccessKey $Config.AccessKey -SecretKey $Config.SecretKey -EndpointUrl $Config.EndpointUrl -Uri $Uri -Method $Method -ContentMD5 $Headers["content-md5"] -ContentType $ContentType -DateTime $Date.ToUniversalTime().ToString("r") -Bucket $BucketName -QueryString $QueryString -Headers $Headers
             if (!$Presign.IsPresent) {
                 $Headers["Authorization"] = "AWS $($Config.AccessKey):$($Signature)"
@@ -1236,8 +1236,8 @@ function Global:Get-AwsRequest {
         $Config.EndpointUrl.Path = $Uri
         $Config.EndpointUrl.Query = $CanonicalQueryString
 
-        Write-Log -Level Verbose -Config $Config -Message "Request URI:`n$($Config.EndpointUrl.Uri)"
-        Write-Log -Level Verbose -Config $Config -Message "Request Headers:`n$($Headers | ConvertTo-Json)"
+        Write-Log -Level Debug -Config $Config -Message "Request URI:`n$($Config.EndpointUrl.Uri)"
+        Write-Log -Level Debug -Config $Config -Message "Request Headers:`n$($Headers | ConvertTo-Json)"
 
         if ($Size) {
             $ContentLength = $Size
@@ -1260,12 +1260,12 @@ function Global:Get-AwsRequest {
             $HttpRequestMessage.Content = $StreamContent
         }
         elseif ($RequestPayload -or $Headers["content-md5"] -or $Headers["content-type"]) {
-            Write-Log -Level Verbose -Config $Config -Message "RequestPayload:`n$RequestPayload"
+            Write-Log -Level Debug -Config $Config -Message "RequestPayload:`n$RequestPayload"
             $StringContent = [System.Net.Http.StringContent]::new($RequestPayload)
             $HttpRequestMessage.Content = $StringContent
         }
 
-        Write-Log -Level Verbose -Config $Config -Message "Adding content headers to HttpContent object"
+        Write-Log -Level Debug -Config $Config -Message "Adding content headers to HttpContent object"
         if ($Headers["content-md5"]) {
             $HttpRequestMessage.Content.Headers.ContentMD5 = [Convert]::FromBase64String($Headers["content-md5"])
             $Headers.Remove("content-md5")
@@ -1282,7 +1282,7 @@ function Global:Get-AwsRequest {
             Throw "content-type header specified but empty"
         }
 
-        Write-Log -Level Verbose -Config $Config -Message "Adding all other headers to the HttpRequestMessage object"
+        Write-Log -Level Debug -Config $Config -Message "Adding all other headers to the HttpRequestMessage object"
         foreach ($HeaderKey in $Headers.Keys) {
             Write-Log -Level Debug -Config $Config -Message "$($HeaderKey):$($Headers[$HeaderKey])"
             # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
@@ -1422,7 +1422,7 @@ function Global:Invoke-AwsRequest {
         $HttpRequestMessage = [System.Net.Http.HttpRequestMessage]::new($Method, $RequestUri)
         $HttpRequestMessage.Content = $Content
 
-        Write-Log -Level Verbose -Config $Config -Message "Adding headers"
+        Write-Log -Level Debug -Config $Config -Message "Adding headers"
         foreach ($Header in $Headers.GetEnumerator()) {
             # AWS Authorization Header is not RFC compliant, therefore we need to skip header validation
             if ($Header.Key -eq "Authorization") {
@@ -1460,14 +1460,13 @@ function Global:Invoke-AwsRequest {
         $HttpClient = [System.Net.Http.HttpClient]::new($HttpClientHandler)
 
         $UserAgent = "PowerShell-S3-Client/$($MyInvocation.MyCommand.Version)"
-        Write-Log -Level Verbose -Config $Config -Message "Adding User Agent header: $UserAgent"
+        Write-Log -Level Debug -Config $Config -Message "Adding User Agent header: $UserAgent"
         $HttpClient.DefaultRequestHeaders.UserAgent.Add($UserAgent)
 
-        Write-Log -Level Verbose -Config $Config -Message "Set Timeout proportional to size of data to be downloaded (assuming at least 10 KByte/s)"
         $HttpClient.Timeout = [Timespan]::FromSeconds([Math]::Max($Content.Headers.ContentLength / 10KB, $DEFAULT_TIMEOUT_SECONDS))
-        Write-Log -Level Verbose -Config $Config -Message "Timeout set to $($HttpClient.Timeout)"
+        Write-Log -Level Verbose -Config $Config -Message "Timeout set proportional to size of data to be downloaded (assuming at least 10 KByte/s): $($HttpClient.Timeout)s"
 
-        Write-Log -Level Verbose -Config $Config -Message "Send request asynchronously"
+        Write-Log -Level Debug -Config $Config -Message "Send request asynchronously"
         try {
             if ($CancellationToken) {
                 $Task = $HttpClient.SendAsync($HttpRequestMessage, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead, $CancellationToken)
@@ -1855,8 +1854,6 @@ function Global:Add-AwsConfig {
         $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_access_key_id -Value $AccessKey -Force
         $CredentialEntry | Add-Member -MemberType NoteProperty -Name aws_secret_access_key -Value $SecretKey -Force
 
-        Write-Log -Level Verbose -Config $Config -Message $CredentialEntry
-
         $Credentials = (@($Credentials | Where-Object { $_.ProfileName -ne $ProfileName }) + $CredentialEntry) | Where-Object { $_.ProfileName }
         ConvertTo-AwsConfigFile -Config $Credentials -AwsConfigFile $ProfileLocation
     }
@@ -1865,7 +1862,7 @@ function Global:Add-AwsConfig {
         $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
     }
     catch {
-        Write-Log -Level Verbose -Config $Config -Message "Retrieving config from $ConfigLocation failed"
+        Write-Log -Level Warning -Config $Config -Message "Retrieving config from $ConfigLocation failed"
     }
 
     $Config = $Configs | Where-Object { $_.ProfileName -eq $ProfileName }
@@ -2041,13 +2038,13 @@ function Global:Get-AwsConfigs {
         $Credentials = ConvertFrom-AwsConfigFile -AwsConfigFile $ProfileLocation
     }
     catch {
-        Write-Log -Level Verbose -Config $Config -Message "Retrieving credentials from $ProfileLocation failed"
+        Write-Log -Level Warning -Config $Config -Message "Retrieving credentials from $ProfileLocation failed"
     }
     try {
         $Configs = ConvertFrom-AwsConfigFile -AwsConfigFile $ConfigLocation
     }
     catch {
-        Write-Log -Level Verbose -Config $Config -Message "Retrieving credentials from $ConfigLocation failed"
+        Write-Log -Level Warning -Config $Config -Message "Retrieving credentials from $ConfigLocation failed"
     }
 
     foreach ($Credential in $Credentials) {
@@ -2430,7 +2427,7 @@ function Global:Get-AwsConfig {
         Write-Log -Level Verbose -Config $Config -Message "Profile $ProfileName specified, therefore returning AWS config of this profile"
         $Config = Get-AwsConfigs -ProfileLocation $ProfileLocation | Where-Object { $_.ProfileName -eq $ProfileName }
         if (!$Config) {
-            Write-Log -Level Verbose -Config $Config -Message "Config for profile $ProfileName not found"
+            Write-Log -Level Warning -Config $Config -Message "Config for profile $ProfileName not found"
             return
         }
     }
