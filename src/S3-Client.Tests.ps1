@@ -9,6 +9,8 @@ if (!$ProfileName) {
     $ProfileName = "default"
 }
 
+$ProfileName = $ProfileName.ToLower()
+
 # Start Minio Server
 # docker run --name minio -d -p 9000:9000 -e "MINIO_ACCESS_KEY=$(Get-AwsConfig -ProfileName minio | Select-Object -ExpandProperty AccessKey)" -e "MINIO_SECRET_KEY=$(Get-AwsConfig -ProfileName minio | Select-Object -ExpandProperty SecretKey)" -e "MINIO_BROWSER=off" minio/minio server /data
 # Stop Minio Server
