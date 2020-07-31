@@ -1,15 +1,15 @@
 image:
-- Visual Studio 2019
-- Visual Studio 2017
-- Ubuntu
+#- Visual Studio 2019
+#- Visual Studio 2017
+#- Ubuntu
 - macos
 
 configuration:
 - Minio
-- AWS
-- AWS-HTTP
-- WebscaleDemo
-- GCS
+#- AWS
+#- AWS-HTTP
+#- WebscaleDemo
+#- GCS
 
 build: off
 
@@ -37,7 +37,7 @@ environment:
 # Install Pester for testing, setup AWS Profiles and deploy minio via docker
 install:
   - ps: $PSVersionTable
-  - ps: if (!(Get-PSRepository -Name PSGallery)) { Register-PSRepository -Default }
+  - ps: Get-PSRepository
   - ps: Install-Module Pester -Scope CurrentUser -Force -SkipPublisherCheck -MinimumVersion 4.4.4 -MaximumVersion 4.999
   - ps: Import-Module -Name Pester -Force
   - cmd: mkdir %USERPROFILE%\.aws
